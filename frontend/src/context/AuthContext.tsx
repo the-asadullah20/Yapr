@@ -6,33 +6,30 @@ interface AuthContextType {
   user: UserProfile | null;
   token: string | null;
   isAuthenticated: boolean;
-  loginWithOtp: (email: string, code: string) => Promise<void>;
+  loginWithOtp: (email: string, code: string) => Promise<{ isNewUser: boolean }>;
+  loginWithPassword: (email: string, password: string) => Promise<void>;
+  registerWithPassword: (params: {
+    email: string;
+    password: string;
+    username: string;
+    displayName?: string;
+    countryCode?: string;
+  }) => Promise<void>;
   logout: () => void;
   updateUser: (profile: Partial<UserProfile>) => void;
+  setSession: (token: string, user: UserProfile) => void;
 }
-
-const DEFAULT_USER: UserProfile = {
-  id: 'a1111111-1111-1111-1111-111111111111',
-  username: 'asadahmad',
-  display_name: 'Asad Ahmad',
-  bio: 'Building Yapr | Full Stack Engineer & System Designer',
-  avatar_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
-  country_code: 'PK',
-  follower_count: 1420,
-  following_count: 310,
-  is_verified: true,
-};
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<UserProfile | null>(() => {
     const saved = localStorage.getItem('yapr_user');
-    return saved ? JSON.parse(saved) : DEFAULT_USER;
+    return saved ? JSON.parse(saved) : null;
   });
 
   const [token, setToken] = useState<string | null>(() => {
-    return localStorage.getItem('yapr_token') || 'demo_token_yapr';
+    return localStorage.getItem('yapr_token') || null;
   });
 
   useEffect(() => {
@@ -51,8 +48,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [token]);
 
-  const loginWithOtp = async (email: string, code: string) => {
+  const setSession = (newToken: string, newUser: UserProfile) => {
+    setToken(newToken);
+    setUser(newUser);
+  };
+
+  const loginWithOtp = async (email: string, code: string): Promise<{ isNewUser: boolean }> => {
     const res = await api.verifyOtp(email, code);
+    setToken(res.token);
+    setUser(res.user);
+    return { isNewUser: !!res.isNewUser };
+  };
+
+  const loginWithPassword = async (email: string, password: string) => {
+    const res = await api.loginWithPassword(email, password);
+    setToken(res.token);
+    setUser(res.user);
+  };
+
+  const registerWithPassword = async (params: {
+    email: string;
+    password: string;
+    username: string;
+    displayName?: string;
+    countryCode?: string;
+  }) => {
+    const res = await api.registerWithPassword(params);
     setToken(res.token);
     setUser(res.user);
   };
@@ -76,8 +97,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         token,
         isAuthenticated: !!user,
         loginWithOtp,
+        loginWithPassword,
+        registerWithPassword,
         logout,
         updateUser,
+        setSession,
       }}
     >
       {children}

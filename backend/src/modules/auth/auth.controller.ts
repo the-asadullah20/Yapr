@@ -23,8 +23,40 @@ export class AuthController {
       }
       const result = await authService.verifyEmailOtp(email, code);
       res.json(result);
-    } catch (err) {
-      next(err);
+    } catch (err: any) {
+      res.status(400).json({ error: err.message || 'Verification failed' });
+    }
+  }
+
+  async register(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { email, password, username, displayName, countryCode } = req.body;
+      if (!email || !password || !username) {
+        return res.status(400).json({ error: 'Email, password, and username are required' });
+      }
+      const result = await authService.registerWithPassword({
+        email,
+        password,
+        username,
+        displayName,
+        countryCode,
+      });
+      res.json(result);
+    } catch (err: any) {
+      res.status(400).json({ error: err.message || 'Registration failed' });
+    }
+  }
+
+  async login(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { email, password } = req.body;
+      if (!email || !password) {
+        return res.status(400).json({ error: 'Email and password are required' });
+      }
+      const result = await authService.loginWithPassword(email, password);
+      res.json(result);
+    } catch (err: any) {
+      res.status(401).json({ error: err.message || 'Login failed' });
     }
   }
 

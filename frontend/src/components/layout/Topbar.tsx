@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, Bell, Sliders, Sparkles, X } from 'lucide-react';
+import { Search, Bell, Sliders, Sparkles, X, Sun, Moon } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useSocket } from '../../context/SocketContext';
+import { useTheme } from '../../context/ThemeContext';
 import { api } from '../../api/apiClient';
 import { SearchResult } from '../../types';
 
@@ -20,6 +21,7 @@ export const Topbar: React.FC<TopbarProps> = ({
 }) => {
   const { user } = useAuth();
   const { unreadCount } = useSocket();
+  const { toggleTheme, isDark } = useTheme();
   const [searchQuery, setSearchQuery] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
   const [expandedTerms, setExpandedTerms] = useState<string[]>([]);
@@ -172,6 +174,15 @@ export const Topbar: React.FC<TopbarProps> = ({
           {unreadCount > 0 && (
             <span className="absolute top-1 right-1 w-2.5 h-2.5 rounded-full bg-blue-600 ring-2 ring-white dark:ring-slate-900" />
           )}
+        </button>
+
+        {/* Theme Toggle Button */}
+        <button
+          onClick={toggleTheme}
+          className="p-2 rounded-xl text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+          title={isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+        >
+          {isDark ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-slate-600" />}
         </button>
 
         {/* Active User Avatar */}

@@ -3,8 +3,14 @@
 @tailwind utilities;
 
 @layer base {
-  body {
+  html, body {
     font-family: 'Poppins', sans-serif;
+    min-height: 100vh;
+  }
+
+  html.dark, body.dark {
+    background-color: #020617;
+    color: #f8fafc;
   }
 }
 

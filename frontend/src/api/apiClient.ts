@@ -199,7 +199,7 @@ export const api = {
     return await res.json();
   },
 
-  async verifyOtp(email: string, code: string): Promise<{ token: string; user: any }> {
+  async verifyOtp(email: string, code: string): Promise<{ token: string; user: any; isNewUser?: boolean }> {
     const res = await fetch(`${API_BASE}/auth/otp/verify`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -211,6 +211,39 @@ export const api = {
     }
     return await res.json();
   },
+
+  async loginWithPassword(email: string, password: string): Promise<{ token: string; user: any }> {
+    const res = await fetch(`${API_BASE}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Login failed');
+    }
+    return await res.json();
+  },
+
+  async registerWithPassword(params: {
+    email: string;
+    password: string;
+    username: string;
+    displayName?: string;
+    countryCode?: string;
+  }): Promise<{ token: string; user: any }> {
+    const res = await fetch(`${API_BASE}/auth/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(params),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Registration failed');
+    }
+    return await res.json();
+  },
+
 
   // Profile
   async getProfile(identifier: string): Promise<UserProfile> {
