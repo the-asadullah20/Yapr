@@ -140,6 +140,52 @@ export class SocialService {
     return true;
   }
 
+  async unblockUser(blockerId: string, blockedId: string): Promise<boolean> {
+    if (isSupabaseConfigured) {
+      await supabaseAdmin
+        .from('blocks')
+        .delete()
+        .match({ blocker_id: blockerId, blocked_id: blockedId });
+    }
+    return true;
+  }
+
+  async getBlockedUsers(blockerId: string): Promise<any[]> {
+    if (isSupabaseConfigured) {
+      const { data, error } = await supabaseAdmin
+        .from('blocks')
+        .select('blocked_id, created_at, profile:profiles!blocked_id(*)')
+        .eq('blocker_id', blockerId)
+        .order('created_at', { ascending: false });
+
+      if (!error && data) {
+        return data
+          .map((d: any) => ({
+            ...d.profile,
+            blocked_at: d.created_at,
+            avatar_url:
+              d.profile?.avatar_url ||
+              `https://api.dicebear.com/7.x/bottts/svg?seed=${d.profile?.username || d.blocked_id}`,
+          }))
+          .filter((p: any) => !!p.id);
+      }
+    }
+    return [];
+  }
+
+  async isUserBlocked(blockerId: string, targetId: string): Promise<boolean> {
+    if (isSupabaseConfigured) {
+      const { data } = await supabaseAdmin
+        .from('blocks')
+        .select('blocked_id')
+        .eq('blocker_id', blockerId)
+        .eq('blocked_id', targetId)
+        .maybeSingle();
+      return !!data;
+    }
+    return false;
+  }
+
   async reportContent(reporterId: string, payload: { yapId?: string; reportedUserId?: string; reason: string }): Promise<boolean> {
     if (isSupabaseConfigured) {
       await supabaseAdmin.from('reports').insert({
@@ -150,6 +196,21 @@ export class SocialService {
       });
     }
     return true;
+  }
+
+  async getUserReports(reporterId: string): Promise<any[]> {
+    if (isSupabaseConfigured) {
+      const { data, error } = await supabaseAdmin
+        .from('reports')
+        .select('id, yap_id, reported_user_id, reason, status, created_at, reported_user:profiles!reported_user_id(username, display_name)')
+        .eq('reporter_id', reporterId)
+        .order('created_at', { ascending: false });
+
+      if (!error && data) {
+        return data;
+      }
+    }
+    return [];
   }
 
   async getYapLikers(yapId: string): Promise<any[]> {

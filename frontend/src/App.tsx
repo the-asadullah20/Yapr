@@ -27,16 +27,6 @@ export const AppContent: React.FC = () => {
   const { user } = useAuth();
   const { unreadCount } = useSocket();
   const [activeTab, setActiveTab] = useState('feed');
-  const [isGuestBrowsing, setIsGuestBrowsing] = useState(false);
-  const [authInitialMode, setAuthInitialMode] = useState<'signin' | 'signup'>('signin');
-  const prevUserRef = useRef(user);
-
-  useEffect(() => {
-    if (prevUserRef.current && !user) {
-      setIsGuestBrowsing(false);
-    }
-    prevUserRef.current = user;
-  }, [user]);
   const [sliderSettings, setSliderSettings] = useState<FeedSliderSettings>({
     followingWeight: 1.5,
     viralWeight: 1.0,
@@ -52,24 +42,9 @@ export const AppContent: React.FC = () => {
   const [viewingProfileUsername, setViewingProfileUsername] = useState<string | null>(null);
   const [refreshFeedKey, setRefreshFeedKey] = useState(0);
 
-  // If user signs out or is unauthenticated and not browsing as guest, show Landing Page
-  if (!user && !isGuestBrowsing) {
-    return (
-      <>
-        <LandingPage
-          onOpenAuth={(mode = 'signin') => {
-            setAuthInitialMode(mode);
-            setIsAuthOpen(true);
-          }}
-          onExploreGuest={() => setIsGuestBrowsing(true)}
-        />
-        <AuthModal
-          isOpen={isAuthOpen}
-          initialMode={authInitialMode}
-          onClose={() => setIsAuthOpen(false)}
-        />
-      </>
-    );
+  // If user signs out or is unauthenticated, show Landing Page with Auth Card directly
+  if (!user) {
+    return <LandingPage />;
   }
 
   const handleSelectHashtag = (tag: string) => {
@@ -254,7 +229,7 @@ export const AppContent: React.FC = () => {
 
       <AuthModal
         isOpen={isAuthOpen}
-        initialMode={authInitialMode}
+        initialMode="signin"
         onClose={() => setIsAuthOpen(false)}
       />
     </div>

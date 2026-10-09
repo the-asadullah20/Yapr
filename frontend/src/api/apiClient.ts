@@ -133,6 +133,53 @@ export const api = {
     return await res.json();
   },
 
+  async unblockUser(userId: string): Promise<{ success: boolean }> {
+    const res = await fetch(`${API_BASE}/social/unblock/${userId}`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+    });
+    return await res.json();
+  },
+
+  async getBlockedUsers(): Promise<UserProfile[]> {
+    try {
+      const res = await fetch(`${API_BASE}/social/blocks`, {
+        headers: getAuthHeaders(),
+      });
+      if (!res.ok) return [];
+      const data = await res.json();
+      return data.blocks || [];
+    } catch {
+      return [];
+    }
+  },
+
+  async isUserBlocked(userId: string): Promise<boolean> {
+    try {
+      const res = await fetch(`${API_BASE}/social/is-blocked/${userId}`, {
+        headers: getAuthHeaders(),
+      });
+      if (!res.ok) return false;
+      const data = await res.json();
+      return !!data.isBlocked;
+    } catch {
+      return false;
+    }
+  },
+
+  async getUserReports(): Promise<any[]> {
+    try {
+      const res = await fetch(`${API_BASE}/social/reports`, {
+        headers: getAuthHeaders(),
+      });
+      if (!res.ok) return [];
+      const data = await res.json();
+      return data.reports || [];
+    } catch {
+      return [];
+    }
+  },
+
   // Trending
   async getTrending(country = 'PK', timeframe: '1h' | '24h' = '24h'): Promise<TrendingTopic[]> {
     try {
@@ -300,6 +347,19 @@ export const api = {
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.error || 'Failed to reset password');
+    }
+    return await res.json();
+  },
+
+  async changePassword(params: { currentPassword: string; newPassword: string }): Promise<{ success: boolean; message: string }> {
+    const res = await fetch(`${API_BASE}/auth/change-password`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(params),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to change password');
     }
     return await res.json();
   },

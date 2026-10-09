@@ -363,6 +363,58 @@ export class AuthService {
   }
 
   /**
+   * Change password for logged in user (Current Password + New Password)
+   */
+  async changePassword(params: {
+    userId: string;
+    email?: string;
+    currentPassword: string;
+    newPassword: string;
+  }): Promise<{ success: boolean; message: string }> {
+    const { userId, email, currentPassword, newPassword } = params;
+
+    if (!currentPassword) {
+      throw new Error('Current password is required');
+    }
+    if (!newPassword || newPassword.length < 6) {
+      throw new Error('New password must be at least 6 characters');
+    }
+
+    if (isSupabaseConfigured) {
+      if (email) {
+        const { error: signInErr } = await supabaseAnon.auth.signInWithPassword({
+          email: email.toLowerCase().trim(),
+          password: currentPassword,
+        });
+        if (signInErr) {
+          throw new Error('Current password is incorrect. Please try again.');
+        }
+      }
+
+      const { error } = await supabaseAdmin.auth.admin.updateUserById(userId, {
+        password: newPassword,
+      });
+      if (error) throw error;
+    } else {
+      for (const record of registeredUsers.values()) {
+        if (record.userId === userId || (email && record.email === email.toLowerCase().trim())) {
+          const curHash = crypto.createHash('sha256').update(currentPassword).digest('hex');
+          if (record.passwordHash && record.passwordHash !== curHash) {
+            throw new Error('Current password is incorrect. Please try again.');
+          }
+          record.passwordHash = crypto.createHash('sha256').update(newPassword).digest('hex');
+          break;
+        }
+      }
+    }
+
+    return {
+      success: true,
+      message: 'Password changed successfully!',
+    };
+  }
+
+  /**
    * Get full user profile for authenticated session
    */
   async getMeProfile(userId: string, email?: string): Promise<any> {

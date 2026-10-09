@@ -10,6 +10,13 @@ import {
   UserCheck,
   Check,
   Globe,
+  Eye,
+  EyeOff,
+  UserX,
+  ShieldCheck,
+  AlertCircle,
+  CheckCircle2,
+  Flag,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../api/apiClient';
@@ -35,6 +42,8 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
   const [loadingOther, setLoadingOther] = useState(isViewingOther);
   const [isFollowing, setIsFollowing] = useState(false);
   const [followerCount, setFollowerCount] = useState(0);
+  const [isBlocked, setIsBlocked] = useState(false);
+  const [isBlocking, setIsBlocking] = useState(false);
 
   // Own profile edit state
   const [isEditing, setIsEditing] = useState(false);
@@ -47,6 +56,18 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
   const [saveError, setSaveError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
+  // Dedicated Change Password state
+  const [activePasswordTab, setActivePasswordTab] = useState<'change' | 'forgot'>('change');
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [changeNewPassword, setChangeNewPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showChangeNewPassword, setShowChangeNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [changePasswordSuccess, setChangePasswordSuccess] = useState<string | null>(null);
+  const [changePasswordError, setChangePasswordError] = useState<string | null>(null);
+
   // Forgot / Reset Password state
   const [resetEmail, setResetEmail] = useState(user?.email || '');
   const [resetStep, setResetStep] = useState(false);
@@ -57,7 +78,41 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
   const [resetSuccess, setResetSuccess] = useState<string | null>(null);
   const [resetError, setResetError] = useState<string | null>(null);
 
-  // Sync own user fields
+  // Blocked Accounts (Block list) state
+  const [blockedUsers, setBlockedUsers] = useState<UserProfile[]>([]);
+  const [loadingBlockedUsers, setLoadingBlockedUsers] = useState(false);
+  const [unblockingUserId, setUnblockingUserId] = useState<string | null>(null);
+
+  // Report History (Report list) state
+  const [userReports, setUserReports] = useState<any[]>([]);
+  const [loadingReports, setLoadingReports] = useState(false);
+
+  // Fetch blocked users and reports for own profile
+  const fetchBlockedUsers = async () => {
+    setLoadingBlockedUsers(true);
+    try {
+      const list = await api.getBlockedUsers();
+      setBlockedUsers(list);
+    } catch {
+      setBlockedUsers([]);
+    } finally {
+      setLoadingBlockedUsers(false);
+    }
+  };
+
+  const fetchUserReports = async () => {
+    setLoadingReports(true);
+    try {
+      const reports = await api.getUserReports();
+      setUserReports(reports);
+    } catch {
+      setUserReports([]);
+    } finally {
+      setLoadingReports(false);
+    }
+  };
+
+  // Sync own user fields and load lists
   useEffect(() => {
     if (user && !isViewingOther) {
       setUsername(user.username || '');
@@ -65,10 +120,12 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
       setBio(user.bio || '');
       setCountryCode(user.country_code || 'PK');
       setResetEmail(user.email || '');
+      fetchBlockedUsers();
+      fetchUserReports();
     }
   }, [user, isViewingOther]);
 
-  // Load other user's profile if viewing other
+  // Load other user's profile and check if blocked
   useEffect(() => {
     if (isViewingOther && viewingUsername) {
       setLoadingOther(true);
@@ -79,6 +136,9 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
           setIsFollowing(!!(p as any).is_following);
           setFollowerCount(p.follower_count || 0);
           setLoadingOther(false);
+          if (p?.id) {
+            api.isUserBlocked(p.id).then((blocked) => setIsBlocked(blocked)).catch(() => {});
+          }
         })
         .catch(() => {
           setLoadingOther(false);
@@ -102,6 +162,85 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
     } catch {
       setIsFollowing(!next);
       setFollowerCount((prev) => prev + (!next ? 1 : -1));
+    }
+  };
+
+  const handleToggleBlock = async () => {
+    if (!user) {
+      alert('Please sign in to block users');
+      return;
+    }
+    if (!otherProfile) return;
+
+    setIsBlocking(true);
+    try {
+      if (isBlocked) {
+        await api.unblockUser(otherProfile.id);
+        setIsBlocked(false);
+      } else {
+        const confirmed = window.confirm(
+          `Are you sure you want to block @${otherProfile.username}? You will unfollow each other.`
+        );
+        if (!confirmed) {
+          setIsBlocking(false);
+          return;
+        }
+        await api.blockUser(otherProfile.id);
+        setIsBlocked(true);
+        setIsFollowing(false);
+        setFollowerCount((prev) => Math.max(0, prev - (isFollowing ? 1 : 0)));
+      }
+    } catch (err: any) {
+      alert(err.message || 'Block action failed');
+    } finally {
+      setIsBlocking(false);
+    }
+  };
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentPassword) {
+      setChangePasswordError('Please enter your current password.');
+      return;
+    }
+    if (changeNewPassword.length < 6) {
+      setChangePasswordError('New password must be at least 6 characters.');
+      return;
+    }
+    if (changeNewPassword !== confirmNewPassword) {
+      setChangePasswordError('New password and confirmation do not match.');
+      return;
+    }
+
+    setIsChangingPassword(true);
+    setChangePasswordError(null);
+    setChangePasswordSuccess(null);
+
+    try {
+      const res = await api.changePassword({
+        currentPassword,
+        newPassword: changeNewPassword,
+      });
+      setChangePasswordSuccess(res.message || 'Password updated successfully!');
+      setCurrentPassword('');
+      setChangeNewPassword('');
+      setConfirmNewPassword('');
+    } catch (err: any) {
+      setChangePasswordError(err.message || 'Failed to update password. Current password may be incorrect.');
+    } finally {
+      setIsChangingPassword(false);
+    }
+  };
+
+  const handleUnblockUser = async (targetId: string) => {
+    setUnblockingUserId(targetId);
+    try {
+      await api.unblockUser(targetId);
+      setBlockedUsers((prev) => prev.filter((u) => u.id !== targetId));
+    } catch (err: any) {
+      alert(err.message || 'Failed to unblock user');
+    } finally {
+      setUnblockingUserId(null);
     }
   };
 
@@ -280,27 +419,53 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                 className="w-24 h-24 rounded-full object-cover ring-4 ring-white dark:ring-slate-900 shadow-lg bg-slate-100 dark:bg-slate-800"
               />
 
-              {/* Follow / Unfollow Button */}
-              <button
-                onClick={handleToggleFollow}
-                className={`flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-xs font-bold transition-all shadow-sm ${
-                  isFollowing
-                    ? 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 hover:bg-rose-50 hover:text-rose-600'
-                    : 'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/20'
-                }`}
-              >
-                {isFollowing ? (
-                  <>
-                    <UserCheck className="w-3.5 h-3.5 text-blue-600" />
-                    <span>Following</span>
-                  </>
-                ) : (
-                  <>
-                    <UserPlus className="w-3.5 h-3.5" />
-                    <span>Follow</span>
-                  </>
-                )}
-              </button>
+              <div className="flex items-center gap-2">
+                {/* Follow / Unfollow Button */}
+                <button
+                  onClick={handleToggleFollow}
+                  disabled={isBlocked}
+                  className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-sm ${
+                    isBlocked
+                      ? 'opacity-40 cursor-not-allowed bg-slate-100 dark:bg-slate-800 text-slate-400'
+                      : isFollowing
+                      ? 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 hover:bg-rose-50 hover:text-rose-600'
+                      : 'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/20'
+                  }`}
+                >
+                  {isFollowing ? (
+                    <>
+                      <UserCheck className="w-3.5 h-3.5 text-blue-600" />
+                      <span>Following</span>
+                    </>
+                  ) : (
+                    <>
+                      <UserPlus className="w-3.5 h-3.5" />
+                      <span>Follow</span>
+                    </>
+                  )}
+                </button>
+
+                {/* Block / Unblock Button */}
+                <button
+                  onClick={handleToggleBlock}
+                  disabled={isBlocking}
+                  className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all border ${
+                    isBlocked
+                      ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 border-rose-200 dark:border-rose-900 hover:bg-rose-100'
+                      : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200'
+                  }`}
+                  title={isBlocked ? 'Unblock this user' : 'Block this user'}
+                >
+                  {isBlocking ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : isBlocked ? (
+                    <ShieldCheck className="w-3.5 h-3.5" />
+                  ) : (
+                    <UserX className="w-3.5 h-3.5" />
+                  )}
+                  <span>{isBlocked ? 'Unblock' : 'Block'}</span>
+                </button>
+              </div>
             </div>
 
             {/* User Info */}
@@ -338,6 +503,14 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                   <span className="text-slate-500 dark:text-slate-400">Followers</span>
                 </div>
               </div>
+
+              {/* Blocked Notification Banner */}
+              {isBlocked && (
+                <div className="mt-4 p-3.5 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 rounded-2xl flex items-center gap-2.5 text-xs text-rose-700 dark:text-rose-300">
+                  <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                  <span>You have blocked @{otherProfile.username}. They cannot follow you or interact with your profile.</span>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -534,113 +707,416 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
         </div>
       </div>
 
-      {/* Security & Password Reset Card */}
+      {/* Security & Password Card */}
       <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-sm p-6 transition-colors">
-        <div className="flex items-center gap-2.5 mb-4">
-          <div className="w-9 h-9 rounded-xl bg-blue-50 dark:bg-blue-950/60 border border-blue-200/50 dark:border-blue-900/50 flex items-center justify-center text-blue-600 dark:text-blue-400">
-            <Lock className="w-4 h-4" />
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-xl bg-blue-50 dark:bg-blue-950/60 border border-blue-200/50 dark:border-blue-900/50 flex items-center justify-center text-blue-600 dark:text-blue-400">
+              <Lock className="w-4 h-4" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white">Security & Password</h3>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">Change your password or request a reset code</p>
+            </div>
           </div>
-          <div>
-            <h3 className="text-sm font-bold text-slate-900 dark:text-white">Security & Password</h3>
-            <p className="text-[11px] text-slate-500 dark:text-slate-400">Forgot or want to change your password</p>
+
+          {/* Tab Switcher: Change Password vs Forgot Password */}
+          <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl text-xs font-semibold">
+            <button
+              type="button"
+              onClick={() => {
+                setActivePasswordTab('change');
+                setChangePasswordError(null);
+                setChangePasswordSuccess(null);
+              }}
+              className={`px-3 py-1 rounded-lg transition-all ${
+                activePasswordTab === 'change'
+                  ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm'
+                  : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
+              }`}
+            >
+              Change Password
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setActivePasswordTab('forgot');
+                setResetError(null);
+                setResetSuccess(null);
+              }}
+              className={`px-3 py-1 rounded-lg transition-all ${
+                activePasswordTab === 'forgot'
+                  ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm'
+                  : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
+              }`}
+            >
+              Forgot Password
+            </button>
           </div>
         </div>
 
-        {resetSuccess && (
-          <div className="mb-4 p-3 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-xl text-xs text-emerald-700 dark:text-emerald-300">
-            {resetSuccess}
-          </div>
-        )}
-
-        {resetError && (
-          <div className="mb-4 p-3 bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800 rounded-xl text-xs text-rose-700 dark:text-rose-300">
-            {resetError}
-          </div>
-        )}
-
-        {!resetStep ? (
-          <form onSubmit={handleInitiateForgot} className="space-y-3">
-            {!user.email && (
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  Account Email
-                </label>
-                <input
-                  type="email"
-                  value={resetEmail}
-                  onChange={(e) => setResetEmail(e.target.value)}
-                  placeholder="your.email@example.com"
-                  required
-                  className="w-full px-3.5 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none text-slate-900 dark:text-white"
-                />
+        {/* ========================================================================= */}
+        {/* MODE 1: CHANGE PASSWORD (Current Password -> New Password -> Confirm Password) */}
+        {/* ========================================================================= */}
+        {activePasswordTab === 'change' && (
+          <form onSubmit={handleChangePassword} className="space-y-3.5">
+            {changePasswordSuccess && (
+              <div className="p-3 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-xl text-xs text-emerald-700 dark:text-emerald-300 flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 flex-shrink-0 text-emerald-600" />
+                <span>{changePasswordSuccess}</span>
               </div>
             )}
-            {user.email && (
-              <p className="text-xs text-slate-600 dark:text-slate-300">
-                Click below to send a 6-digit verification code to{' '}
-                <span className="font-semibold text-slate-900 dark:text-white">{user.email}</span>.
-              </p>
+
+            {changePasswordError && (
+              <div className="p-3 bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800 rounded-xl text-xs text-rose-700 dark:text-rose-300 flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 flex-shrink-0 text-rose-600" />
+                <span>{changePasswordError}</span>
+              </div>
             )}
-            <button
-              type="submit"
-              disabled={isSendingReset}
-              className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white rounded-xl text-xs font-bold transition-all shadow-sm"
-            >
-              {isSendingReset ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <KeyRound className="w-3.5 h-3.5" />}
-              <span>{isSendingReset ? 'Sending Reset Code...' : 'Request Password Reset OTP'}</span>
-            </button>
-          </form>
-        ) : (
-          <form onSubmit={handleCompleteReset} className="space-y-3">
+
+            {/* Current Password */}
             <div>
               <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                6-Digit Reset Code
+                Current Password
               </label>
-              <input
-                type="text"
-                value={resetOtp}
-                onChange={(e) => setResetOtp(e.target.value)}
-                placeholder="123456"
-                maxLength={6}
-                required
-                className="w-full px-3.5 py-2 text-xs font-mono tracking-widest bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none text-slate-900 dark:text-white"
-              />
+              <div className="flex items-center px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus-within:border-blue-500">
+                <Lock className="w-4 h-4 text-slate-400 mr-2" />
+                <input
+                  type={showCurrentPassword ? 'text' : 'password'}
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  placeholder="Enter current password"
+                  required
+                  className="w-full text-xs bg-transparent outline-none text-slate-900 dark:text-white"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                  className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                >
+                  {showCurrentPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
             </div>
+
+            {/* New Password */}
             <div>
               <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                New Password
+                New Password (min. 6 characters)
               </label>
-              <input
-                type="password"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                placeholder="At least 6 characters"
-                required
-                className="w-full px-3.5 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none text-slate-900 dark:text-white"
-              />
+              <div className="flex items-center px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus-within:border-blue-500">
+                <Lock className="w-4 h-4 text-slate-400 mr-2" />
+                <input
+                  type={showChangeNewPassword ? 'text' : 'password'}
+                  value={changeNewPassword}
+                  onChange={(e) => setChangeNewPassword(e.target.value)}
+                  placeholder="Enter new password"
+                  minLength={6}
+                  required
+                  className="w-full text-xs bg-transparent outline-none text-slate-900 dark:text-white"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowChangeNewPassword(!showChangeNewPassword)}
+                  className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                >
+                  {showChangeNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
             </div>
-            <div className="flex items-center gap-2 pt-1">
+
+            {/* Confirm New Password */}
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                Confirm New Password
+              </label>
+              <div className="flex items-center px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus-within:border-blue-500">
+                <Lock className="w-4 h-4 text-slate-400 mr-2" />
+                <input
+                  type={showConfirmPassword ? 'text' : 'password'}
+                  value={confirmNewPassword}
+                  onChange={(e) => setConfirmNewPassword(e.target.value)}
+                  placeholder="Confirm new password"
+                  minLength={6}
+                  required
+                  className="w-full text-xs bg-transparent outline-none text-slate-900 dark:text-white"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                >
+                  {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between pt-2">
               <button
                 type="submit"
-                disabled={isSubmittingReset}
-                className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white rounded-xl text-xs font-bold transition-all shadow-sm"
+                disabled={isChangingPassword}
+                className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition-all shadow-sm"
               >
-                {isSubmittingReset ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
-                <span>{isSubmittingReset ? 'Updating Password...' : 'Update Password'}</span>
+                {isChangingPassword ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                <span>{isChangingPassword ? 'Updating Password...' : 'Change Password'}</span>
               </button>
+
               <button
                 type="button"
                 onClick={() => {
-                  setResetStep(false);
+                  setActivePasswordTab('forgot');
                   setResetError(null);
                   setResetSuccess(null);
                 }}
-                className="px-4 py-2.5 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-bold transition-colors"
+                className="text-xs text-blue-600 dark:text-blue-400 hover:underline font-medium"
               >
-                Cancel
+                Forgot your password?
               </button>
             </div>
           </form>
+        )}
+
+        {/* ========================================================================= */}
+        {/* MODE 2: FORGOT PASSWORD (OTP Reset Link via Email) */}
+        {/* ========================================================================= */}
+        {activePasswordTab === 'forgot' && (
+          <div className="space-y-3.5">
+            {resetSuccess && (
+              <div className="p-3 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-xl text-xs text-emerald-700 dark:text-emerald-300 flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 flex-shrink-0 text-emerald-600" />
+                <span>{resetSuccess}</span>
+              </div>
+            )}
+
+            {resetError && (
+              <div className="p-3 bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800 rounded-xl text-xs text-rose-700 dark:text-rose-300 flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 flex-shrink-0 text-rose-600" />
+                <span>{resetError}</span>
+              </div>
+            )}
+
+            {!resetStep ? (
+              <form onSubmit={handleInitiateForgot} className="space-y-3">
+                <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                  Send a 6-digit password reset verification code to{' '}
+                  <span className="font-semibold text-slate-900 dark:text-white">{user.email}</span>.
+                </p>
+
+                <div className="flex items-center gap-3 pt-1">
+                  <button
+                    type="submit"
+                    disabled={isSendingReset}
+                    className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white rounded-xl text-xs font-bold transition-all shadow-sm"
+                  >
+                    {isSendingReset ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <KeyRound className="w-3.5 h-3.5" />}
+                    <span>{isSendingReset ? 'Sending Reset Code...' : 'Send Reset Code'}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setActivePasswordTab('change')}
+                    className="px-4 py-2.5 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-semibold transition-colors"
+                  >
+                    Back to Change Password
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <form onSubmit={handleCompleteReset} className="space-y-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    6-Digit Verification Code
+                  </label>
+                  <input
+                    type="text"
+                    value={resetOtp}
+                    onChange={(e) => setResetOtp(e.target.value)}
+                    placeholder="123456"
+                    maxLength={6}
+                    required
+                    className="w-full px-3.5 py-2.5 text-xs font-mono tracking-widest bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none text-slate-900 dark:text-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    New Password (min. 6 characters)
+                  </label>
+                  <input
+                    type="password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="Enter new password"
+                    minLength={6}
+                    required
+                    className="w-full px-3.5 py-2.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none text-slate-900 dark:text-white"
+                  />
+                </div>
+
+                <div className="flex items-center gap-2 pt-1">
+                  <button
+                    type="submit"
+                    disabled={isSubmittingReset}
+                    className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white rounded-xl text-xs font-bold transition-all shadow-sm"
+                  >
+                    {isSubmittingReset ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
+                    <span>{isSubmittingReset ? 'Updating Password...' : 'Reset Password'}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setResetStep(false);
+                      setResetError(null);
+                      setResetSuccess(null);
+                    }}
+                    className="px-4 py-2.5 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-semibold transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* ========================================================================= */}
+      {/* BLOCKED ACCOUNTS CARD (Block List) */}
+      {/* ========================================================================= */}
+      <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-sm p-6 transition-colors">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-xl bg-rose-50 dark:bg-rose-950/60 border border-rose-200/50 dark:border-rose-900/50 flex items-center justify-center text-rose-600 dark:text-rose-400">
+              <UserX className="w-4 h-4" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white">Blocked Accounts</h3>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">Users you have blocked from interacting with you</p>
+            </div>
+          </div>
+          <span className="text-xs font-bold text-slate-500 bg-slate-100 dark:bg-slate-800 px-2.5 py-1 rounded-full">
+            {blockedUsers.length}
+          </span>
+        </div>
+
+        {loadingBlockedUsers ? (
+          <div className="py-6 text-center text-slate-400">
+            <Loader2 className="w-5 h-5 animate-spin mx-auto text-blue-600 mb-1" />
+            <span className="text-xs">Loading blocked accounts...</span>
+          </div>
+        ) : blockedUsers.length === 0 ? (
+          <div className="py-6 text-center text-xs text-slate-500 dark:text-slate-400 bg-slate-50/50 dark:bg-slate-800/30 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800">
+            You haven&apos;t blocked any accounts.
+          </div>
+        ) : (
+          <div className="space-y-2.5">
+            {blockedUsers.map((bUser) => (
+              <div
+                key={bUser.id}
+                className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/60 dark:border-slate-800 transition-colors"
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <img
+                    src={bUser.avatar_url || `https://api.dicebear.com/7.x/bottts/svg?seed=${bUser.username}`}
+                    alt={bUser.display_name}
+                    className="w-9 h-9 rounded-full object-cover bg-slate-200 dark:bg-slate-700 flex-shrink-0"
+                  />
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                      {bUser.display_name}
+                    </p>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                      @{bUser.username}
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => handleUnblockUser(bUser.id)}
+                  disabled={unblockingUserId === bUser.id}
+                  className="px-3.5 py-1.5 rounded-xl border border-rose-200 dark:border-rose-900 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 text-rose-600 dark:text-rose-400 text-xs font-bold transition-colors flex items-center gap-1.5 flex-shrink-0"
+                >
+                  {unblockingUserId === bUser.id ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <ShieldCheck className="w-3.5 h-3.5" />
+                  )}
+                  <span>Unblock</span>
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* ========================================================================= */}
+      {/* REPORT HISTORY CARD (Report List) */}
+      {/* ========================================================================= */}
+      <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-sm p-6 transition-colors">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-xl bg-amber-50 dark:bg-amber-950/60 border border-amber-200/50 dark:border-amber-900/50 flex items-center justify-center text-amber-600 dark:text-amber-400">
+              <Flag className="w-4 h-4" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white">Report History</h3>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">Status of reports you have submitted</p>
+            </div>
+          </div>
+          <span className="text-xs font-bold text-slate-500 bg-slate-100 dark:bg-slate-800 px-2.5 py-1 rounded-full">
+            {userReports.length}
+          </span>
+        </div>
+
+        {loadingReports ? (
+          <div className="py-6 text-center text-slate-400">
+            <Loader2 className="w-5 h-5 animate-spin mx-auto text-blue-600 mb-1" />
+            <span className="text-xs">Loading report history...</span>
+          </div>
+        ) : userReports.length === 0 ? (
+          <div className="py-6 text-center text-xs text-slate-500 dark:text-slate-400 bg-slate-50/50 dark:bg-slate-800/30 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800">
+            No submitted reports found.
+          </div>
+        ) : (
+          <div className="space-y-2.5">
+            {userReports.map((report) => (
+              <div
+                key={report.id}
+                className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/60 dark:border-slate-800 flex items-center justify-between text-xs"
+              >
+                <div className="space-y-0.5">
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-slate-800 dark:text-slate-200 capitalize">
+                      {report.reason}
+                    </span>
+                    {report.reported_user?.username && (
+                      <span className="text-slate-500 dark:text-slate-400 font-medium">
+                        · @{report.reported_user.username}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-slate-400">
+                    Reported on {new Date(report.created_at).toLocaleDateString()}
+                  </p>
+                </div>
+
+                <div>
+                  <span
+                    className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                      report.status === 'resolved'
+                        ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300'
+                        : report.status === 'reviewed'
+                        ? 'bg-blue-100 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300'
+                        : 'bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300'
+                    }`}
+                  >
+                    {report.status || 'pending'}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
         )}
       </div>
     </div>

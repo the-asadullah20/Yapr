@@ -15,14 +15,21 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { api } from '../../api/apiClient';
+import { initiateGoogleOAuth, initiateFacebookOAuth } from '../../utils/oauth';
 
 interface AuthModalProps {
   isOpen: boolean;
-  onClose: () => void;
+  onClose?: () => void;
   initialMode?: 'signin' | 'signup' | 'forgot_password';
+  isStandalone?: boolean;
 }
 
-export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMode = 'signin' }) => {
+export const AuthModal: React.FC<AuthModalProps> = ({
+  isOpen,
+  onClose,
+  initialMode = 'signin',
+  isStandalone = false,
+}) => {
   const { loginWithPassword, registerWithPassword, loginWithOtp } = useAuth();
 
   // Mode: 'signin' | 'signup' | 'forgot_password'
@@ -183,7 +190,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
         setSignupStep(2);
       } else {
         await loginWithPassword(email, password);
-        onClose();
+        onClose?.();
       }
     } catch (err: any) {
       setError(err.message || 'Login failed. Please check your credentials.');
@@ -224,7 +231,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
       if (mode === 'signin') {
         // Direct OTP login
         await loginWithOtp(email, otpCode);
-        onClose();
+        onClose?.();
       } else {
         // Real backend verification against Upstash Redis
         await api.verifyOtp(email, otpCode);
@@ -252,7 +259,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
         displayName: displayName.trim() || username.trim(),
         countryCode,
       });
-      onClose();
+      onClose?.();
     } catch (err: any) {
       setError(err.message || 'Registration failed');
     } finally {
@@ -260,19 +267,20 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fadeIn">
-      <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-md w-full shadow-2xl border border-slate-200/80 dark:border-slate-800 overflow-hidden transition-colors">
-        {/* Header */}
-        <div className="p-6 bg-blue-600 dark:bg-blue-700 text-white relative">
+  const cardContent = (
+    <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-md w-full shadow-2xl border border-slate-200/80 dark:border-slate-800 overflow-hidden transition-colors">
+      {/* Header */}
+      <div className="p-6 bg-blue-600 dark:bg-blue-700 text-white relative">
+        {!isStandalone && onClose && (
           <button
             onClick={onClose}
             className="absolute top-4 right-4 p-1.5 rounded-full bg-white/20 hover:bg-white/30 transition-colors"
           >
             <X className="w-4 h-4" />
           </button>
+        )}
 
-          <div className="flex items-center gap-2.5 mb-1">
+        <div className="flex items-center gap-2.5 mb-1">
             <img src="/logo.png" alt="Yapr" className="w-7 h-7 object-contain rounded bg-white shadow-sm" />
             <h2 className="text-xl font-bold tracking-tight">
               {mode === 'forgot_password'
@@ -451,7 +459,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
                 {/* Official Google Box */}
                 <button
                   type="button"
-                  onClick={() => alert('Supabase Google OAuth initiated')}
+                  onClick={initiateGoogleOAuth}
                   className="flex items-center justify-center gap-2.5 py-2.5 px-3 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-750 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-200 shadow-sm transition-all"
                 >
                   <svg className="w-4 h-4" viewBox="0 0 24 24">
@@ -478,7 +486,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
                 {/* Official Facebook Box */}
                 <button
                   type="button"
-                  onClick={() => alert('Supabase Facebook OAuth initiated')}
+                  onClick={initiateFacebookOAuth}
                   className="flex items-center justify-center gap-2.5 py-2.5 px-3 bg-[#1877F2] hover:bg-[#166fe5] border border-[#1877F2] rounded-xl text-xs font-semibold text-white shadow-sm transition-all"
                 >
                   <svg className="w-4 h-4 fill-white" viewBox="0 0 24 24">
@@ -713,7 +721,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
               <div className="grid grid-cols-2 gap-3">
                 <button
                   type="button"
-                  onClick={() => alert('Supabase Google OAuth initiated')}
+                  onClick={initiateGoogleOAuth}
                   className="flex items-center justify-center gap-2.5 py-2.5 px-3 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-750 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-200 shadow-sm transition-all"
                 >
                   <svg className="w-4 h-4" viewBox="0 0 24 24">
@@ -739,7 +747,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
 
                 <button
                   type="button"
-                  onClick={() => alert('Supabase Facebook OAuth initiated')}
+                  onClick={initiateFacebookOAuth}
                   className="flex items-center justify-center gap-2.5 py-2.5 px-3 bg-[#1877F2] hover:bg-[#166fe5] border border-[#1877F2] rounded-xl text-xs font-semibold text-white shadow-sm transition-all"
                 >
                   <svg className="w-4 h-4 fill-white" viewBox="0 0 24 24">
@@ -921,6 +929,15 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
           )}
         </div>
       </div>
-    </div>
-  );
-};
+    );
+
+    if (isStandalone) {
+      return cardContent;
+    }
+
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fadeIn">
+        {cardContent}
+      </div>
+    );
+  };

@@ -10,6 +10,10 @@ router.post('/reyap/:yapId', requireAuth, (req, res, next) => socialController.t
 router.post('/follow/:followeeId', requireAuth, (req, res, next) => socialController.toggleFollow(req, res, next));
 router.post('/bookmark/:yapId', requireAuth, (req, res, next) => socialController.toggleBookmark(req, res, next));
 router.post('/block/:userId', requireAuth, (req, res, next) => socialController.blockUser(req, res, next));
+router.post('/unblock/:userId', requireAuth, (req, res, next) => socialController.unblockUser(req, res, next));
+router.get('/blocks', requireAuth, (req, res, next) => socialController.getBlockedUsers(req, res, next));
+router.get('/is-blocked/:userId', requireAuth, (req, res, next) => socialController.isUserBlocked(req, res, next));
 router.post('/report', requireAuth, (req, res, next) => socialController.report(req, res, next));
+router.get('/reports', requireAuth, (req, res, next) => socialController.getUserReports(req, res, next));
 
 export const socialRoutes = router;
