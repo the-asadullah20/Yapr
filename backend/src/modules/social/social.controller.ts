@@ -58,12 +58,64 @@ export class SocialController {
     }
   }
 
+  async unblockUser(req: Request, res: Response, next: NextFunction) {
+    try {
+      if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+      const { userId } = req.params;
+      await socialService.unblockUser(req.user.id, userId);
+      res.json({ success: true, message: 'User unblocked' });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  async getBlockedUsers(req: Request, res: Response, next: NextFunction) {
+    try {
+      if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+      const blocks = await socialService.getBlockedUsers(req.user.id);
+      res.json({ blocks });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  async isUserBlocked(req: Request, res: Response, next: NextFunction) {
+    try {
+      if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+      const { userId } = req.params;
+      const isBlocked = await socialService.isUserBlocked(req.user.id, userId);
+      res.json({ isBlocked });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  async getUserReports(req: Request, res: Response, next: NextFunction) {
+    try {
+      if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+      const reports = await socialService.getUserReports(req.user.id);
+      res.json({ reports });
+    } catch (err) {
+      next(err);
+    }
+  }
+
   async report(req: Request, res: Response, next: NextFunction) {
     try {
       if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
       const { yapId, reportedUserId, reason } = req.body;
       await socialService.reportContent(req.user.id, { yapId, reportedUserId, reason });
       res.json({ success: true, message: 'Report submitted for review' });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  async getYapLikers(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { yapId } = req.params;
+      const likers = await socialService.getYapLikers(yapId);
+      res.json({ likers });
     } catch (err) {
       next(err);
     }

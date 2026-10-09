@@ -15,17 +15,31 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { api } from '../../api/apiClient';
+import { initiateGoogleOAuth, initiateFacebookOAuth } from '../../utils/oauth';
 
 interface AuthModalProps {
   isOpen: boolean;
-  onClose: () => void;
+  onClose?: () => void;
+  initialMode?: 'signin' | 'signup' | 'forgot_password';
+  isStandalone?: boolean;
 }
 
-export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
+export const AuthModal: React.FC<AuthModalProps> = ({
+  isOpen,
+  onClose,
+  initialMode = 'signin',
+  isStandalone = false,
+}) => {
   const { loginWithPassword, registerWithPassword, loginWithOtp } = useAuth();
 
   // Mode: 'signin' | 'signup' | 'forgot_password'
-  const [mode, setMode] = useState<'signin' | 'signup' | 'forgot_password'>('signin');
+  const [mode, setMode] = useState<'signin' | 'signup' | 'forgot_password'>(initialMode);
+
+  useEffect(() => {
+    if (isOpen && initialMode) {
+      setMode(initialMode);
+    }
+  }, [isOpen, initialMode]);
   // Signup step: 1 (credentials) -> 2 (otp) -> 3 (choose username)
   const [signupStep, setSignupStep] = useState<1 | 2 | 3>(1);
   // Forgot password step: 1 (email) -> 2 (otp + new password)
@@ -127,11 +141,28 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
     }
   };
 
+function checkPasswordRequirements(pw: string): string | null {
+  if (!pw || pw.length < 8) {
+    return 'Password must be at least 8 characters long.';
+  }
+  if (!/[A-Z]/.test(pw)) {
+    return 'Password must contain at least one capital letter (A-Z).';
+  }
+  if (!/[0-9]/.test(pw)) {
+    return 'Password must contain at least one number (0-9).';
+  }
+  if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?~`]/.test(pw)) {
+    return 'Password must contain at least one special character (!@#$%^&*).';
+  }
+  return null;
+}
+
   const handleResetPasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!otpCode || !newPassword) return;
-    if (newPassword.length < 6) {
-      setError('Password must be at least 6 characters');
+    const pwErr = checkPasswordRequirements(newPassword);
+    if (pwErr) {
+      setError(pwErr);
       return;
     }
     if (newPassword !== confirmPassword) {
@@ -176,7 +207,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
         setSignupStep(2);
       } else {
         await loginWithPassword(email, password);
-        onClose();
+        onClose?.();
       }
     } catch (err: any) {
       setError(err.message || 'Login failed. Please check your credentials.');
@@ -188,8 +219,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
   const handleSignupStep1 = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !password) return;
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters');
+    const pwErr = checkPasswordRequirements(password);
+    if (pwErr) {
+      setError(pwErr);
       return;
     }
     setError(null);
@@ -217,12 +249,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
       if (mode === 'signin') {
         // Direct OTP login
         await loginWithOtp(email, otpCode);
-        onClose();
+        onClose?.();
       } else {
-        // In signup mode, verify code then proceed to username picker
-        if (otpCode !== '123456' && previewCode && otpCode !== previewCode) {
-          throw new Error('Invalid verification code');
-        }
+        // Real backend verification against Upstash Redis
+        await api.verifyOtp(email, otpCode);
         // Move to Step 3: Choose Username!
         setSignupStep(3);
       }
@@ -247,7 +277,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
         displayName: displayName.trim() || username.trim(),
         countryCode,
       });
-      onClose();
+      onClose?.();
     } catch (err: any) {
       setError(err.message || 'Registration failed');
     } finally {
@@ -255,19 +285,20 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fadeIn">
-      <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-md w-full shadow-2xl border border-slate-200/80 dark:border-slate-800 overflow-hidden transition-colors">
-        {/* Header */}
-        <div className="p-6 bg-blue-600 dark:bg-blue-700 text-white relative">
+  const cardContent = (
+    <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-md w-full shadow-2xl border border-slate-200/80 dark:border-slate-800 overflow-hidden transition-colors">
+      {/* Header */}
+      <div className="p-6 bg-blue-600 dark:bg-blue-700 text-white relative">
+        {!isStandalone && onClose && (
           <button
             onClick={onClose}
             className="absolute top-4 right-4 p-1.5 rounded-full bg-white/20 hover:bg-white/30 transition-colors"
           >
             <X className="w-4 h-4" />
           </button>
+        )}
 
-          <div className="flex items-center gap-2.5 mb-1">
+        <div className="flex items-center gap-2.5 mb-1">
             <img src="/logo.png" alt="Yapr" className="w-7 h-7 object-contain rounded bg-white shadow-sm" />
             <h2 className="text-xl font-bold tracking-tight">
               {mode === 'forgot_password'
@@ -347,7 +378,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                   Email Address
                 </label>
-                <div className="flex items-center px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus-within:border-blue-500 focus-within:bg-white dark:focus-within:bg-slate-800">
+                <div className="flex items-center px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus-within:border-blue-500 transition-colors">
                   <Mail className="w-4 h-4 text-slate-400 mr-2" />
                   <input
                     type="email"
@@ -388,7 +419,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                       </button>
                     </div>
                   </div>
-                  <div className="flex items-center px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus-within:border-blue-500 focus-within:bg-white dark:focus-within:bg-slate-800">
+                  <div className="flex items-center px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus-within:border-blue-500 transition-colors">
                     <Lock className="w-4 h-4 text-slate-400 mr-2" />
                     <input
                       type={showPassword ? 'text' : 'password'}
@@ -446,7 +477,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                 {/* Official Google Box */}
                 <button
                   type="button"
-                  onClick={() => alert('Supabase Google OAuth initiated')}
+                  onClick={initiateGoogleOAuth}
                   className="flex items-center justify-center gap-2.5 py-2.5 px-3 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-750 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-200 shadow-sm transition-all"
                 >
                   <svg className="w-4 h-4" viewBox="0 0 24 24">
@@ -473,7 +504,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                 {/* Official Facebook Box */}
                 <button
                   type="button"
-                  onClick={() => alert('Supabase Facebook OAuth initiated')}
+                  onClick={initiateFacebookOAuth}
                   className="flex items-center justify-center gap-2.5 py-2.5 px-3 bg-[#1877F2] hover:bg-[#166fe5] border border-[#1877F2] rounded-xl text-xs font-semibold text-white shadow-sm transition-all"
                 >
                   <svg className="w-4 h-4 fill-white" viewBox="0 0 24 24">
@@ -510,7 +541,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                   Registered Email Address
                 </label>
-                <div className="flex items-center px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus-within:border-blue-500 focus-within:bg-white dark:focus-within:bg-slate-800">
+                <div className="flex items-center px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus-within:border-blue-500 transition-colors">
                   <Mail className="w-4 h-4 text-slate-400 mr-2" />
                   <input
                     type="email"
@@ -552,21 +583,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
               <div className="p-3.5 bg-blue-50 dark:bg-blue-950/40 rounded-2xl border border-blue-100 dark:border-blue-900 text-xs text-blue-900 dark:text-blue-300">
                 We sent a 6-digit reset code to:
                 <p className="font-semibold text-blue-950 dark:text-white mt-0.5">{email}</p>
-                {previewCode && (
-                  <div className="mt-2 pt-2 border-t border-blue-200/60 dark:border-blue-800 flex items-center justify-between">
-                    <span className="text-[11px] text-blue-700 dark:text-blue-300 font-medium">Dev test code:</span>
-                    <span className="bg-white dark:bg-slate-800 px-2.5 py-0.5 rounded font-mono font-bold text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-700">
-                      {previewCode}
-                    </span>
-                  </div>
-                )}
+                <p className="text-[11px] text-blue-600 dark:text-blue-400 mt-1">Please check your inbox to reset your password.</p>
               </div>
 
               <div>
                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                   Enter 6-Digit Reset Code
                 </label>
-                <div className="flex items-center px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus-within:border-blue-500 focus-within:bg-white dark:focus-within:bg-slate-800">
+                <div className="flex items-center px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus-within:border-blue-500 transition-colors">
                   <KeyRound className="w-4 h-4 text-slate-400 mr-2" />
                   <input
                     type="text"
@@ -582,16 +606,16 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
 
               <div>
                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-                  New Password (min. 6 characters)
+                  New Password <span className="text-[11px] font-normal text-slate-400 dark:text-slate-500">(min. 8 chars, 1 uppercase, 1 number, 1 special char)</span>
                 </label>
-                <div className="flex items-center px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus-within:border-blue-500 focus-within:bg-white dark:focus-within:bg-slate-800">
+                <div className="flex items-center px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus-within:border-blue-500 transition-colors">
                   <Lock className="w-4 h-4 text-slate-400 mr-2" />
                   <input
                     type={showNewPassword ? 'text' : 'password'}
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
                     placeholder="Enter new password"
-                    minLength={6}
+                    minLength={8}
                     required
                     className="w-full text-xs bg-transparent outline-none text-slate-900 dark:text-slate-100"
                   />
@@ -609,14 +633,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                   Confirm New Password
                 </label>
-                <div className="flex items-center px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus-within:border-blue-500 focus-within:bg-white dark:focus-within:bg-slate-800">
+                <div className="flex items-center px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus-within:border-blue-500 transition-colors">
                   <Lock className="w-4 h-4 text-slate-400 mr-2" />
                   <input
                     type={showNewPassword ? 'text' : 'password'}
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     placeholder="Confirm new password"
-                    minLength={6}
+                    minLength={8}
                     required
                     className="w-full text-xs bg-transparent outline-none text-slate-900 dark:text-slate-100"
                   />
@@ -653,7 +677,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                   Email Address
                 </label>
-                <div className="flex items-center px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus-within:border-blue-500 focus-within:bg-white dark:focus-within:bg-slate-800">
+                <div className="flex items-center px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus-within:border-blue-500 transition-colors">
                   <Mail className="w-4 h-4 text-slate-400 mr-2" />
                   <input
                     type="email"
@@ -668,18 +692,18 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
 
               <div>
                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-                  Choose Password (min. 6 characters)
+                  Password <span className="text-[11px] font-normal text-slate-400 dark:text-slate-500">(min. 8 chars, 1 uppercase, 1 number, 1 special char)</span>
                 </label>
-                <div className="flex items-center px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus-within:border-blue-500 focus-within:bg-white dark:focus-within:bg-slate-800">
+                <div className="flex items-center px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus-within:border-blue-500 transition-colors">
                   <Lock className="w-4 h-4 text-slate-400 mr-2" />
                   <input
                     type={showPassword ? 'text' : 'password'}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Create a secure password"
-                    minLength={6}
+                    placeholder="e.g. Secret123!"
+                    minLength={8}
                     required
-                    className="w-full text-xs bg-transparent outline-none text-slate-900 dark:text-slate-100"
+                    className="w-full text-xs bg-transparent outline-none text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500"
                   />
                   <button
                     type="button"
@@ -715,7 +739,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
               <div className="grid grid-cols-2 gap-3">
                 <button
                   type="button"
-                  onClick={() => alert('Supabase Google OAuth initiated')}
+                  onClick={initiateGoogleOAuth}
                   className="flex items-center justify-center gap-2.5 py-2.5 px-3 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-750 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-200 shadow-sm transition-all"
                 >
                   <svg className="w-4 h-4" viewBox="0 0 24 24">
@@ -741,7 +765,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
 
                 <button
                   type="button"
-                  onClick={() => alert('Supabase Facebook OAuth initiated')}
+                  onClick={initiateFacebookOAuth}
                   className="flex items-center justify-center gap-2.5 py-2.5 px-3 bg-[#1877F2] hover:bg-[#166fe5] border border-[#1877F2] rounded-xl text-xs font-semibold text-white shadow-sm transition-all"
                 >
                   <svg className="w-4 h-4 fill-white" viewBox="0 0 24 24">
@@ -777,14 +801,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
               <div className="p-3.5 bg-blue-50 dark:bg-blue-950/40 rounded-2xl border border-blue-100 dark:border-blue-900 text-xs text-blue-900 dark:text-blue-300">
                 We sent a 6-digit confirmation code to:
                 <p className="font-semibold text-blue-950 dark:text-white mt-0.5">{email}</p>
-                {previewCode && (
-                  <div className="mt-2 pt-2 border-t border-blue-200/60 dark:border-blue-800 flex items-center justify-between">
-                    <span className="text-[11px] text-blue-700 dark:text-blue-300 font-medium">Dev test code:</span>
-                    <span className="bg-white dark:bg-slate-800 px-2.5 py-0.5 rounded font-mono font-bold text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-700">
-                      {previewCode}
-                    </span>
-                  </div>
-                )}
+                <p className="text-[11px] text-blue-600 dark:text-blue-400 mt-1">Please check your inbox to verify your account.</p>
               </div>
 
               <div>
@@ -930,6 +947,15 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
           )}
         </div>
       </div>
-    </div>
-  );
-};
+    );
+
+    if (isStandalone) {
+      return cardContent;
+    }
+
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fadeIn">
+        {cardContent}
+      </div>
+    );
+  };

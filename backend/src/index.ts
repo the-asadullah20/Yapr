@@ -21,6 +21,7 @@ import { searchRoutes } from './modules/search/search.routes.js';
 import { notificationsRoutes } from './modules/notifications/notifications.routes.js';
 import { aiRoutes } from './modules/ai/ai.routes.js';
 import { interactionsRoutes } from './modules/interactions/interactions.routes.js';
+import { mediaRoutes } from './modules/media/media.routes.js';
 
 const app = express();
 const server = http.createServer(app);
@@ -74,6 +75,7 @@ app.use('/api/search', searchRoutes);
 app.use('/api/notifications', notificationsRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/interactions', interactionsRoutes);
+app.use('/api/media', mediaRoutes);
 
 // Global Error Handler
 app.use(errorHandler);

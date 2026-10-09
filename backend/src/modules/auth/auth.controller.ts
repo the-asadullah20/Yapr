@@ -86,12 +86,31 @@ export class AuthController {
     }
   }
 
+  async changePassword(req: Request, res: Response, next: NextFunction) {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: 'Not authenticated' });
+      }
+      const { currentPassword, newPassword } = req.body;
+      const result = await authService.changePassword({
+        userId: req.user.id,
+        email: req.user.email,
+        currentPassword,
+        newPassword,
+      });
+      res.json(result);
+    } catch (err: any) {
+      res.status(400).json({ error: err.message || 'Failed to change password' });
+    }
+  }
+
   async getMe(req: Request, res: Response, next: NextFunction) {
     try {
       if (!req.user) {
         return res.status(401).json({ error: 'Not authenticated' });
       }
-      res.json({ user: req.user });
+      const fullProfile = await authService.getMeProfile(req.user.id, req.user.email);
+      res.json({ user: fullProfile });
     } catch (err) {
       next(err);
     }

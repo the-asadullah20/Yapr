@@ -41,11 +41,17 @@ export const api = {
   },
 
   // Create Yap
-  async createYap(body: string, media: string[] = [], taggedLabel?: string, countryCode?: string): Promise<Yap> {
+  async createYap(
+    body: string,
+    media: string[] = [],
+    taggedLabel?: string,
+    countryCode?: string,
+    parentId?: string
+  ): Promise<Yap> {
     const res = await fetch(`${API_BASE}/yaps`, {
       method: 'POST',
       headers: getAuthHeaders(),
-      body: JSON.stringify({ body, media, taggedLabel, countryCode }),
+      body: JSON.stringify({ body, media, taggedLabel, countryCode, parentId }),
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
@@ -53,6 +59,27 @@ export const api = {
     }
     const data = await res.json();
     return data.yap;
+  },
+
+  async deleteYap(yapId: string): Promise<boolean> {
+    const res = await fetch(`${API_BASE}/yaps/${yapId}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders(),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to delete Yap');
+    }
+    return true;
+  },
+
+  async getYapById(yapId: string): Promise<Yap> {
+    const res = await fetch(`${API_BASE}/yaps/${yapId}`, {
+      headers: getAuthHeaders(),
+    });
+    if (!res.ok) throw new Error('Yap not found');
+    const data = await res.json();
+    return data.yap || data;
   },
 
   // Thread Replies
@@ -72,6 +99,17 @@ export const api = {
       headers: getAuthHeaders(),
     });
     return await res.json();
+  },
+
+  async getYapLikers(yapId: string): Promise<UserProfile[]> {
+    try {
+      const res = await fetch(`${API_BASE}/social/likes/${yapId}`);
+      if (!res.ok) return [];
+      const data = await res.json();
+      return data.likers || [];
+    } catch {
+      return [];
+    }
   },
 
   async toggleReyap(yapId: string, quoteBody?: string): Promise<{ reyapped: boolean; reyapCount: number }> {
@@ -97,6 +135,70 @@ export const api = {
       headers: getAuthHeaders(),
     });
     return await res.json();
+  },
+
+  async blockUser(userId: string): Promise<{ success: boolean }> {
+    const res = await fetch(`${API_BASE}/social/block/${userId}`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+    });
+    return await res.json();
+  },
+
+  async reportContent(payload: { yapId?: string; reportedUserId?: string; reason: string }): Promise<{ success: boolean }> {
+    const res = await fetch(`${API_BASE}/social/report`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(payload),
+    });
+    return await res.json();
+  },
+
+  async unblockUser(userId: string): Promise<{ success: boolean }> {
+    const res = await fetch(`${API_BASE}/social/unblock/${userId}`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+    });
+    return await res.json();
+  },
+
+  async getBlockedUsers(): Promise<UserProfile[]> {
+    try {
+      const res = await fetch(`${API_BASE}/social/blocks`, {
+        headers: getAuthHeaders(),
+      });
+      if (!res.ok) return [];
+      const data = await res.json();
+      return data.blocks || [];
+    } catch {
+      return [];
+    }
+  },
+
+  async isUserBlocked(userId: string): Promise<boolean> {
+    try {
+      const res = await fetch(`${API_BASE}/social/is-blocked/${userId}`, {
+        headers: getAuthHeaders(),
+      });
+      if (!res.ok) return false;
+      const data = await res.json();
+      return !!data.isBlocked;
+    } catch {
+      return false;
+    }
+  },
+
+  async getUserReports(): Promise<any[]> {
+    try {
+      const res = await fetch(`${API_BASE}/social/reports`, {
+        headers: getAuthHeaders(),
+      });
+      if (!res.ok) return [];
+      const data = await res.json();
+      return data.reports || [];
+    } catch {
+      return [];
+    }
   },
 
   // Trending
@@ -170,6 +272,16 @@ export const api = {
       body: JSON.stringify({ yapId, text, threadText }),
     });
     if (!res.ok) throw new Error('AI summary generation failed');
+    return await res.json();
+  },
+
+  async translateYap(text: string, targetLanguage: string): Promise<{ translation: string; targetLanguage: string; provider: string }> {
+    const res = await fetch(`${API_BASE}/ai/translate`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ text, targetLanguage }),
+    });
+    if (!res.ok) throw new Error('AI translation failed');
     return await res.json();
   },
 
@@ -270,6 +382,19 @@ export const api = {
     return await res.json();
   },
 
+  async changePassword(params: { currentPassword: string; newPassword: string }): Promise<{ success: boolean; message: string }> {
+    const res = await fetch(`${API_BASE}/auth/change-password`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(params),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to change password');
+    }
+    return await res.json();
+  },
+
 
   // Profile
   async getProfile(identifier: string): Promise<UserProfile> {
@@ -288,5 +413,84 @@ export const api = {
     });
     const data = await res.json();
     return data.profile;
+  },
+
+  async getUserYaps(identifier: string): Promise<{ is_private: boolean; yaps: Yap[] }> {
+    try {
+      const res = await fetch(`${API_BASE}/profiles/${identifier}/yaps`, {
+        headers: getAuthHeaders(),
+      });
+      if (!res.ok) return { is_private: false, yaps: [] };
+      return await res.json();
+    } catch {
+      return { is_private: false, yaps: [] };
+    }
+  },
+
+  async getFollowers(identifier: string): Promise<UserProfile[]> {
+    try {
+      const res = await fetch(`${API_BASE}/profiles/${identifier}/followers`, {
+        headers: getAuthHeaders(),
+      });
+      if (!res.ok) return [];
+      const data = await res.json();
+      return data.followers || [];
+    } catch {
+      return [];
+    }
+  },
+
+  async getFollowing(identifier: string): Promise<UserProfile[]> {
+    try {
+      const res = await fetch(`${API_BASE}/profiles/${identifier}/following`, {
+        headers: getAuthHeaders(),
+      });
+      if (!res.ok) return [];
+      const data = await res.json();
+      return data.following || [];
+    } catch {
+      return [];
+    }
+  },
+
+  // Storage / Uploads
+  async uploadAvatar(file: File): Promise<{ url: string }> {
+    const token = localStorage.getItem('yapr_token');
+    const formData = new FormData();
+    formData.append('avatar', file);
+
+    const res = await fetch(`${API_BASE}/media/avatar`, {
+      method: 'POST',
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: formData,
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to upload profile picture');
+    }
+    return await res.json();
+  },
+
+  async uploadMedia(file: File): Promise<{ url: string }> {
+    const token = localStorage.getItem('yapr_token');
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const res = await fetch(`${API_BASE}/media/upload`, {
+      method: 'POST',
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: formData,
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to upload media');
+    }
+    return await res.json();
   },
 };

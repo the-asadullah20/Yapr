@@ -7,7 +7,7 @@ if (env.SUPABASE_URL && !env.SUPABASE_URL.includes('mock-') && env.SUPABASE_SERV
   isSupabaseConfigured = true;
 }
 
-// Service role client: has full access to tables, used by workers and backend admin endpoints
+// Service role client: has full access to tables and storage, used by workers and backend admin endpoints
 export const supabaseAdmin: SupabaseClient = createClient(
   env.SUPABASE_URL,
   env.SUPABASE_SERVICE_ROLE_KEY,
@@ -15,6 +15,12 @@ export const supabaseAdmin: SupabaseClient = createClient(
     auth: {
       autoRefreshToken: false,
       persistSession: false,
+    },
+    global: {
+      headers: {
+        Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+        apikey: env.SUPABASE_SERVICE_ROLE_KEY,
+      },
     },
   }
 );

@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { useAuth } from './AuthContext';
 import { NotificationItem } from '../types';
+import { api } from '../api/apiClient';
 
 interface SocketContextType {
   socket: Socket | null;
@@ -19,8 +20,18 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const { token, user } = useAuth();
   const [socket, setSocket] = useState<Socket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
-  const [unreadCount, setUnreadCount] = useState(1);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [latestNotification, setLatestNotification] = useState<NotificationItem | null>(null);
+
+  useEffect(() => {
+    if (token) {
+      api.getNotifications()
+        .then((res) => setUnreadCount(res.unreadCount))
+        .catch(() => setUnreadCount(0));
+    } else {
+      setUnreadCount(0);
+    }
+  }, [token]);
 
   useEffect(() => {
     let s: Socket | null = null;

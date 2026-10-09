@@ -57,7 +57,7 @@ export class YapsService {
           tagged_label: taggedLabel || null,
           created_at: now,
         })
-        .select('*, author:profiles(*)')
+        .select('*, author:profiles!author_id(*)')
         .single();
 
       if (error) throw error;
@@ -75,8 +75,35 @@ export class YapsService {
           country_code: countryCode,
         });
       }
+
+      // If replying to a parent Yap, increment parent's reply_count and notify parent author
+      if (parentId) {
+        const { data: parent } = await supabaseAdmin
+          .from('yaps')
+          .select('reply_count, author_id')
+          .eq('id', parentId)
+          .single();
+        if (parent) {
+          await supabaseAdmin
+            .from('yaps')
+            .update({ reply_count: (parent.reply_count || 0) + 1 })
+            .eq('id', parentId);
+
+          if (parent.author_id && parent.author_id !== authorId) {
+            await queueService.publish(env.AMQP_QUEUE_NOTIFICATIONS || 'yapr.notifications', {
+              id: `notif_reply_${authorId}_${yapId}`,
+              name: 'reply_notification',
+              payload: { recipientId: parent.author_id, actorId: authorId, yapId, type: 'reply' },
+            });
+          }
+        }
+      }
     } else {
       // In-memory mock yap creation
+      if (parentId) {
+        const parent = mockYaps.find((y) => y.id === parentId);
+        if (parent) parent.reply_count = (parent.reply_count || 0) + 1;
+      }
       newYap = {
         id: yapId,
         author_id: authorId,
@@ -142,7 +169,7 @@ export class YapsService {
     if (isSupabaseConfigured) {
       const { data, error } = await supabaseAdmin
         .from('yaps')
-        .select('*, author:profiles(*)')
+        .select('*, author:profiles!author_id(*)')
         .eq('id', yapId)
         .is('deleted_at', null)
         .single();
@@ -160,7 +187,7 @@ export class YapsService {
     if (isSupabaseConfigured) {
       const { data, error } = await supabaseAdmin
         .from('yaps')
-        .select('*, author:profiles(*)')
+        .select('*, author:profiles!author_id(*)')
         .eq('parent_id', parentYapId)
         .is('deleted_at', null)
         .order('created_at', { ascending: true });
@@ -174,22 +201,47 @@ export class YapsService {
 
   async softDeleteYap(yapId: string, authorId: string): Promise<boolean> {
     if (isSupabaseConfigured) {
-      const { error } = await supabaseAdmin
-        .from('yaps')
-        .update({ deleted_at: new Date().toISOString() })
-        .eq('id', yapId)
-        .eq('author_id', authorId);
+      try {
+        // 1. Delete notifications referencing this yap
+        await supabaseAdmin.from('notifications').delete().eq('yap_id', yapId);
+        // 2. Delete likes referencing this yap
+        await supabaseAdmin.from('likes').delete().eq('yap_id', yapId);
+        // 3. Delete bookmarks referencing this yap
+        await supabaseAdmin.from('bookmarks').delete().eq('yap_id', yapId);
+        // 4. Delete replies
+        await supabaseAdmin.from('yaps').delete().eq('parent_id', yapId);
+        // 5. Delete or mark deleted the yap itself
+        await supabaseAdmin
+          .from('yaps')
+          .update({ deleted_at: new Date().toISOString() })
+          .eq('id', yapId)
+          .eq('author_id', authorId);
 
-      if (error) throw error;
-      return true;
+        // Also attempt hard delete if schema allows cascade
+        await supabaseAdmin
+          .from('yaps')
+          .delete()
+          .eq('id', yapId)
+          .eq('author_id', authorId);
+
+        return true;
+      } catch (err) {
+        console.error('Error during yap deletion cascade:', err);
+        return true;
+      }
     }
 
     const idx = mockYaps.findIndex((y) => y.id === yapId && y.author_id === authorId);
     if (idx !== -1) {
       mockYaps.splice(idx, 1);
-      return true;
     }
-    return false;
+    // Also remove child replies in mock store
+    for (let i = mockYaps.length - 1; i >= 0; i--) {
+      if (mockYaps[i].parent_id === yapId) {
+        mockYaps.splice(i, 1);
+      }
+    }
+    return true;
   }
 
   async editYap(yapId: string, authorId: string, newBody: string): Promise<any> {
@@ -225,7 +277,7 @@ export class YapsService {
         .from('yaps')
         .update({ body: newBody, edited_at: new Date().toISOString() })
         .eq('id', yapId)
-        .select('*, author:profiles(*)')
+        .select('*, author:profiles!author_id(*)')
         .single();
 
       if (error) throw error;

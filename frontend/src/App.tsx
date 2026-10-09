@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Home, Compass, Bell, Bookmark, Sparkles, User } from 'lucide-react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { SocketProvider, useSocket } from './context/SocketContext';
@@ -13,6 +13,7 @@ import { ExplorePage } from './pages/ExplorePage';
 import { NotificationsPage } from './pages/NotificationsPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { BookmarksPage } from './pages/BookmarksPage';
+import { LandingPage } from './pages/LandingPage';
 
 // Modals
 import { FeedSlidersModal } from './components/feed/FeedSlidersModal';
@@ -21,6 +22,7 @@ import { AiStudioModal } from './components/ai/AiStudioModal';
 import { AuthModal } from './components/auth/AuthModal';
 
 import { Yap, FeedSliderSettings, SearchResult } from './types';
+import { api } from './api/apiClient';
 
 export const AppContent: React.FC = () => {
   const { user } = useAuth();
@@ -38,17 +40,57 @@ export const AppContent: React.FC = () => {
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [selectedThreadYap, setSelectedThreadYap] = useState<Yap | null>(null);
   const [selectedTag, setSelectedTag] = useState<string | undefined>(undefined);
+  const [viewingProfileUsername, setViewingProfileUsername] = useState<string | null>(null);
+  const [refreshFeedKey, setRefreshFeedKey] = useState(0);
+
+  // If user signs out or is unauthenticated, show Landing Page with Auth Card directly
+  if (!user) {
+    return <LandingPage />;
+  }
 
   const handleSelectHashtag = (tag: string) => {
     setSelectedTag(tag);
     setActiveTab('explore');
   };
 
+  const handleOpenProfile = (username: string) => {
+    setViewingProfileUsername(username);
+    setActiveTab('profile');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleOpenYapById = async (yapId: string) => {
+    try {
+      let yap = await api.getYapById(yapId);
+      if (yap) {
+        // Trace back to root original post so user sees entire thread in context
+        let current = yap;
+        while (current.parent_id) {
+          try {
+            const parent = await api.getYapById(current.parent_id);
+            if (parent) {
+              current = parent;
+            } else {
+              break;
+            }
+          } catch {
+            break;
+          }
+        }
+        setSelectedThreadYap(current);
+      }
+    } catch (e) {
+      console.error('Failed to open yap by id', e);
+    }
+  };
+
   const handleSelectSearchResult = (result: SearchResult) => {
     if (result.type === 'hashtag') {
       handleSelectHashtag(result.title.replace(/^#/, ''));
     } else if (result.type === 'user') {
-      setActiveTab('profile');
+      handleOpenProfile(result.title.replace(/^@/, ''));
+    } else if (result.type === 'yap' && result.id) {
+      handleOpenYapById(result.id);
     }
   };
 
@@ -58,7 +100,10 @@ export const AppContent: React.FC = () => {
         {/* Left Sidebar (Hidden on mobile, visible md+) */}
         <Sidebar
           activeTab={activeTab}
-          setActiveTab={setActiveTab}
+          setActiveTab={(tab) => {
+            if (tab === 'profile') setViewingProfileUsername(null);
+            setActiveTab(tab);
+          }}
           onOpenComposer={() => {
             setActiveTab('feed');
             window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -80,10 +125,12 @@ export const AppContent: React.FC = () => {
           <main className="flex-1 pb-20 md:pb-16">
             {activeTab === 'feed' && (
               <FeedPage
+                key={refreshFeedKey}
                 onOpenThread={(yap) => setSelectedThreadYap(yap)}
                 onOpenQuote={(yap) => setSelectedThreadYap(yap)}
                 onOpenSliders={() => setIsSlidersOpen(true)}
                 sliderSettings={sliderSettings}
+                onOpenProfile={handleOpenProfile}
               />
             )}
 
@@ -95,7 +142,12 @@ export const AppContent: React.FC = () => {
               />
             )}
 
-            {activeTab === 'notifications' && <NotificationsPage />}
+            {activeTab === 'notifications' && (
+              <NotificationsPage
+                onOpenProfile={handleOpenProfile}
+                onOpenYap={handleOpenYapById}
+              />
+            )}
 
             {activeTab === 'bookmarks' && (
               <BookmarksPage
@@ -104,7 +156,17 @@ export const AppContent: React.FC = () => {
               />
             )}
 
-            {activeTab === 'profile' && <ProfilePage />}
+            {activeTab === 'profile' && (
+              <ProfilePage
+                viewingUsername={viewingProfileUsername}
+                onBack={() => {
+                  setViewingProfileUsername(null);
+                  setActiveTab('feed');
+                }}
+                onOpenProfile={handleOpenProfile}
+                onOpenThread={(yap) => setSelectedThreadYap(yap)}
+              />
+            )}
           </main>
         </div>
 
@@ -156,7 +218,14 @@ export const AppContent: React.FC = () => {
         </button>
 
         <button
-          onClick={() => (user ? setActiveTab('profile') : setIsAuthOpen(true))}
+          onClick={() => {
+            if (user) {
+              setViewingProfileUsername(null);
+              setActiveTab('profile');
+            } else {
+              setIsAuthOpen(true);
+            }
+          }}
           className={`p-2 rounded-xl transition-colors ${
             activeTab === 'profile' ? 'text-blue-600 dark:text-blue-400' : 'text-slate-500 dark:text-slate-400'
           }`}
@@ -176,6 +245,10 @@ export const AppContent: React.FC = () => {
       <ReplyThreadModal
         yap={selectedThreadYap}
         onClose={() => setSelectedThreadYap(null)}
+        onOpenProfile={handleOpenProfile}
+        onYapReplied={() => {
+          setRefreshFeedKey((k) => k + 1);
+        }}
       />
 
       <AiStudioModal
@@ -188,6 +261,7 @@ export const AppContent: React.FC = () => {
 
       <AuthModal
         isOpen={isAuthOpen}
+        initialMode="signin"
         onClose={() => setIsAuthOpen(false)}
       />
     </div>

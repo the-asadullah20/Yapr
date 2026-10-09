@@ -1,6 +1,7 @@
 import { supabaseAdmin, isSupabaseConfigured } from '../../config/supabase.js';
 import { usernameBloomFilter } from '../../utils/bloomFilter.js';
 import { COUNTRIES, getCountryByCode } from '../../utils/countries.js';
+import { mockYaps } from '../yaps/yaps.service.js';
 
 // In-memory mock profiles for dev/fallback
 const mockProfiles = new Map<string, any>([
@@ -101,7 +102,7 @@ export class ProfilesService {
 
   }
 
-  async getProfile(identifier: string): Promise<any> {
+  async getProfile(identifier: string, viewerId?: string): Promise<any> {
     if (isSupabaseConfigured) {
       const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(identifier);
       const query = supabaseAdmin.from('profiles').select('*');
@@ -111,8 +112,19 @@ export class ProfilesService {
 
       if (error) throw error;
       if (data) {
+        let isFollowing = false;
+        if (viewerId && viewerId !== data.id) {
+          const { data: follow } = await supabaseAdmin
+            .from('follows')
+            .select('follower_id')
+            .eq('follower_id', viewerId)
+            .eq('followee_id', data.id)
+            .maybeSingle();
+          isFollowing = !!follow;
+        }
         return {
           ...data,
+          is_following: isFollowing,
           country: getCountryByCode(data.country_code || 'PK'),
         };
       }
@@ -123,12 +135,13 @@ export class ProfilesService {
       if (p.id === identifier || p.username.toLowerCase() === identifier.toLowerCase()) {
         return {
           ...p,
+          is_following: false,
           country: getCountryByCode(p.country_code || 'PK'),
         };
       }
     }
 
-    // Return dummy profile if not found in dev
+    // Return profile if not found in dev
     return {
       id: identifier,
       username: identifier,
@@ -139,11 +152,12 @@ export class ProfilesService {
       country: getCountryByCode('PK'),
       follower_count: 0,
       following_count: 0,
+      is_following: false,
     };
   }
 
   async updateProfile(userId: string, updates: any): Promise<any> {
-    const allowed = ['display_name', 'bio', 'avatar_url', 'banner_url', 'country_code', 'username'];
+    const allowed = ['display_name', 'bio', 'avatar_url', 'banner_url', 'country_code', 'username', 'is_private'];
     const sanitized: any = {};
     for (const key of allowed) {
       if (updates[key] !== undefined) sanitized[key] = updates[key];
@@ -151,6 +165,20 @@ export class ProfilesService {
 
     if (sanitized.username) {
       sanitized.username = sanitized.username.toLowerCase().trim();
+      if (sanitized.username.length < 3 || sanitized.username.length > 30) {
+        throw new Error('Username must be between 3 and 30 characters');
+      }
+      if (isSupabaseConfigured) {
+        const { data: existing } = await supabaseAdmin
+          .from('profiles')
+          .select('id')
+          .ilike('username', sanitized.username)
+          .neq('id', userId)
+          .maybeSingle();
+        if (existing) {
+          throw new Error(`Username @${sanitized.username} is already taken`);
+        }
+      }
       await usernameBloomFilter.add(sanitized.username);
     }
 
@@ -170,6 +198,75 @@ export class ProfilesService {
     const updated = { ...existing, ...sanitized };
     mockProfiles.set(userId, updated);
     return updated;
+  }
+
+  async getUserYaps(identifier: string, viewerId?: string): Promise<{ is_private: boolean; yaps: any[] }> {
+    const profile = await this.getProfile(identifier, viewerId);
+    if (!profile) return { is_private: false, yaps: [] };
+
+    // Check if account is private
+    const isOwner = viewerId === profile.id;
+    const isFollowing = !!profile.is_following;
+    if (profile.is_private && !isOwner && !isFollowing) {
+      return { is_private: true, yaps: [] };
+    }
+
+    if (isSupabaseConfigured) {
+      const { data, error } = await supabaseAdmin
+        .from('yaps')
+        .select('*, author:profiles!author_id(*)')
+        .eq('author_id', profile.id)
+        .is('parent_id', null)
+        .is('deleted_at', null)
+        .order('created_at', { ascending: false });
+
+      if (!error && data) {
+        return { is_private: false, yaps: data };
+      }
+    }
+
+    const yaps = mockYaps.filter(
+      (y) => (y.author_id === profile.id || y.author?.username?.toLowerCase() === profile.username?.toLowerCase()) && !y.parent_id
+    );
+    return { is_private: false, yaps };
+  }
+
+  async getFollowers(identifier: string): Promise<any[]> {
+    const profile = await this.getProfile(identifier);
+    if (!profile) return [];
+
+    if (isSupabaseConfigured) {
+      const { data, error } = await supabaseAdmin
+        .from('follows')
+        .select('created_at, follower:profiles!follower_id(id, username, display_name, avatar_url, is_verified, bio)')
+        .eq('followee_id', profile.id)
+        .order('created_at', { ascending: false });
+
+      if (!error && data) {
+        return data.map((d: any) => d.follower).filter(Boolean);
+      }
+    }
+
+    return [];
+  }
+
+  async getFollowing(identifier: string): Promise<any[]> {
+    const profile = await this.getProfile(identifier);
+    if (!profile) return [];
+
+    if (isSupabaseConfigured) {
+      const { data, error } = await supabaseAdmin
+        .from('follows')
+        .select('created_at, followee:profiles!followee_id(id, username, display_name, avatar_url, is_verified, bio)')
+        .eq('follower_id', profile.id)
+        .order('created_at', { ascending: false });
+
+      if (!error && data) {
+        return data.map((d: any) => d.followee).filter(Boolean);
+      }
+    }
+
+    return [];
   }
 
   getCountries() {

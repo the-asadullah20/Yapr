@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Image, Sparkles, Send, X } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { Image, Sparkles, Send, X, Loader2 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { api } from '../../api/apiClient';
 import { Yap } from '../../types';
@@ -11,12 +11,14 @@ interface YapComposerProps {
 
 export const YapComposer: React.FC<YapComposerProps> = ({ onYapCreated, defaultHashtag }) => {
   const { user } = useAuth();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [body, setBody] = useState(defaultHashtag ? `#${defaultHashtag} ` : '');
   const [mediaUrls, setMediaUrls] = useState<string[]>([]);
   const [imageUrlInput, setImageUrlInput] = useState('');
   const [showImageInput, setShowImageInput] = useState(false);
   const [countryCode, setCountryCode] = useState(user?.country_code || 'PK');
   const [isPolishing, setIsPolishing] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handlePolishAi = async () => {
@@ -32,7 +34,32 @@ export const YapComposer: React.FC<YapComposerProps> = ({ onYapCreated, defaultH
     }
   };
 
-  const handleAddMedia = (url: string) => {
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    if (mediaUrls.length + files.length > 4) {
+      alert('You can attach a maximum of 4 media items per Yap');
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      const uploadPromises = Array.from(files).map((file) => api.uploadMedia(file));
+      const results = await Promise.all(uploadPromises);
+      const newUrls = results.map((r) => r.url);
+      setMediaUrls((prev) => [...prev, ...newUrls].slice(0, 4));
+    } catch (err: any) {
+      alert(err.message || 'Failed to upload media to Supabase storage');
+    } finally {
+      setIsUploading(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
+  const handleAddMediaUrl = (url: string) => {
     if (url && !mediaUrls.includes(url) && mediaUrls.length < 4) {
       setMediaUrls([...mediaUrls, url]);
       setImageUrlInput('');
@@ -63,28 +90,15 @@ export const YapComposer: React.FC<YapComposerProps> = ({ onYapCreated, defaultH
 
   return (
     <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-4 shadow-sm mb-4 transition-colors">
-      <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-100 dark:border-slate-800">
+      <div className="pb-3 mb-3 border-b border-slate-100 dark:border-slate-800">
         <h3 className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Yap Thoughts</h3>
-        <div className="flex items-center gap-2">
-          {/* Country selector without emojis */}
-          <select
-            value={countryCode}
-            onChange={(e) => setCountryCode(e.target.value)}
-            className="text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 text-slate-700 dark:text-slate-300 outline-none"
-          >
-            <option value="PK">PK · Pakistan</option>
-            <option value="US">US · United States</option>
-            <option value="SG">SG · Singapore</option>
-            <option value="GB">GB · United Kingdom</option>
-          </select>
-        </div>
       </div>
 
       <form onSubmit={handleSubmit}>
         <div className="flex gap-3 items-start">
           <img
-            src={user?.avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150'}
-            alt=""
+            src={user?.avatar_url || (user?.username ? `https://api.dicebear.com/7.x/bottts/svg?seed=${user.username}` : 'https://api.dicebear.com/7.x/bottts/svg?seed=yapr')}
+            alt={user?.display_name || ''}
             className="w-10 h-10 rounded-full object-cover ring-2 ring-slate-100 dark:ring-slate-800 flex-shrink-0"
           />
 
@@ -129,7 +143,7 @@ export const YapComposer: React.FC<YapComposerProps> = ({ onYapCreated, defaultH
                   />
                   <button
                     type="button"
-                    onClick={() => handleAddMedia(imageUrlInput)}
+                    onClick={() => handleAddMediaUrl(imageUrlInput)}
                     className="px-3 py-1 bg-blue-600 text-white rounded-lg text-xs font-semibold hover:bg-blue-700"
                   >
                     Add
@@ -141,14 +155,34 @@ export const YapComposer: React.FC<YapComposerProps> = ({ onYapCreated, defaultH
             {/* Bottom composer controls */}
             <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-800">
               <div className="flex items-center gap-1.5">
-                {/* Media upload button */}
+                {/* Media file upload button */}
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isUploading || mediaUrls.length >= 4}
+                  className="p-2 text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-slate-800 rounded-xl transition-colors disabled:opacity-50"
+                  title="Upload Image/Media to Supabase S3"
+                >
+                  {isUploading ? <Loader2 className="w-4 h-4 animate-spin text-blue-600" /> : <Image className="w-4 h-4" />}
+                </button>
+
+                {/* Hidden File Input */}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/gif,video/mp4"
+                  multiple
+                  className="hidden"
+                  onChange={handleFileSelect}
+                />
+
+                {/* URL Paste Option Toggle */}
                 <button
                   type="button"
                   onClick={() => setShowImageInput(!showImageInput)}
-                  className="p-2 text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-slate-800 rounded-xl transition-colors"
-                  title="Attach Media / Images"
+                  className="text-[11px] text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 font-medium px-2 py-1"
                 >
-                  <Image className="w-4 h-4" />
+                  {showImageInput ? 'Hide URL' : 'Link URL'}
                 </button>
 
                 {/* Yapr AI Polish Button */}
@@ -171,7 +205,7 @@ export const YapComposer: React.FC<YapComposerProps> = ({ onYapCreated, defaultH
 
                 <button
                   type="submit"
-                  disabled={!body.trim() || isSubmitting}
+                  disabled={!body.trim() || isSubmitting || isUploading}
                   className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-semibold text-xs rounded-xl shadow-sm transition-all transform active:scale-95"
                 >
                   <Send className="w-3.5 h-3.5" />

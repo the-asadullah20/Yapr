@@ -1,5 +1,6 @@
 export interface UserProfile {
   id: string;
+  email?: string;
   username: string;
   display_name: string;
   bio?: string;
@@ -9,6 +10,7 @@ export interface UserProfile {
   follower_count: number;
   following_count: number;
   is_verified?: boolean;
+  is_private?: boolean;
 }
 
 export interface Yap {

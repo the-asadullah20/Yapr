@@ -1,8 +1,10 @@
 import dotenv from 'dotenv';
 import path from 'path';
 
-// Load .env
+// Load .env with multi-path fallback
 dotenv.config({ path: path.resolve(process.cwd(), '.env') });
+dotenv.config({ path: path.resolve(process.cwd(), 'backend', '.env') });
+dotenv.config({ path: path.resolve(__dirname, '..', '..', '.env') });
 
 export const env = {
   PORT: parseInt(process.env.PORT || '5000', 10),

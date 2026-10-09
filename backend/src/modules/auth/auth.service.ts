@@ -3,10 +3,8 @@ import jwt from 'jsonwebtoken';
 import { cacheClient } from '../../config/redis.js';
 import { env } from '../../config/env.js';
 import { queueService } from '../../config/queue.js';
-import { supabaseAdmin, isSupabaseConfigured } from '../../config/supabase.js';
+import { supabaseAdmin, isSupabaseConfigured, supabaseAnon } from '../../config/supabase.js';
 import { usernameBloomFilter } from '../../utils/bloomFilter.js';
-
-// In-memory user credentials for dev/local fallback
 const registeredUsers = new Map<string, { email: string; passwordHash: string; userId: string; username: string }>();
 
 // Preload test admin/demo credentials: asad@yapr.app / password123
@@ -17,6 +15,21 @@ registeredUsers.set('asad@yapr.app', {
   userId: 'a1111111-1111-1111-1111-111111111111',
   username: 'asadahmad',
 });
+
+export function validatePasswordStrength(password: string): void {
+  if (!password || password.length < 8) {
+    throw new Error('Password must be at least 8 characters long');
+  }
+  if (!/[A-Z]/.test(password)) {
+    throw new Error('Password must contain at least one uppercase letter (A-Z)');
+  }
+  if (!/[0-9]/.test(password)) {
+    throw new Error('Password must contain at least one number (0-9)');
+  }
+  if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?~`]/.test(password)) {
+    throw new Error('Password must contain at least one special character (!@#$%^&* etc.)');
+  }
+}
 
 export class AuthService {
   /**
@@ -47,7 +60,6 @@ export class AuthService {
     return {
       success: true,
       message: 'Verification code sent to your email.',
-      previewCode: process.env.NODE_ENV !== 'production' ? otp : undefined,
     };
   }
 
@@ -143,9 +155,10 @@ export class AuthService {
     const cleanEmail = params.email.toLowerCase().trim();
     const cleanUsername = params.username.toLowerCase().trim();
 
-    if (!cleanEmail || !params.password || params.password.length < 6) {
-      throw new Error('Password must be at least 6 characters');
+    if (!cleanEmail) {
+      throw new Error('Valid email address is required');
     }
+    validatePasswordStrength(params.password);
 
     if (!cleanUsername || cleanUsername.length < 3) {
       throw new Error('Username must be at least 3 characters');
@@ -156,21 +169,45 @@ export class AuthService {
     let profile: any = null;
 
     if (isSupabaseConfigured) {
-      const { data, error } = await supabaseAdmin.auth.signUp({
-        email: cleanEmail,
-        password: params.password,
-        options: {
-          data: {
+      const { data: list } = await supabaseAdmin.auth.admin.listUsers();
+      const existing = list?.users?.find((u) => u.email === cleanEmail);
+
+      if (existing) {
+        userId = existing.id;
+        await supabaseAdmin.auth.admin.updateUserById(userId, {
+          password: params.password,
+          user_metadata: {
             username: cleanUsername,
             display_name: params.displayName || cleanUsername,
             country_code: params.countryCode || 'PK',
           },
-        },
-      });
-      if (error) throw error;
-      userId = data.user?.id || '';
-      const { data: p } = await supabaseAdmin.from('profiles').select('*').eq('id', userId).single();
-      profile = p;
+        });
+        await supabaseAdmin.from('profiles').upsert({
+          id: userId,
+          username: cleanUsername,
+          display_name: params.displayName || cleanUsername,
+          country_code: params.countryCode || 'PK',
+          avatar_url: `https://api.dicebear.com/7.x/bottts/svg?seed=${cleanUsername}`,
+        });
+        const { data: p } = await supabaseAdmin.from('profiles').select('*').eq('id', userId).single();
+        profile = p;
+      } else {
+        const { data, error } = await supabaseAnon.auth.signUp({
+          email: cleanEmail,
+          password: params.password,
+          options: {
+            data: {
+              username: cleanUsername,
+              display_name: params.displayName || cleanUsername,
+              country_code: params.countryCode || 'PK',
+            },
+          },
+        });
+        if (error) throw error;
+        userId = data.user?.id || '';
+        const { data: p } = await supabaseAdmin.from('profiles').select('*').eq('id', userId).single();
+        profile = p;
+      }
     } else {
       userId = crypto.createHash('md5').update(cleanEmail).digest('hex');
       userId = `${userId.slice(0, 8)}-${userId.slice(8, 12)}-4${userId.slice(13, 16)}-8${userId.slice(17, 20)}-${userId.slice(20, 32)}`;
@@ -219,7 +256,7 @@ export class AuthService {
     let profile: any = null;
 
     if (isSupabaseConfigured) {
-      const { data, error } = await supabaseAdmin.auth.signInWithPassword({
+      const { data, error } = await supabaseAnon.auth.signInWithPassword({
         email: cleanEmail,
         password,
       });
@@ -285,7 +322,6 @@ export class AuthService {
 
     return {
       message: 'Password reset code has been sent to your email.',
-      previewCode: process.env.NODE_ENV !== 'production' ? resetOtp : undefined,
     };
   }
 
@@ -294,9 +330,7 @@ export class AuthService {
    */
   async resetPassword(email: string, code: string, newPassword: string): Promise<{ success: boolean; message: string }> {
     const cleanEmail = email.toLowerCase().trim();
-    if (!newPassword || newPassword.length < 6) {
-      throw new Error('New password must be at least 6 characters');
-    }
+    validatePasswordStrength(newPassword);
 
     const cacheKey = `yapr:reset-otp:${cleanEmail}`;
     const storedHash = await cacheClient.get(cacheKey);
@@ -339,6 +373,92 @@ export class AuthService {
     return {
       success: true,
       message: 'Password reset successful! You can now sign in with your new password.',
+    };
+  }
+
+  /**
+   * Change password for logged in user (Current Password + New Password)
+   */
+  async changePassword(params: {
+    userId: string;
+    email?: string;
+    currentPassword: string;
+    newPassword: string;
+  }): Promise<{ success: boolean; message: string }> {
+    const { userId, email, currentPassword, newPassword } = params;
+
+    if (!currentPassword) {
+      throw new Error('Current password is required');
+    }
+    validatePasswordStrength(newPassword);
+
+    if (isSupabaseConfigured) {
+      if (email) {
+        const { error: signInErr } = await supabaseAnon.auth.signInWithPassword({
+          email: email.toLowerCase().trim(),
+          password: currentPassword,
+        });
+        if (signInErr) {
+          throw new Error('Current password is incorrect. Please try again.');
+        }
+      }
+
+      const { error } = await supabaseAdmin.auth.admin.updateUserById(userId, {
+        password: newPassword,
+      });
+      if (error) throw error;
+    } else {
+      for (const record of registeredUsers.values()) {
+        if (record.userId === userId || (email && record.email === email.toLowerCase().trim())) {
+          const curHash = crypto.createHash('sha256').update(currentPassword).digest('hex');
+          if (record.passwordHash && record.passwordHash !== curHash) {
+            throw new Error('Current password is incorrect. Please try again.');
+          }
+          record.passwordHash = crypto.createHash('sha256').update(newPassword).digest('hex');
+          break;
+        }
+      }
+    }
+
+    return {
+      success: true,
+      message: 'Password changed successfully!',
+    };
+  }
+
+  /**
+   * Get full user profile for authenticated session
+   */
+  async getMeProfile(userId: string, email?: string): Promise<any> {
+    if (isSupabaseConfigured) {
+      const { data: p } = await supabaseAdmin.from('profiles').select('*').eq('id', userId).single();
+      if (p) {
+        return { ...p, email: email || p.email, id: userId };
+      }
+    }
+    for (const record of registeredUsers.values()) {
+      if (record.userId === userId) {
+        return {
+          id: userId,
+          email: record.email,
+          username: record.username,
+          display_name: record.username,
+          avatar_url: `https://api.dicebear.com/7.x/bottts/svg?seed=${record.username}`,
+          country_code: 'PK',
+          follower_count: 0,
+          following_count: 0,
+        };
+      }
+    }
+    return {
+      id: userId,
+      email,
+      username: email ? email.split('@')[0] : 'yapr',
+      display_name: email ? email.split('@')[0] : 'Yapr User',
+      avatar_url: `https://api.dicebear.com/7.x/bottts/svg?seed=${userId}`,
+      country_code: 'PK',
+      follower_count: 0,
+      following_count: 0,
     };
   }
 }

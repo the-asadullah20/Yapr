@@ -10,6 +10,7 @@ export interface TrendingHashtag {
 export class TrendingService {
   /**
    * Get top trending hashtags by country and timeframe (1h or 24h)
+   * Real-time calculation based on real users' yaps only - zero mock data
    */
   async getTrending(countryCode: string = 'PK', timeframe: '1h' | '24h' = '24h', limit = 10): Promise<TrendingHashtag[]> {
     const redisKey = countryCode === 'GLOBAL'
@@ -26,18 +27,23 @@ export class TrendingService {
       }));
     }
 
-    // 2. Fallback to Supabase Postgres query
+    // 2. Query real hashtags from Supabase Postgres
     if (isSupabaseConfigured) {
-      const intervalStr = timeframe === '1h' ? '1 hour' : '24 hours';
-      const { data } = await supabaseAdmin
+      let query = supabaseAdmin
         .from('yap_hashtags')
         .select('tag')
         .gte('created_at', new Date(Date.now() - (timeframe === '1h' ? 3600000 : 86400000)).toISOString())
         .limit(100);
 
+      if (countryCode !== 'GLOBAL') {
+        query = query.eq('country_code', countryCode.toUpperCase());
+      }
+
+      const { data } = await query;
+
       if (data && data.length > 0) {
         const counts: Record<string, number> = {};
-        data.forEach((row) => {
+        data.forEach((row: any) => {
           counts[row.tag] = (counts[row.tag] || 0) + 1;
         });
 
@@ -46,7 +52,7 @@ export class TrendingService {
           .sort((a, b) => b.count - a.count)
           .slice(0, limit);
 
-        // Populate Redis
+        // Populate Redis cache with real activity
         for (const item of sorted) {
           await cacheClient.zadd(redisKey, item.count, item.tag);
         }
@@ -55,24 +61,8 @@ export class TrendingService {
       }
     }
 
-    // 3. Fallback mock trending
-    const mockTopics: Record<string, TrendingHashtag[]> = {
-      PK: [
-        { tag: 'Karachi', count: 1840, countryCode: 'PK' },
-        { tag: 'Tech', count: 1420, countryCode: 'PK' },
-        { tag: 'Cricket', count: 980, countryCode: 'PK' },
-        { tag: 'Yapr', count: 850, countryCode: 'PK' },
-        { tag: 'PulseAi', count: 620, countryCode: 'PK' },
-      ],
-      GLOBAL: [
-        { tag: 'Tech', count: 9400, countryCode: 'GLOBAL' },
-        { tag: 'AI', count: 8200, countryCode: 'GLOBAL' },
-        { tag: 'Design', count: 4300, countryCode: 'GLOBAL' },
-        { tag: 'PulseAi', count: 3100, countryCode: 'GLOBAL' },
-      ],
-    };
-
-    return mockTopics[countryCode.toUpperCase()] || mockTopics.GLOBAL;
+    // Pure real-time: return empty array when no real tags have been posted yet
+    return [];
   }
 }
 

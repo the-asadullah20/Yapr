@@ -1,4 +1,4 @@
-import { summarizeYap, polishYapContent, generateEmbeddingVector } from '../../config/ai.js';
+import { summarizeYap, translateYap, polishYapContent, generateEmbeddingVector } from '../../config/ai.js';
 import { supabaseAdmin, isSupabaseConfigured } from '../../config/supabase.js';
 
 export class AiService {
@@ -14,6 +14,10 @@ export class AiService {
     }
 
     return result;
+  }
+
+  async translate(text: string, targetLanguage: string): Promise<{ translation: string; targetLanguage: string; provider: string }> {
+    return await translateYap(text, targetLanguage);
   }
 
   async polish(text: string): Promise<{ polished: string; hashtags: string[]; provider: string }> {
