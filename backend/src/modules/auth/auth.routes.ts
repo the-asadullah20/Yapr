@@ -9,6 +9,8 @@ router.post('/otp/request', otpLimiter, (req, res, next) => authController.reque
 router.post('/otp/verify', (req, res, next) => authController.verifyOtp(req, res, next));
 router.post('/register', (req, res, next) => authController.register(req, res, next));
 router.post('/login', (req, res, next) => authController.login(req, res, next));
+router.post('/forgot-password', otpLimiter, (req, res, next) => authController.forgotPassword(req, res, next));
+router.post('/reset-password', (req, res, next) => authController.resetPassword(req, res, next));
 router.get('/me', requireAuth, (req, res, next) => authController.getMe(req, res, next));
 
 export const authRoutes = router;

@@ -60,6 +60,32 @@ export class AuthController {
     }
   }
 
+  async forgotPassword(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { email } = req.body;
+      if (!email || !email.includes('@')) {
+        return res.status(400).json({ error: 'Valid email address is required' });
+      }
+      const result = await authService.requestPasswordReset(email);
+      res.json(result);
+    } catch (err: any) {
+      res.status(400).json({ error: err.message || 'Failed to process request' });
+    }
+  }
+
+  async resetPassword(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { email, code, newPassword } = req.body;
+      if (!email || !code || !newPassword) {
+        return res.status(400).json({ error: 'Email, reset code, and new password are required' });
+      }
+      const result = await authService.resetPassword(email, code, newPassword);
+      res.json(result);
+    } catch (err: any) {
+      res.status(400).json({ error: err.message || 'Failed to reset password' });
+    }
+  }
+
   async getMe(req: Request, res: Response, next: NextFunction) {
     try {
       if (!req.user) {

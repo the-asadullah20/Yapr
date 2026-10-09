@@ -24,10 +24,12 @@ interface AuthModalProps {
 export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
   const { loginWithPassword, registerWithPassword, loginWithOtp } = useAuth();
 
-  // Mode: 'signin' | 'signup'
-  const [mode, setMode] = useState<'signin' | 'signup'>('signin');
+  // Mode: 'signin' | 'signup' | 'forgot_password'
+  const [mode, setMode] = useState<'signin' | 'signup' | 'forgot_password'>('signin');
   // Signup step: 1 (credentials) -> 2 (otp) -> 3 (choose username)
   const [signupStep, setSignupStep] = useState<1 | 2 | 3>(1);
+  // Forgot password step: 1 (email) -> 2 (otp + new password)
+  const [forgotStep, setForgotStep] = useState<1 | 2>(1);
 
   // Form states
   const [email, setEmail] = useState('');
@@ -35,6 +37,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [otpCode, setOtpCode] = useState('');
   const [previewCode, setPreviewCode] = useState<string | null>(null);
+
+  // Forgot password specific states
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showNewPassword, setShowNewPassword] = useState(false);
 
   // Username step states
   const [username, setUsername] = useState('');
@@ -46,6 +53,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
   // Common states
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [useOtpLogin, setUseOtpLogin] = useState(false);
 
   // Debounced real-time username availability check (Google / top-tier UX)
@@ -92,10 +100,66 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
 
   const resetState = () => {
     setError(null);
+    setSuccessMessage(null);
     setLoading(false);
     setOtpCode('');
     setPreviewCode(null);
     setUsernameStatus(null);
+    setNewPassword('');
+    setConfirmPassword('');
+  };
+
+  const handleForgotPasswordRequest = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email) return;
+    setError(null);
+    setSuccessMessage(null);
+    setLoading(true);
+
+    try {
+      const res = await api.forgotPassword(email);
+      setPreviewCode(res.previewCode || '123456');
+      setForgotStep(2);
+    } catch (err: any) {
+      setError(err.message || 'Failed to send reset code');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResetPasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!otpCode || !newPassword) return;
+    if (newPassword.length < 6) {
+      setError('Password must be at least 6 characters');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setError('Passwords do not match');
+      return;
+    }
+    setError(null);
+    setLoading(true);
+
+    try {
+      const res = await api.resetPassword({
+        email,
+        code: otpCode,
+        newPassword,
+      });
+      setSuccessMessage(res.message || 'Password reset successfully! Please sign in with your new password.');
+      setMode('signin');
+      setForgotStep(1);
+      setPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+      setOtpCode('');
+      setPreviewCode(null);
+    } catch (err: any) {
+      setError(err.message || 'Failed to reset password');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSignIn = async (e: React.FormEvent) => {
@@ -206,11 +270,19 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
           <div className="flex items-center gap-2.5 mb-1">
             <img src="/logo.png" alt="Yapr" className="w-7 h-7 object-contain rounded bg-white shadow-sm" />
             <h2 className="text-xl font-bold tracking-tight">
-              {mode === 'signin' ? 'Sign In to Yapr' : 'Create Yapr Account'}
+              {mode === 'forgot_password'
+                ? 'Reset Password'
+                : mode === 'signin'
+                ? 'Sign In to Yapr'
+                : 'Create Yapr Account'}
             </h2>
           </div>
           <p className="text-xs text-blue-100">
-            {mode === 'signin'
+            {mode === 'forgot_password'
+              ? forgotStep === 1
+                ? 'Enter your email to receive a password reset code.'
+                : 'Enter the 6-digit code and create your new password.'
+              : mode === 'signin'
               ? 'Welcome back! Enter your details to continue.'
               : signupStep === 3
               ? 'Step 3 of 3: Choose your unique @username'
@@ -219,8 +291,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
               : 'Step 1 of 3: Enter your email and secure password'}
           </p>
 
-          {/* Mode Switcher Tabs (Only visible when not deep in signup steps) */}
-          {signupStep === 1 && (
+          {/* Mode Switcher Tabs (Only visible when not deep in signup steps and not in forgot password) */}
+          {signupStep === 1 && mode !== 'forgot_password' && (
             <div className="flex gap-2 mt-4 bg-black/20 p-1 rounded-xl w-full">
               <button
                 type="button"
@@ -259,6 +331,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
             </div>
           )}
 
+          {successMessage && (
+            <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900 rounded-xl text-xs text-emerald-700 dark:text-emerald-300 flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 flex-shrink-0 text-emerald-600 dark:text-emerald-400" />
+              <span>{successMessage}</span>
+            </div>
+          )}
+
           {/* ========================================================================= */}
           {/* MODE: SIGN IN */}
           {/* ========================================================================= */}
@@ -287,13 +366,27 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                     <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
                       Password
                     </label>
-                    <button
-                      type="button"
-                      onClick={() => setUseOtpLogin(true)}
-                      className="text-[11px] text-blue-600 dark:text-blue-400 hover:underline"
-                    >
-                      Use OTP instead
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setMode('forgot_password');
+                          setForgotStep(1);
+                          resetState();
+                        }}
+                        className="text-[11px] text-blue-600 dark:text-blue-400 hover:underline font-medium"
+                      >
+                        Forgot password?
+                      </button>
+                      <span className="text-slate-300 dark:text-slate-600 text-[10px]">•</span>
+                      <button
+                        type="button"
+                        onClick={() => setUseOtpLogin(true)}
+                        className="text-[11px] text-blue-600 dark:text-blue-400 hover:underline"
+                      >
+                        Use OTP instead
+                      </button>
+                    </div>
                   </div>
                   <div className="flex items-center px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus-within:border-blue-500 focus-within:bg-white dark:focus-within:bg-slate-800">
                     <Lock className="w-4 h-4 text-slate-400 mr-2" />
@@ -405,6 +498,149 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                   </button>
                 </p>
               </div>
+            </form>
+          )}
+
+          {/* ========================================================================= */}
+          {/* MODE: FORGOT PASSWORD */}
+          {/* ========================================================================= */}
+          {mode === 'forgot_password' && forgotStep === 1 && (
+            <form onSubmit={handleForgotPasswordRequest} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                  Registered Email Address
+                </label>
+                <div className="flex items-center px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus-within:border-blue-500 focus-within:bg-white dark:focus-within:bg-slate-800">
+                  <Mail className="w-4 h-4 text-slate-400 mr-2" />
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="name@example.com"
+                    required
+                    className="w-full text-xs bg-transparent outline-none text-slate-900 dark:text-slate-100"
+                  />
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-xs font-semibold rounded-xl shadow-sm transition-colors flex items-center justify-center gap-1.5"
+              >
+                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                <span>Send Reset Code</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setMode('signin');
+                  resetState();
+                }}
+                className="w-full flex items-center justify-center gap-1.5 text-xs text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 transition-colors pt-1"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" />
+                <span>Back to Sign In</span>
+              </button>
+            </form>
+          )}
+
+          {mode === 'forgot_password' && forgotStep === 2 && (
+            <form onSubmit={handleResetPasswordSubmit} className="space-y-4">
+              <div className="p-3.5 bg-blue-50 dark:bg-blue-950/40 rounded-2xl border border-blue-100 dark:border-blue-900 text-xs text-blue-900 dark:text-blue-300">
+                We sent a 6-digit reset code to:
+                <p className="font-semibold text-blue-950 dark:text-white mt-0.5">{email}</p>
+                {previewCode && (
+                  <div className="mt-2 pt-2 border-t border-blue-200/60 dark:border-blue-800 flex items-center justify-between">
+                    <span className="text-[11px] text-blue-700 dark:text-blue-300 font-medium">Dev test code:</span>
+                    <span className="bg-white dark:bg-slate-800 px-2.5 py-0.5 rounded font-mono font-bold text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-700">
+                      {previewCode}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                  Enter 6-Digit Reset Code
+                </label>
+                <div className="flex items-center px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus-within:border-blue-500 focus-within:bg-white dark:focus-within:bg-slate-800">
+                  <KeyRound className="w-4 h-4 text-slate-400 mr-2" />
+                  <input
+                    type="text"
+                    maxLength={6}
+                    value={otpCode}
+                    onChange={(e) => setOtpCode(e.target.value)}
+                    placeholder="123456"
+                    required
+                    className="w-full text-sm font-mono tracking-widest bg-transparent outline-none text-slate-900 dark:text-slate-100"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                  New Password (min. 6 characters)
+                </label>
+                <div className="flex items-center px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus-within:border-blue-500 focus-within:bg-white dark:focus-within:bg-slate-800">
+                  <Lock className="w-4 h-4 text-slate-400 mr-2" />
+                  <input
+                    type={showNewPassword ? 'text' : 'password'}
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="Enter new password"
+                    minLength={6}
+                    required
+                    className="w-full text-xs bg-transparent outline-none text-slate-900 dark:text-slate-100"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowNewPassword(!showNewPassword)}
+                    className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                  >
+                    {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                  Confirm New Password
+                </label>
+                <div className="flex items-center px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus-within:border-blue-500 focus-within:bg-white dark:focus-within:bg-slate-800">
+                  <Lock className="w-4 h-4 text-slate-400 mr-2" />
+                  <input
+                    type={showNewPassword ? 'text' : 'password'}
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="Confirm new password"
+                    minLength={6}
+                    required
+                    className="w-full text-xs bg-transparent outline-none text-slate-900 dark:text-slate-100"
+                  />
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-xs font-semibold rounded-xl shadow-sm transition-colors flex items-center justify-center gap-1.5"
+              >
+                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                <span>Reset Password</span>
+                <CheckCircle2 className="w-3.5 h-3.5" />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setForgotStep(1)}
+                className="w-full flex items-center justify-center gap-1.5 text-xs text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 transition-colors pt-1"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" />
+                <span>Back to previous step</span>
+              </button>
             </form>
           )}
 

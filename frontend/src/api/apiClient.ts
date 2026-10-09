@@ -244,6 +244,32 @@ export const api = {
     return await res.json();
   },
 
+  async forgotPassword(email: string): Promise<{ message: string; previewCode?: string }> {
+    const res = await fetch(`${API_BASE}/auth/forgot-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to send reset code');
+    }
+    return await res.json();
+  },
+
+  async resetPassword(params: { email: string; code: string; newPassword: string }): Promise<{ success: boolean; message: string }> {
+    const res = await fetch(`${API_BASE}/auth/reset-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(params),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to reset password');
+    }
+    return await res.json();
+  },
+
 
   // Profile
   async getProfile(identifier: string): Promise<UserProfile> {
