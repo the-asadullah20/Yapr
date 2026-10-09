@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { AuthProvider } from './context/AuthContext';
 import { SocketProvider } from './context/SocketContext';
+import { ThemeProvider } from './context/ThemeContext';
 import { Sidebar } from './components/layout/Sidebar';
 import { Topbar } from './components/layout/Topbar';
 import { RightWidgetSidebar } from './components/layout/RightWidgetSidebar';
@@ -49,9 +50,9 @@ export const AppContent: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] flex justify-center selection:bg-blue-600 selection:text-white">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex justify-center selection:bg-blue-600 selection:text-white transition-colors duration-200">
       <div className="w-full max-w-[1440px] flex">
-        {/* Left Sidebar (Image 1 Structure + PulseAi Theme) */}
+        {/* Left Sidebar */}
         <Sidebar
           activeTab={activeTab}
           setActiveTab={setActiveTab}
@@ -65,7 +66,7 @@ export const AppContent: React.FC = () => {
         />
 
         {/* Center Main Content Area */}
-        <div className="flex-1 min-w-0 border-r border-slate-100 flex flex-col min-h-screen">
+        <div className="flex-1 min-w-0 border-r border-slate-200/80 dark:border-slate-800 flex flex-col min-h-screen">
           <Topbar
             onOpenSliders={() => setIsSlidersOpen(true)}
             onOpenNotifications={() => setActiveTab('notifications')}
@@ -104,7 +105,7 @@ export const AppContent: React.FC = () => {
           </main>
         </div>
 
-        {/* Right Widget Sidebar (Trending, Who To Follow, Algorithm info) */}
+        {/* Right Widget Sidebar */}
         <RightWidgetSidebar
           onSelectHashtag={handleSelectHashtag}
           onOpenSliders={() => setIsSlidersOpen(true)}
@@ -128,7 +129,7 @@ export const AppContent: React.FC = () => {
       <AiStudioModal
         isOpen={isAiStudioOpen}
         onClose={() => setIsAiStudioOpen(false)}
-        onUseGeneratedYap={(text) => {
+        onUseGeneratedYap={() => {
           setActiveTab('feed');
         }}
       />
@@ -143,10 +144,12 @@ export const AppContent: React.FC = () => {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <SocketProvider>
-        <AppContent />
-      </SocketProvider>
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <SocketProvider>
+          <AppContent />
+        </SocketProvider>
+      </AuthProvider>
+    </ThemeProvider>
   );
 }

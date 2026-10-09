@@ -5,86 +5,9 @@ import { cacheClient } from '../../config/redis.js';
 import { env } from '../../config/env.js';
 import { summarizeYap } from '../../config/ai.js';
 
-// In-memory mock yaps for fallback/dev
-export const mockYaps: any[] = [
-  {
-    id: 'f1111111-1111-1111-1111-111111111111',
-    author_id: 'b2222222-2222-2222-2222-222222222222',
-    author: {
-      id: 'b2222222-2222-2222-2222-222222222222',
-      username: 'panfengshui',
-      display_name: 'Pan Feng Shui',
-      avatar_url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150',
-      country_code: 'SG',
-      is_verified: true,
-    },
-    body: 'One of the perks of working in an international company is sharing knowledge with your colleagues across continents! Great brainstorm session today on next-gen distributed systems. #Tech #Design',
-    media: [
-      'https://images.unsplash.com/photo-1497366216548-37526070297c?w=800',
-      'https://images.unsplash.com/photo-1497215728101-856f4ea42174?w=800',
-      'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=800',
-    ],
-    like_count: 120,
-    reply_count: 25,
-    reyap_count: 18,
-    summary: 'Pan highlights cross-continental knowledge sharing and brainstorming next-gen distributed systems with colleagues.',
-    tagged_label: null,
-    created_at: new Date(Date.now() - 2 * 3600 * 1000).toISOString(),
-    is_liked: false,
-    is_reyapped: false,
-    is_bookmarked: false,
-  },
-  {
-    id: 'f2222222-2222-2222-2222-222222222222',
-    author_id: 'c3333333-3333-3333-3333-333333333333',
-    author: {
-      id: 'c3333333-3333-3333-3333-333333333333',
-      username: 'clarakim',
-      display_name: 'Clara Kim',
-      avatar_url: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150',
-      country_code: 'US',
-      is_verified: false,
-    },
-    body: 'A Great Way To Generate All The Motivation You Need To Get Fit: Start small, track consistency over intensity, and let dopamine reward your habit loops! 💪🏃‍♀️ #Fitness #Mindset',
-    media: [
-      'https://images.unsplash.com/photo-1517838277536-f5f99be501cd?w=800',
-    ],
-    like_count: 85,
-    reply_count: 14,
-    reyap_count: 9,
-    summary: 'Clara emphasizes building sustainable fitness through small consistent steps rather than erratic high-intensity bursts.',
-    tagged_label: null,
-    created_at: new Date(Date.now() - 4 * 3600 * 1000).toISOString(),
-    is_liked: false,
-    is_reyapped: false,
-    is_bookmarked: false,
-  },
-  {
-    id: 'f3333333-3333-3333-3333-333333333333',
-    author_id: 'a1111111-1111-1111-1111-111111111111',
-    author: {
-      id: 'a1111111-1111-1111-1111-111111111111',
-      username: 'asadahmad',
-      display_name: 'Asad Ahmad',
-      avatar_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
-      country_code: 'PK',
-      is_verified: true,
-    },
-    body: 'Welcome to Yapr! 🚀 The social platform where every post is a Yap. Built with Express, React, Tailwind, Supabase Postgres, Redis, and Groq/Gemini AI summarization. Experience user-controlled feed ranking sliders! #Yapr #PulseAi #Tech',
-    media: [
-      'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800',
-    ],
-    like_count: 340,
-    reply_count: 52,
-    reyap_count: 41,
-    summary: 'Asad announces Yapr launch featuring user-controlled feed ranking algorithms and dual AI summarization.',
-    tagged_label: null,
-    created_at: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
-    is_liked: true,
-    is_reyapped: false,
-    is_bookmarked: true,
-  },
-];
+// In-memory yaps store for dev
+export const mockYaps: any[] = [];
+
 
 export class YapsService {
   /**

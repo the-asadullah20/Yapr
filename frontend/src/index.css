@@ -4,16 +4,14 @@
 
 @layer base {
   body {
-    background-color: #F8FAFC;
-    color: #0F172A;
-    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    font-family: 'Poppins', sans-serif;
   }
 }
 
-/* Custom modern scrollbar */
+/* Custom modern sleek scrollbar */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
 }
 
 ::-webkit-scrollbar-track {
@@ -25,15 +23,19 @@
   border-radius: 9999px;
 }
 
+.dark ::-webkit-scrollbar-thumb {
+  background: #334155;
+}
+
 ::-webkit-scrollbar-thumb:hover {
   background: #94A3B8;
 }
 
-/* PulseAi aesthetic glow */
-.pulse-glow {
-  box-shadow: 0 0 25px -5px rgba(37, 99, 235, 0.4);
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #475569;
 }
 
-.gradient-hero {
-  background: linear-gradient(135deg, #1E40AF 0%, #2563EB 50%, #38BDF8 100%);
+/* Subtle clean card glow on active */
+.yapr-active-pill {
+  box-shadow: 0 4px 14px 0 rgba(37, 99, 235, 0.25);
 }

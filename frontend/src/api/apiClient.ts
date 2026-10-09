@@ -30,97 +30,14 @@ export const api = {
     } catch (err) {
       console.warn('API getFeed fallback to default:', err);
       return {
-        yaps: [
-          {
-            id: 'f1111111-1111-1111-1111-111111111111',
-            author_id: 'b2222222-2222-2222-2222-222222222222',
-            author: {
-              id: 'b2222222-2222-2222-2222-222222222222',
-              username: 'panfengshui',
-              display_name: 'Pan Feng Shui',
-              avatar_url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150',
-              country_code: 'SG',
-              follower_count: 12400,
-              following_count: 450,
-              is_verified: true,
-            },
-            body: 'One of the perks of working in an international company is sharing knowledge with your colleagues across continents! Great brainstorm session today on next-gen distributed systems. #Tech #Design',
-            media: [
-              'https://images.unsplash.com/photo-1497366216548-37526070297c?w=800',
-              'https://images.unsplash.com/photo-1497215728101-856f4ea42174?w=800',
-              'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=800',
-            ],
-            like_count: 120000,
-            reply_count: 25,
-            reyap_count: 231,
-            summary: 'Pan highlights cross-continental knowledge sharing and brainstorming next-gen distributed systems with colleagues.',
-            created_at: new Date(Date.now() - 3600000).toISOString(),
-            is_liked: false,
-            is_reyapped: false,
-            is_bookmarked: false,
-            why_label: 'Trending on Yapr',
-          },
-          {
-            id: 'f2222222-2222-2222-2222-222222222222',
-            author_id: 'c3333333-3333-3333-3333-333333333333',
-            author: {
-              id: 'c3333333-3333-3333-3333-333333333333',
-              username: 'clarakim',
-              display_name: 'Clara Kim',
-              avatar_url: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150',
-              country_code: 'US',
-              follower_count: 8920,
-              following_count: 210,
-              is_verified: false,
-            },
-            body: 'A Great Way To Generate All The Motivation You Need To Get Fit: Start small, track consistency over intensity, and let dopamine reward your habit loops! 💪🏃‍♀️ #Fitness #Mindset',
-            media: [
-              'https://images.unsplash.com/photo-1517838277536-f5f99be501cd?w=800',
-            ],
-            like_count: 840,
-            reply_count: 14,
-            reyap_count: 9,
-            summary: 'Clara emphasizes building sustainable fitness through small daily consistency rather than sporadic intense workouts.',
-            created_at: new Date(Date.now() - 7200000).toISOString(),
-            is_liked: false,
-            is_reyapped: false,
-            is_bookmarked: false,
-            why_label: 'From people you follow',
-          },
-          {
-            id: 'f3333333-3333-3333-3333-333333333333',
-            author_id: 'a1111111-1111-1111-1111-111111111111',
-            author: {
-              id: 'a1111111-1111-1111-1111-111111111111',
-              username: 'asadahmad',
-              display_name: 'Asad Ahmad',
-              avatar_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
-              country_code: 'PK',
-              follower_count: 1420,
-              following_count: 310,
-              is_verified: true,
-            },
-            body: 'Welcome to Yapr! 🚀 Built with Express, React, Tailwind, Supabase Postgres, Redis Upstash, LavinMQ and dual AI models (Groq + Gemini). Check out the feed sliders to tune your algorithm! #Yapr #PulseAi #Tech #Karachi',
-            media: [
-              'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800',
-            ],
-            like_count: 2450,
-            reply_count: 68,
-            reyap_count: 52,
-            summary: 'Official launch: Yapr architecture overview, dual AI summarizers, and user-controlled feed ranking sliders.',
-            created_at: new Date(Date.now() - 1800000).toISOString(),
-            is_liked: true,
-            is_reyapped: false,
-            is_bookmarked: true,
-            why_label: 'Recommended for you',
-          },
-        ],
+        yaps: [],
         algorithmMetadata: {
           stage: 'Stage 1 Rule-Based',
           formula: 'score = (likes*1 + replies*3 + reyaps*2) * recency_decay + author_affinity',
         },
       };
     }
+
   },
 
   // Create Yap
