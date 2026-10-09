@@ -46,7 +46,7 @@ export const FeedPage: React.FC<FeedPageProps> = ({
 
   const handleDeleteYap = async (yapId: string) => {
     setYaps(yaps.filter((y) => y.id !== yapId));
-    await api.createYap('', []); // triggers delete
+    await api.createYap('', []);
   };
 
   return (
@@ -58,30 +58,30 @@ export const FeedPage: React.FC<FeedPageProps> = ({
         onOpenSliders={onOpenSliders}
       />
 
-      {/* Yap Composer Card (Matching Image 1) */}
+      {/* Yap Composer Card */}
       <YapComposer onYapCreated={handleYapCreated} />
 
       {/* Yaps List */}
       {loading ? (
         <div className="space-y-4">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="bg-white rounded-2xl p-6 border border-slate-100 animate-pulse space-y-3">
+            <div key={i} className="bg-white dark:bg-slate-900 rounded-2xl p-6 border border-slate-200/80 dark:border-slate-800 animate-pulse space-y-3">
               <div className="flex gap-3 items-center">
-                <div className="w-10 h-10 rounded-full bg-slate-200" />
+                <div className="w-10 h-10 rounded-full bg-slate-200 dark:bg-slate-800" />
                 <div className="space-y-1.5 flex-1">
-                  <div className="w-24 h-3 bg-slate-200 rounded" />
-                  <div className="w-16 h-2 bg-slate-100 rounded" />
+                  <div className="w-24 h-3 bg-slate-200 dark:bg-slate-800 rounded" />
+                  <div className="w-16 h-2 bg-slate-100 dark:bg-slate-850 rounded" />
                 </div>
               </div>
-              <div className="w-full h-12 bg-slate-100 rounded-xl" />
-              <div className="w-full h-48 bg-slate-200 rounded-2xl" />
+              <div className="w-full h-12 bg-slate-100 dark:bg-slate-800 rounded-xl" />
+              <div className="w-full h-48 bg-slate-200 dark:bg-slate-800 rounded-2xl" />
             </div>
           ))}
         </div>
       ) : yaps.length === 0 ? (
-        <div className="bg-white rounded-2xl p-8 border border-slate-100 text-center">
-          <p className="text-sm font-semibold text-slate-800">No Yaps in this feed</p>
-          <p className="text-xs text-slate-400 mt-1">Be the first to yap something!</p>
+        <div className="bg-white dark:bg-slate-900 rounded-2xl p-8 border border-slate-200/80 dark:border-slate-800 text-center">
+          <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">No Yaps in this feed</p>
+          <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">Be the first to yap something!</p>
         </div>
       ) : (
         <div>

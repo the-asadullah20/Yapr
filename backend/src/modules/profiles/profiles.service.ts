@@ -52,9 +52,10 @@ const mockProfiles = new Map<string, any>([
 ]);
 
 // Initialize bloom filter with existing usernames
-['asadahmad', 'panfengshui', 'clarakim', 'hamza_tech', 'zainab_writes'].forEach((u) => {
+['asadahmad', 'panfengshui', 'clarakim', 'hamza_tech', 'zainab_writes', 'ali', 'admin', 'yapr'].forEach((u) => {
   usernameBloomFilter.add(u).catch(() => {});
 });
+
 
 export class ProfilesService {
   /**
@@ -86,12 +87,18 @@ export class ProfilesService {
     }
 
     // Fallback to in-memory store
+    const reserved = ['asadahmad', 'panfengshui', 'clarakim', 'hamza_tech', 'zainab_writes', 'ali', 'admin', 'yapr'];
+    if (reserved.includes(clean)) {
+      return { available: false, method: 'reserved-check' };
+    }
+
     for (const p of mockProfiles.values()) {
       if (p.username.toLowerCase() === clean) {
         return { available: false, method: 'mock-check' };
       }
     }
     return { available: true, method: 'mock-check' };
+
   }
 
   async getProfile(identifier: string): Promise<any> {

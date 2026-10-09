@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
-import { AuthProvider } from './context/AuthContext';
-import { SocketProvider } from './context/SocketContext';
+import { Home, Compass, Bell, Bookmark, Sparkles, User } from 'lucide-react';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import { SocketProvider, useSocket } from './context/SocketContext';
+import { ThemeProvider } from './context/ThemeContext';
 import { Sidebar } from './components/layout/Sidebar';
 import { Topbar } from './components/layout/Topbar';
 import { RightWidgetSidebar } from './components/layout/RightWidgetSidebar';
@@ -21,6 +23,8 @@ import { AuthModal } from './components/auth/AuthModal';
 import { Yap, FeedSliderSettings, SearchResult } from './types';
 
 export const AppContent: React.FC = () => {
+  const { user } = useAuth();
+  const { unreadCount } = useSocket();
   const [activeTab, setActiveTab] = useState('feed');
   const [sliderSettings, setSliderSettings] = useState<FeedSliderSettings>({
     followingWeight: 1.5,
@@ -49,9 +53,9 @@ export const AppContent: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] flex justify-center selection:bg-blue-600 selection:text-white">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex justify-center selection:bg-blue-600 selection:text-white transition-colors duration-200">
       <div className="w-full max-w-[1440px] flex">
-        {/* Left Sidebar (Image 1 Structure + PulseAi Theme) */}
+        {/* Left Sidebar (Hidden on mobile, visible md+) */}
         <Sidebar
           activeTab={activeTab}
           setActiveTab={setActiveTab}
@@ -65,7 +69,7 @@ export const AppContent: React.FC = () => {
         />
 
         {/* Center Main Content Area */}
-        <div className="flex-1 min-w-0 border-r border-slate-100 flex flex-col min-h-screen">
+        <div className="flex-1 min-w-0 border-r border-slate-200/80 dark:border-slate-800 flex flex-col min-h-screen">
           <Topbar
             onOpenSliders={() => setIsSlidersOpen(true)}
             onOpenNotifications={() => setActiveTab('notifications')}
@@ -73,7 +77,7 @@ export const AppContent: React.FC = () => {
             onSelectSearchResult={handleSelectSearchResult}
           />
 
-          <main className="flex-1 pb-16">
+          <main className="flex-1 pb-20 md:pb-16">
             {activeTab === 'feed' && (
               <FeedPage
                 onOpenThread={(yap) => setSelectedThreadYap(yap)}
@@ -104,13 +108,62 @@ export const AppContent: React.FC = () => {
           </main>
         </div>
 
-        {/* Right Widget Sidebar (Trending, Who To Follow, Algorithm info) */}
+        {/* Right Widget Sidebar */}
         <RightWidgetSidebar
           onSelectHashtag={handleSelectHashtag}
           onOpenSliders={() => setIsSlidersOpen(true)}
           onOpenAiStudio={() => setIsAiStudioOpen(true)}
         />
       </div>
+
+      {/* Mobile Bottom Navigation Bar (Scalable to all phone screens) */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200/80 dark:border-slate-800 px-3 py-2 flex items-center justify-around shadow-lg">
+        <button
+          onClick={() => setActiveTab('feed')}
+          className={`p-2 rounded-xl transition-colors ${
+            activeTab === 'feed' ? 'text-blue-600 dark:text-blue-400' : 'text-slate-500 dark:text-slate-400'
+          }`}
+        >
+          <Home className="w-5 h-5" />
+        </button>
+
+        <button
+          onClick={() => setActiveTab('explore')}
+          className={`p-2 rounded-xl transition-colors ${
+            activeTab === 'explore' ? 'text-blue-600 dark:text-blue-400' : 'text-slate-500 dark:text-slate-400'
+          }`}
+        >
+          <Compass className="w-5 h-5" />
+        </button>
+
+        <button
+          onClick={() => setIsAiStudioOpen(true)}
+          className="p-2 rounded-xl bg-blue-600 text-white shadow-sm"
+        >
+          <Sparkles className="w-5 h-5" />
+        </button>
+
+        <button
+          onClick={() => setActiveTab('notifications')}
+          className={`relative p-2 rounded-xl transition-colors ${
+            activeTab === 'notifications' ? 'text-blue-600 dark:text-blue-400' : 'text-slate-500 dark:text-slate-400'
+          }`}
+        >
+          <Bell className="w-5 h-5" />
+          {unreadCount > 0 && (
+            <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-blue-600" />
+          )}
+        </button>
+
+        <button
+          onClick={() => (user ? setActiveTab('profile') : setIsAuthOpen(true))}
+          className={`p-2 rounded-xl transition-colors ${
+            activeTab === 'profile' ? 'text-blue-600 dark:text-blue-400' : 'text-slate-500 dark:text-slate-400'
+          }`}
+        >
+          <User className="w-5 h-5" />
+        </button>
+      </nav>
 
       {/* Global Modals */}
       <FeedSlidersModal
@@ -128,7 +181,7 @@ export const AppContent: React.FC = () => {
       <AiStudioModal
         isOpen={isAiStudioOpen}
         onClose={() => setIsAiStudioOpen(false)}
-        onUseGeneratedYap={(text) => {
+        onUseGeneratedYap={() => {
           setActiveTab('feed');
         }}
       />
@@ -143,10 +196,12 @@ export const AppContent: React.FC = () => {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <SocketProvider>
-        <AppContent />
-      </SocketProvider>
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <SocketProvider>
+          <AppContent />
+        </SocketProvider>
+      </AuthProvider>
+    </ThemeProvider>
   );
 }
