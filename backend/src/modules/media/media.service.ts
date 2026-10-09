@@ -1,6 +1,27 @@
-import { supabaseAdmin, isSupabaseConfigured } from '../../config/supabase.js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { env } from '../../config/env.js';
+import { isSupabaseConfigured } from '../../config/supabase.js';
 import crypto from 'crypto';
 import path from 'path';
+
+// Dedicated storage admin client guaranteed to run with service_role privilege
+// completely immune to user sessions or client-level RLS restrictions
+const storageAdmin: SupabaseClient = createClient(
+  env.SUPABASE_URL,
+  env.SUPABASE_SERVICE_ROLE_KEY,
+  {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+    global: {
+      headers: {
+        Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+        apikey: env.SUPABASE_SERVICE_ROLE_KEY,
+      },
+    },
+  }
+);
 
 export class MediaService {
   /**
@@ -11,7 +32,7 @@ export class MediaService {
     const filePath = `${userId}/${Date.now()}_avatar${ext}`;
 
     if (isSupabaseConfigured) {
-      const { data, error } = await supabaseAdmin.storage
+      const { data, error } = await storageAdmin.storage
         .from('avatars')
         .upload(filePath, file.buffer, {
           contentType: file.mimetype,
@@ -23,14 +44,14 @@ export class MediaService {
         throw new Error(`Failed to upload avatar: ${error.message}`);
       }
 
-      const { data: publicUrlData } = supabaseAdmin.storage
+      const { data: publicUrlData } = storageAdmin.storage
         .from('avatars')
         .getPublicUrl(filePath);
 
       const avatarUrl = publicUrlData.publicUrl;
 
       // Update avatar_url in profiles table
-      await supabaseAdmin
+      await storageAdmin
         .from('profiles')
         .update({ avatar_url: avatarUrl, updated_at: new Date().toISOString() })
         .eq('id', userId);
@@ -51,7 +72,7 @@ export class MediaService {
     const filePath = `${userId}/${Date.now()}_${random}${ext}`;
 
     if (isSupabaseConfigured) {
-      const { data, error } = await supabaseAdmin.storage
+      const { data, error } = await storageAdmin.storage
         .from('media')
         .upload(filePath, file.buffer, {
           contentType: file.mimetype,
@@ -63,7 +84,7 @@ export class MediaService {
         throw new Error(`Failed to upload media: ${error.message}`);
       }
 
-      const { data: publicUrlData } = supabaseAdmin.storage
+      const { data: publicUrlData } = storageAdmin.storage
         .from('media')
         .getPublicUrl(filePath);
 

@@ -3,10 +3,8 @@ import jwt from 'jsonwebtoken';
 import { cacheClient } from '../../config/redis.js';
 import { env } from '../../config/env.js';
 import { queueService } from '../../config/queue.js';
-import { supabaseAdmin, isSupabaseConfigured } from '../../config/supabase.js';
+import { supabaseAdmin, isSupabaseConfigured, supabaseAnon } from '../../config/supabase.js';
 import { usernameBloomFilter } from '../../utils/bloomFilter.js';
-
-// In-memory user credentials for dev/local fallback
 const registeredUsers = new Map<string, { email: string; passwordHash: string; userId: string; username: string }>();
 
 // Preload test admin/demo credentials: asad@yapr.app / password123
@@ -178,7 +176,7 @@ export class AuthService {
         const { data: p } = await supabaseAdmin.from('profiles').select('*').eq('id', userId).single();
         profile = p;
       } else {
-        const { data, error } = await supabaseAdmin.auth.signUp({
+        const { data, error } = await supabaseAnon.auth.signUp({
           email: cleanEmail,
           password: params.password,
           options: {
@@ -242,7 +240,7 @@ export class AuthService {
     let profile: any = null;
 
     if (isSupabaseConfigured) {
-      const { data, error } = await supabaseAdmin.auth.signInWithPassword({
+      const { data, error } = await supabaseAnon.auth.signInWithPassword({
         email: cleanEmail,
         password,
       });
