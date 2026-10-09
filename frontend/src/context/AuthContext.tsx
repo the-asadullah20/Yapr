@@ -48,6 +48,61 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [token]);
 
+  // Handle OAuth callback (Google & Facebook redirect return)
+  useEffect(() => {
+    const handleOAuthCallback = async () => {
+      const hash = window.location.hash;
+      if (!hash || !hash.includes('access_token')) return;
+
+      const params = new URLSearchParams(hash.replace(/^#/, ''));
+      const accessToken = params.get('access_token');
+      if (accessToken) {
+        try {
+          const base64Url = accessToken.split('.')[1];
+          const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+          const jsonPayload = decodeURIComponent(
+            atob(base64)
+              .split('')
+              .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+              .join('')
+          );
+          const payload = JSON.parse(jsonPayload);
+          const email = payload.email || '';
+          const rawName =
+            payload.user_metadata?.full_name ||
+            payload.user_metadata?.name ||
+            email.split('@')[0] ||
+            'Yapr User';
+          const username =
+            payload.user_metadata?.user_name ||
+            email.split('@')[0]?.replace(/[^a-zA-Z0-9_]/g, '') ||
+            `user_${payload.sub?.slice(0, 6)}`;
+
+          const userProfile: UserProfile = {
+            id: payload.sub,
+            username,
+            display_name: rawName,
+            avatar_url:
+              payload.user_metadata?.avatar_url ||
+              payload.user_metadata?.picture ||
+              `https://api.dicebear.com/7.x/bottts/svg?seed=${username}`,
+            country_code: 'PK',
+            follower_count: 0,
+            following_count: 0,
+          };
+
+          setToken(accessToken);
+          setUser(userProfile);
+          window.history.replaceState(null, '', window.location.pathname);
+        } catch (e) {
+          console.error('Failed to parse OAuth session:', e);
+        }
+      }
+    };
+
+    handleOAuthCallback();
+  }, []);
+
   const setSession = (newToken: string, newUser: UserProfile) => {
     setToken(newToken);
     setUser(newUser);
