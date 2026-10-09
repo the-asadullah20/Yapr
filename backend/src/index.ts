@@ -38,8 +38,18 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use(generalLimiter);
 
-// Health Check
-app.get('/api/health', async (req, res) => {
+// Keep-Alive Ping for UptimeRobot / Cron Monitors
+app.get('/', (req, res) => {
+  res.status(200).json({
+    status: 'ok',
+    message: 'Yapr Backend is live and running',
+    uptimeSeconds: Math.floor(process.uptime()),
+    timestamp: new Date().toISOString(),
+  });
+});
+
+// Comprehensive Health Check for UptimeRobot & Cloud Load Balancers
+const handleHealthCheck = async (req: express.Request, res: express.Response) => {
   let redisStatus = 'mock';
   try {
     await cacheClient.set('health:ping', 'pong', 5);
@@ -49,8 +59,9 @@ app.get('/api/health', async (req, res) => {
     redisStatus = 'error';
   }
 
-  res.json({
+  res.status(200).json({
     status: 'ok',
+    uptimeSeconds: Math.floor(process.uptime()),
     version: '1.0.0',
     service: 'Yapr API',
     database: isSupabaseConfigured ? 'supabase-connected' : 'mock-active',
@@ -62,7 +73,10 @@ app.get('/api/health', async (req, res) => {
     },
     timestamp: new Date().toISOString(),
   });
-});
+};
+
+app.get('/health', handleHealthCheck);
+app.get('/api/health', handleHealthCheck);
 
 // Mount modular routes
 app.use('/api/auth', authRoutes);

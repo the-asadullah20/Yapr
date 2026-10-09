@@ -153,8 +153,8 @@ export const YapComposer: React.FC<YapComposerProps> = ({ onYapCreated, defaultH
             )}
 
             {/* Bottom composer controls */}
-            <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-800">
-              <div className="flex items-center gap-1.5">
+            <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-800 flex-wrap gap-2">
+              <div className="flex items-center gap-1.5 flex-wrap">
                 {/* Media file upload button */}
                 <button
                   type="button"

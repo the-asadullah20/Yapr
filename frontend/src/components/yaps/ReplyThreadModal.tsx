@@ -487,7 +487,7 @@ export const ReplyThreadModal: React.FC<ReplyThreadModalProps> = ({
                 value={replyText}
                 onChange={(e) => setReplyText(e.target.value)}
                 placeholder="Write your comment or reply..."
-                className="flex-1 px-3.5 py-2.5 text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:border-blue-500 text-slate-900 dark:text-slate-100 shadow-sm"
+                className="flex-1 min-w-0 px-3.5 py-2.5 text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:border-blue-500 text-slate-900 dark:text-slate-100 shadow-sm"
               />
 
               {/* Emoji toggle button */}

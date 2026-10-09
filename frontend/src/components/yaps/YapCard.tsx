@@ -521,13 +521,13 @@ export const YapCard: React.FC<YapCardProps> = ({
             className="w-7 h-7 rounded-full object-cover flex-shrink-0 ring-1 ring-slate-200 dark:ring-slate-700"
           />
 
-          <div className="flex-1 flex items-center bg-slate-50 dark:bg-slate-800 rounded-xl px-3 py-1.5 border border-slate-200/80 dark:border-slate-700 focus-within:border-blue-500 focus-within:bg-white dark:focus-within:bg-slate-800 transition-all">
+          <div className="flex-1 min-w-0 flex items-center bg-slate-50 dark:bg-slate-800 rounded-xl px-3 py-1.5 border border-slate-200/80 dark:border-slate-700 focus-within:border-blue-500 focus-within:bg-white dark:focus-within:bg-slate-800 transition-all">
             <input
               type="text"
               value={quickReplyText}
               onChange={(e) => setQuickReplyText(e.target.value)}
               placeholder="Write your comment..."
-              className="flex-1 bg-transparent text-xs text-slate-800 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 outline-none"
+              className="flex-1 min-w-0 bg-transparent text-xs text-slate-800 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 outline-none"
             />
 
             <div className="flex items-center gap-1.5 text-slate-400">
