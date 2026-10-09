@@ -31,9 +31,9 @@ export const env = {
 
   // AI
   GROQ_API_KEY: process.env.GROQ_API_KEY || '',
-  GROQ_MODEL: process.env.GROQ_MODEL || 'llama-3.3-70b-versatile',
+  GROQ_MODEL: process.env.GROQ_MODEL || 'openai/gpt-oss-20b',
   GEMINI_API_KEY: process.env.GEMINI_API_KEY || '',
-  GEMINI_MODEL: process.env.GEMINI_MODEL || 'gemini-2.0-flash',
+  GEMINI_MODEL: process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite',
 
   // SMTP
   SMTP_HOST: process.env.SMTP_HOST || 'smtp.mailtrap.io',
