@@ -14,6 +14,11 @@ export function createRateLimiter(options: {
   const errorMessage = options.errorMessage || 'Too many requests, please slow down.';
 
   return async (req: Request, res: Response, next: NextFunction) => {
+    // Exempt health checks and keep-alive pings from rate limiting (UptimeRobot friendly)
+    if (req.path === '/health' || req.path === '/api/health' || req.path === '/') {
+      return next();
+    }
+
     try {
       const identifier = req.user?.id || req.ip || 'anonymous';
       const key = `${keyPrefix}:${identifier}`;
