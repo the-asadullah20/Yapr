@@ -289,4 +289,45 @@ export const api = {
     const data = await res.json();
     return data.profile;
   },
+
+  // Storage / Uploads
+  async uploadAvatar(file: File): Promise<{ url: string }> {
+    const token = localStorage.getItem('yapr_token');
+    const formData = new FormData();
+    formData.append('avatar', file);
+
+    const res = await fetch(`${API_BASE}/media/avatar`, {
+      method: 'POST',
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: formData,
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to upload profile picture');
+    }
+    return await res.json();
+  },
+
+  async uploadMedia(file: File): Promise<{ url: string }> {
+    const token = localStorage.getItem('yapr_token');
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const res = await fetch(`${API_BASE}/media/upload`, {
+      method: 'POST',
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: formData,
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to upload media');
+    }
+    return await res.json();
+  },
 };
