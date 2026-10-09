@@ -19,6 +19,7 @@ import {
   Flag,
   X,
   Users,
+  LogOut,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../api/apiClient';
@@ -54,7 +55,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
   onOpenThread,
   onOpenProfile,
 }) => {
-  const { user, updateUser } = useAuth();
+  const { user, updateUser, logout } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Other user's profile state
@@ -785,16 +786,27 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
               />
             </div>
 
-            <button
-              onClick={() => {
-                setIsEditing(!isEditing);
-                setSaveError(null);
-              }}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-bold text-slate-700 dark:text-slate-200 transition-colors"
-            >
-              <Edit3 className="w-3.5 h-3.5" />
-              <span>{isEditing ? 'Cancel' : 'Edit Profile'}</span>
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => {
+                  setIsEditing(!isEditing);
+                  setSaveError(null);
+                }}
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-bold text-slate-700 dark:text-slate-200 transition-colors shadow-sm"
+              >
+                <Edit3 className="w-3.5 h-3.5" />
+                <span>{isEditing ? 'Cancel' : 'Edit Profile'}</span>
+              </button>
+
+              <button
+                onClick={() => logout()}
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-900/50 text-xs font-bold transition-colors border border-rose-200 dark:border-rose-900 shadow-sm"
+                title="Sign out of your account"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span>Sign Out</span>
+              </button>
+            </div>
           </div>
 
           {avatarError && <p className="text-xs text-rose-600 mb-2">{avatarError}</p>}
