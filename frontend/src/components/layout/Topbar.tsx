@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, Bell, Sliders, X, Sun, Moon } from 'lucide-react';
+import { Search, Bell, Sliders, X, Sun, Moon, LogOut, User } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useSocket } from '../../context/SocketContext';
 import { useTheme } from '../../context/ThemeContext';
@@ -11,6 +11,8 @@ interface TopbarProps {
   onOpenNotifications: () => void;
   onOpenAiStudio?: () => void;
   onSelectSearchResult?: (result: SearchResult) => void;
+  onOpenProfile?: () => void;
+  onOpenAuth?: () => void;
 }
 
 export const Topbar: React.FC<TopbarProps> = ({
@@ -18,8 +20,10 @@ export const Topbar: React.FC<TopbarProps> = ({
   onOpenNotifications,
   onOpenAiStudio,
   onSelectSearchResult,
+  onOpenProfile,
+  onOpenAuth,
 }) => {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const { unreadCount } = useSocket();
   const { toggleTheme, isDark } = useTheme();
   const [searchQuery, setSearchQuery] = useState('');
@@ -27,7 +31,9 @@ export const Topbar: React.FC<TopbarProps> = ({
   const [expandedTerms, setExpandedTerms] = useState<string[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
+  const userMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!searchQuery.trim()) {
@@ -59,6 +65,9 @@ export const Topbar: React.FC<TopbarProps> = ({
     function handleClickOutside(e: MouseEvent) {
       if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
         setIsOpen(false);
+      }
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
+        setIsUserMenuOpen(false);
       }
     }
     document.addEventListener('mousedown', handleClickOutside);
@@ -176,14 +185,68 @@ export const Topbar: React.FC<TopbarProps> = ({
           {isDark ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-slate-600" />}
         </button>
 
-        {/* Active User Avatar */}
-        {user && (
-          <img
-            src={user.avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150'}
-            alt={user.display_name}
-            className="w-8 h-8 rounded-full object-cover ring-2 ring-slate-200 dark:ring-slate-700"
-          />
-        )}
+        {/* Active User Avatar Dropdown Menu */}
+        {user ? (
+          <div className="relative" ref={userMenuRef}>
+            <button
+              onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+              className="flex items-center rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500/40 transition-transform active:scale-95 cursor-pointer"
+              title="Account menu"
+            >
+              <img
+                src={user.avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150'}
+                alt={user.display_name}
+                className="w-8 h-8 rounded-full object-cover ring-2 ring-slate-200 dark:ring-slate-700 hover:ring-blue-500 dark:hover:ring-blue-400 transition-all"
+              />
+            </button>
+
+            {isUserMenuOpen && (
+              <div className="absolute right-0 mt-2 w-52 bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200/80 dark:border-slate-800 py-1.5 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
+                <div className="px-3.5 py-2.5 border-b border-slate-100 dark:border-slate-800">
+                  <p className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                    {user.display_name}
+                  </p>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                    @{user.username}
+                  </p>
+                </div>
+
+                <div className="py-1">
+                  {onOpenProfile && (
+                    <button
+                      onClick={() => {
+                        setIsUserMenuOpen(false);
+                        onOpenProfile();
+                      }}
+                      className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors text-left"
+                    >
+                      <User className="w-4 h-4 text-slate-400" />
+                      <span>View Profile</span>
+                    </button>
+                  )}
+
+                  <button
+                    onClick={() => {
+                      setIsUserMenuOpen(false);
+                      logout();
+                    }}
+                    className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-medium text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors text-left"
+                  >
+                    <LogOut className="w-4 h-4" />
+                    <span>Sign Out</span>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        ) : onOpenAuth ? (
+          <button
+            onClick={onOpenAuth}
+            className="px-3 py-1.5 rounded-full bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-sm transition-colors"
+          >
+            Log In
+          </button>
+        ) : null}
       </div>
     </header>
   );

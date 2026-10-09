@@ -120,6 +120,11 @@ export const AppContent: React.FC = () => {
             onOpenNotifications={() => setActiveTab('notifications')}
             onOpenAiStudio={() => setIsAiStudioOpen(true)}
             onSelectSearchResult={handleSelectSearchResult}
+            onOpenProfile={() => {
+              setViewingProfileUsername(null);
+              setActiveTab('profile');
+            }}
+            onOpenAuth={() => setIsAuthOpen(true)}
           />
 
           <main className="flex-1 pb-20 md:pb-16">
