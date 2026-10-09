@@ -47,8 +47,12 @@ export const FeedPage: React.FC<FeedPageProps> = ({
   };
 
   const handleDeleteYap = async (yapId: string) => {
-    setYaps(yaps.filter((y) => y.id !== yapId));
-    await api.createYap('', []);
+    setYaps((prev) => prev.filter((y) => y.id !== yapId));
+    try {
+      await api.deleteYap(yapId);
+    } catch (err: any) {
+      console.error('Failed to delete yap:', err);
+    }
   };
 
   return (

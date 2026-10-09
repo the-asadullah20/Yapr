@@ -10,6 +10,7 @@ export interface UserProfile {
   follower_count: number;
   following_count: number;
   is_verified?: boolean;
+  is_private?: boolean;
 }
 
 export interface Yap {

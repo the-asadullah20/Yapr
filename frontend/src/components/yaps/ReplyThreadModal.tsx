@@ -3,6 +3,7 @@ import { X, Send, CheckCircle2, HelpCircle, FileText, AlertCircle, Image, Loader
 import { Yap } from '../../types';
 import { api } from '../../api/apiClient';
 import { formatTimeAgo } from '../../utils/formatters';
+import { useAuth } from '../../context/AuthContext';
 
 interface ReplyThreadModalProps {
   yap: Yap | null;
@@ -11,7 +12,12 @@ interface ReplyThreadModalProps {
   onOpenProfile?: (username: string) => void;
 }
 
-const QUICK_EMOJIS = ['❤️', '👍', '🔥', '😂', '🎉', '💡', '💯', '👏'];
+const EMOJI_LIST = [
+  '❤️', '🔥', '😂', '👍', '👏', '🎉', '🚀', '💡',
+  '💯', '🤝', '🙌', '👀', '✨', '🤩', '🤯', '🥺',
+  '💀', '🎯', '💬', '⚡', '🥳', '😎', '🙏', '💪',
+  '😍', '🤔', '👋', '✅'
+];
 
 export const ReplyThreadModal: React.FC<ReplyThreadModalProps> = ({
   yap,
@@ -19,6 +25,7 @@ export const ReplyThreadModal: React.FC<ReplyThreadModalProps> = ({
   onYapReplied,
   onOpenProfile,
 }) => {
+  const { user } = useAuth();
   const [replies, setReplies] = useState<Yap[]>([]);
   const [loading, setLoading] = useState(false);
   const [replyText, setReplyText] = useState('');
@@ -71,23 +78,55 @@ export const ReplyThreadModal: React.FC<ReplyThreadModalProps> = ({
     e.preventDefault();
     if ((!replyText.trim() && mediaUrls.length === 0) || isSubmitting) return;
 
+    const currentText = replyText.trim();
+    const currentMedia = [...mediaUrls];
+    const currentLabel = taggedLabel;
+    const tempId = `temp-${Date.now()}`;
+
+    // 0ms Optimistic UI update
+    const optimisticReply: Yap = {
+      id: tempId,
+      author_id: user?.id || 'me',
+      parent_id: yap.id,
+      body: currentText,
+      media: currentMedia,
+      tagged_label: currentLabel,
+      like_count: 0,
+      reply_count: 0,
+      reyap_count: 0,
+      created_at: new Date().toISOString(),
+      author: user || {
+        id: 'me',
+        username: 'me',
+        display_name: 'You',
+        country_code: 'PK',
+        follower_count: 0,
+        following_count: 0,
+      },
+    };
+
+    setReplies((prev) => [...prev, optimisticReply]);
+    yap.reply_count = (yap.reply_count || 0) + 1;
+    setReplyText('');
+    setMediaUrls([]);
+    setTaggedLabel(null);
+    setShowEmojiBar(false);
     setIsSubmitting(true);
+
     try {
       const newReply = await api.createYap(
-        replyText,
-        mediaUrls,
-        taggedLabel || undefined,
+        currentText,
+        currentMedia,
+        currentLabel || undefined,
         yap.author?.country_code || 'PK',
         yap.id // Critical: pass parent Yap ID
       );
 
-      setReplies((prev) => [...prev, newReply]);
-      yap.reply_count = (yap.reply_count || 0) + 1;
-      setReplyText('');
-      setMediaUrls([]);
-      setTaggedLabel(null);
+      setReplies((prev) => prev.map((r) => (r.id === tempId ? newReply : r)));
       onYapReplied?.();
     } catch (err: any) {
+      setReplies((prev) => prev.filter((r) => r.id !== tempId));
+      yap.reply_count = Math.max(0, (yap.reply_count || 1) - 1);
       alert(err.message || 'Failed to submit comment');
     } finally {
       setIsSubmitting(false);
@@ -301,18 +340,29 @@ export const ReplyThreadModal: React.FC<ReplyThreadModalProps> = ({
 
           {/* Quick Emoji bar */}
           {showEmojiBar && (
-            <div className="flex items-center gap-1.5 py-1 px-2 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
-              <span className="text-[10px] font-bold text-slate-400 mr-1">Emojis:</span>
-              {QUICK_EMOJIS.map((emoji) => (
+            <div className="p-2 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-md">
+              <div className="flex items-center justify-between mb-1.5 px-1">
+                <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400">Choose Emoji</span>
                 <button
-                  key={emoji}
                   type="button"
-                  onClick={() => setReplyText((prev) => prev + emoji)}
-                  className="text-sm hover:scale-125 transition-transform p-0.5"
+                  onClick={() => setShowEmojiBar(false)}
+                  className="text-[10px] text-slate-400 hover:text-slate-600"
                 >
-                  {emoji}
+                  Close
                 </button>
-              ))}
+              </div>
+              <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto p-1">
+                {EMOJI_LIST.map((emoji) => (
+                  <button
+                    key={emoji}
+                    type="button"
+                    onClick={() => setReplyText((prev) => prev + emoji)}
+                    className="w-8 h-8 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center justify-center text-lg hover:scale-125 transition-transform"
+                  >
+                    {emoji}
+                  </button>
+                ))}
+              </div>
             </div>
           )}
 

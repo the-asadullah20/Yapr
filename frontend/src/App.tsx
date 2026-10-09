@@ -22,6 +22,7 @@ import { AiStudioModal } from './components/ai/AiStudioModal';
 import { AuthModal } from './components/auth/AuthModal';
 
 import { Yap, FeedSliderSettings, SearchResult } from './types';
+import { api } from './api/apiClient';
 
 export const AppContent: React.FC = () => {
   const { user } = useAuth();
@@ -58,11 +59,24 @@ export const AppContent: React.FC = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  const handleOpenYapById = async (yapId: string) => {
+    try {
+      const yap = await api.getYapById(yapId);
+      if (yap) {
+        setSelectedThreadYap(yap);
+      }
+    } catch (e) {
+      console.error('Failed to open yap by id', e);
+    }
+  };
+
   const handleSelectSearchResult = (result: SearchResult) => {
     if (result.type === 'hashtag') {
       handleSelectHashtag(result.title.replace(/^#/, ''));
     } else if (result.type === 'user') {
       handleOpenProfile(result.title.replace(/^@/, ''));
+    } else if (result.type === 'yap' && result.id) {
+      handleOpenYapById(result.id);
     }
   };
 
@@ -115,7 +129,10 @@ export const AppContent: React.FC = () => {
             )}
 
             {activeTab === 'notifications' && (
-              <NotificationsPage onOpenProfile={handleOpenProfile} />
+              <NotificationsPage
+                onOpenProfile={handleOpenProfile}
+                onOpenYap={handleOpenYapById}
+              />
             )}
 
             {activeTab === 'bookmarks' && (
@@ -133,6 +150,7 @@ export const AppContent: React.FC = () => {
                   setActiveTab('feed');
                 }}
                 onOpenProfile={handleOpenProfile}
+                onOpenThread={(yap) => setSelectedThreadYap(yap)}
               />
             )}
           </main>

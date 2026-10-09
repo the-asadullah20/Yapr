@@ -34,6 +34,36 @@ export class ProfilesController {
     }
   }
 
+  async getUserYaps(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { identifier } = req.params;
+      const result = await profilesService.getUserYaps(identifier, req.user?.id);
+      res.json(result);
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  async getFollowers(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { identifier } = req.params;
+      const followers = await profilesService.getFollowers(identifier);
+      res.json({ followers });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  async getFollowing(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { identifier } = req.params;
+      const following = await profilesService.getFollowing(identifier);
+      res.json({ following });
+    } catch (err) {
+      next(err);
+    }
+  }
+
   async getCountries(req: Request, res: Response) {
     res.json({ countries: profilesService.getCountries() });
   }

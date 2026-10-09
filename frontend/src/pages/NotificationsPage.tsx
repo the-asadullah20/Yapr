@@ -7,9 +7,10 @@ import { formatTimeAgo } from '../utils/formatters';
 
 interface NotificationsPageProps {
   onOpenProfile?: (username: string) => void;
+  onOpenYap?: (yapId: string) => void;
 }
 
-export const NotificationsPage: React.FC<NotificationsPageProps> = ({ onOpenProfile }) => {
+export const NotificationsPage: React.FC<NotificationsPageProps> = ({ onOpenProfile, onOpenYap }) => {
   const { setUnreadCount } = useSocket();
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -73,7 +74,14 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({ onOpenProf
           {notifications.map((n) => (
             <div
               key={n.id}
-              className={`p-4 rounded-2xl border transition-all flex items-start gap-3.5 ${
+              onClick={() => {
+                if (n.yap_id) {
+                  onOpenYap?.(n.yap_id);
+                } else if (n.actors && n.actors[0]?.username) {
+                  onOpenProfile?.(n.actors[0].username);
+                }
+              }}
+              className={`p-4 rounded-2xl border transition-all flex items-start gap-3.5 cursor-pointer hover:border-blue-300 dark:hover:border-blue-700 ${
                 !n.read_at
                   ? 'bg-blue-50/50 dark:bg-blue-950/30 border-blue-100 dark:border-blue-900 shadow-sm'
                   : 'bg-white dark:bg-slate-900 border-slate-200/80 dark:border-slate-800'
@@ -86,32 +94,37 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({ onOpenProf
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1 flex-wrap">
                   {n.actors && n.actors.length > 0 && (
-                    <div className="flex -space-x-2 overflow-hidden cursor-pointer">
+                    <div className="flex -space-x-2 overflow-hidden">
                       {n.actors.slice(0, 3).map((a, i) => (
                         <img
                           key={i}
                           src={a.avatar_url}
                           alt={a.display_name}
-                          onClick={() => onOpenProfile?.(a.username)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onOpenProfile?.(a.username);
+                          }}
                           className="inline-block h-6 w-6 rounded-full ring-2 ring-white dark:ring-slate-900 object-cover hover:scale-110 transition-transform"
                         />
                       ))}
                     </div>
                   )}
                   <span
-                    onClick={() => {
-                      if (n.actors && n.actors[0]?.username) {
-                        onOpenProfile?.(n.actors[0].username);
-                      }
-                    }}
-                    className="text-xs font-bold text-slate-900 dark:text-slate-100 hover:text-blue-600 dark:hover:text-blue-400 cursor-pointer transition-colors"
+                    className="text-xs font-bold text-slate-900 dark:text-slate-100 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
                   >
                     {n.formatted_text || `${n.type} notification`}
                   </span>
                 </div>
-                <span className="text-[11px] text-slate-400 dark:text-slate-500">
-                  {formatTimeAgo(n.created_at)}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] text-slate-400 dark:text-slate-500">
+                    {formatTimeAgo(n.created_at)}
+                  </span>
+                  {n.yap_id && (
+                    <span className="text-[11px] font-semibold text-blue-600 dark:text-blue-400 hover:underline">
+                      · View activity
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
           ))}

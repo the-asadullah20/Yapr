@@ -141,11 +141,28 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     }
   };
 
+function checkPasswordRequirements(pw: string): string | null {
+  if (!pw || pw.length < 8) {
+    return 'Password must be at least 8 characters long.';
+  }
+  if (!/[A-Z]/.test(pw)) {
+    return 'Password must contain at least one capital letter (A-Z).';
+  }
+  if (!/[0-9]/.test(pw)) {
+    return 'Password must contain at least one number (0-9).';
+  }
+  if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?~`]/.test(pw)) {
+    return 'Password must contain at least one special character (!@#$%^&*).';
+  }
+  return null;
+}
+
   const handleResetPasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!otpCode || !newPassword) return;
-    if (newPassword.length < 6) {
-      setError('Password must be at least 6 characters');
+    const pwErr = checkPasswordRequirements(newPassword);
+    if (pwErr) {
+      setError(pwErr);
       return;
     }
     if (newPassword !== confirmPassword) {
@@ -202,8 +219,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const handleSignupStep1 = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !password) return;
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters');
+    const pwErr = checkPasswordRequirements(password);
+    if (pwErr) {
+      setError(pwErr);
       return;
     }
     setError(null);
@@ -360,7 +378,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                   Email Address
                 </label>
-                <div className="flex items-center px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus-within:border-blue-500 focus-within:bg-white dark:focus-within:bg-slate-800">
+                <div className="flex items-center px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus-within:border-blue-500 transition-colors">
                   <Mail className="w-4 h-4 text-slate-400 mr-2" />
                   <input
                     type="email"
@@ -401,7 +419,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       </button>
                     </div>
                   </div>
-                  <div className="flex items-center px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus-within:border-blue-500 focus-within:bg-white dark:focus-within:bg-slate-800">
+                  <div className="flex items-center px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus-within:border-blue-500 transition-colors">
                     <Lock className="w-4 h-4 text-slate-400 mr-2" />
                     <input
                       type={showPassword ? 'text' : 'password'}
@@ -523,7 +541,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                   Registered Email Address
                 </label>
-                <div className="flex items-center px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus-within:border-blue-500 focus-within:bg-white dark:focus-within:bg-slate-800">
+                <div className="flex items-center px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus-within:border-blue-500 transition-colors">
                   <Mail className="w-4 h-4 text-slate-400 mr-2" />
                   <input
                     type="email"
@@ -572,7 +590,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                   Enter 6-Digit Reset Code
                 </label>
-                <div className="flex items-center px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus-within:border-blue-500 focus-within:bg-white dark:focus-within:bg-slate-800">
+                <div className="flex items-center px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus-within:border-blue-500 transition-colors">
                   <KeyRound className="w-4 h-4 text-slate-400 mr-2" />
                   <input
                     type="text"
@@ -588,16 +606,16 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
               <div>
                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-                  New Password (min. 6 characters)
+                  New Password <span className="text-[11px] font-normal text-slate-400 dark:text-slate-500">(min. 8 chars, 1 uppercase, 1 number, 1 special char)</span>
                 </label>
-                <div className="flex items-center px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus-within:border-blue-500 focus-within:bg-white dark:focus-within:bg-slate-800">
+                <div className="flex items-center px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus-within:border-blue-500 transition-colors">
                   <Lock className="w-4 h-4 text-slate-400 mr-2" />
                   <input
                     type={showNewPassword ? 'text' : 'password'}
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
                     placeholder="Enter new password"
-                    minLength={6}
+                    minLength={8}
                     required
                     className="w-full text-xs bg-transparent outline-none text-slate-900 dark:text-slate-100"
                   />
@@ -615,14 +633,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                   Confirm New Password
                 </label>
-                <div className="flex items-center px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus-within:border-blue-500 focus-within:bg-white dark:focus-within:bg-slate-800">
+                <div className="flex items-center px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus-within:border-blue-500 transition-colors">
                   <Lock className="w-4 h-4 text-slate-400 mr-2" />
                   <input
                     type={showNewPassword ? 'text' : 'password'}
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     placeholder="Confirm new password"
-                    minLength={6}
+                    minLength={8}
                     required
                     className="w-full text-xs bg-transparent outline-none text-slate-900 dark:text-slate-100"
                   />
@@ -659,7 +677,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                   Email Address
                 </label>
-                <div className="flex items-center px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus-within:border-blue-500 focus-within:bg-white dark:focus-within:bg-slate-800">
+                <div className="flex items-center px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus-within:border-blue-500 transition-colors">
                   <Mail className="w-4 h-4 text-slate-400 mr-2" />
                   <input
                     type="email"
@@ -674,18 +692,18 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
               <div>
                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-                  Choose Password (min. 6 characters)
+                  Password <span className="text-[11px] font-normal text-slate-400 dark:text-slate-500">(min. 8 chars, 1 uppercase, 1 number, 1 special char)</span>
                 </label>
-                <div className="flex items-center px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus-within:border-blue-500 focus-within:bg-white dark:focus-within:bg-slate-800">
+                <div className="flex items-center px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus-within:border-blue-500 transition-colors">
                   <Lock className="w-4 h-4 text-slate-400 mr-2" />
                   <input
                     type={showPassword ? 'text' : 'password'}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Create a secure password"
-                    minLength={6}
+                    placeholder="e.g. Secret123!"
+                    minLength={8}
                     required
-                    className="w-full text-xs bg-transparent outline-none text-slate-900 dark:text-slate-100"
+                    className="w-full text-xs bg-transparent outline-none text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500"
                   />
                   <button
                     type="button"

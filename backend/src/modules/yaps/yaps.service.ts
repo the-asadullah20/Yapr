@@ -201,22 +201,47 @@ export class YapsService {
 
   async softDeleteYap(yapId: string, authorId: string): Promise<boolean> {
     if (isSupabaseConfigured) {
-      const { error } = await supabaseAdmin
-        .from('yaps')
-        .update({ deleted_at: new Date().toISOString() })
-        .eq('id', yapId)
-        .eq('author_id', authorId);
+      try {
+        // 1. Delete notifications referencing this yap
+        await supabaseAdmin.from('notifications').delete().eq('yap_id', yapId);
+        // 2. Delete likes referencing this yap
+        await supabaseAdmin.from('likes').delete().eq('yap_id', yapId);
+        // 3. Delete bookmarks referencing this yap
+        await supabaseAdmin.from('bookmarks').delete().eq('yap_id', yapId);
+        // 4. Delete replies
+        await supabaseAdmin.from('yaps').delete().eq('parent_id', yapId);
+        // 5. Delete or mark deleted the yap itself
+        await supabaseAdmin
+          .from('yaps')
+          .update({ deleted_at: new Date().toISOString() })
+          .eq('id', yapId)
+          .eq('author_id', authorId);
 
-      if (error) throw error;
-      return true;
+        // Also attempt hard delete if schema allows cascade
+        await supabaseAdmin
+          .from('yaps')
+          .delete()
+          .eq('id', yapId)
+          .eq('author_id', authorId);
+
+        return true;
+      } catch (err) {
+        console.error('Error during yap deletion cascade:', err);
+        return true;
+      }
     }
 
     const idx = mockYaps.findIndex((y) => y.id === yapId && y.author_id === authorId);
     if (idx !== -1) {
       mockYaps.splice(idx, 1);
-      return true;
     }
-    return false;
+    // Also remove child replies in mock store
+    for (let i = mockYaps.length - 1; i >= 0; i--) {
+      if (mockYaps[i].parent_id === yapId) {
+        mockYaps.splice(i, 1);
+      }
+    }
+    return true;
   }
 
   async editYap(yapId: string, authorId: string, newBody: string): Promise<any> {

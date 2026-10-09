@@ -61,6 +61,27 @@ export const api = {
     return data.yap;
   },
 
+  async deleteYap(yapId: string): Promise<boolean> {
+    const res = await fetch(`${API_BASE}/yaps/${yapId}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders(),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to delete Yap');
+    }
+    return true;
+  },
+
+  async getYapById(yapId: string): Promise<Yap> {
+    const res = await fetch(`${API_BASE}/yaps/${yapId}`, {
+      headers: getAuthHeaders(),
+    });
+    if (!res.ok) throw new Error('Yap not found');
+    const data = await res.json();
+    return data.yap || data;
+  },
+
   // Thread Replies
   async getReplies(yapId: string): Promise<Yap[]> {
     const res = await fetch(`${API_BASE}/yaps/${yapId}/replies`, {
@@ -382,6 +403,44 @@ export const api = {
     });
     const data = await res.json();
     return data.profile;
+  },
+
+  async getUserYaps(identifier: string): Promise<{ is_private: boolean; yaps: Yap[] }> {
+    try {
+      const res = await fetch(`${API_BASE}/profiles/${identifier}/yaps`, {
+        headers: getAuthHeaders(),
+      });
+      if (!res.ok) return { is_private: false, yaps: [] };
+      return await res.json();
+    } catch {
+      return { is_private: false, yaps: [] };
+    }
+  },
+
+  async getFollowers(identifier: string): Promise<UserProfile[]> {
+    try {
+      const res = await fetch(`${API_BASE}/profiles/${identifier}/followers`, {
+        headers: getAuthHeaders(),
+      });
+      if (!res.ok) return [];
+      const data = await res.json();
+      return data.followers || [];
+    } catch {
+      return [];
+    }
+  },
+
+  async getFollowing(identifier: string): Promise<UserProfile[]> {
+    try {
+      const res = await fetch(`${API_BASE}/profiles/${identifier}/following`, {
+        headers: getAuthHeaders(),
+      });
+      if (!res.ok) return [];
+      const data = await res.json();
+      return data.following || [];
+    } catch {
+      return [];
+    }
   },
 
   // Storage / Uploads

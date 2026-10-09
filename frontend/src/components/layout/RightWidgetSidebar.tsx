@@ -14,16 +14,15 @@ export const RightWidgetSidebar: React.FC<RightWidgetSidebarProps> = ({
 }) => {
   const [topics, setTopics] = useState<TrendingTopic[]>([]);
   const [timeframe, setTimeframe] = useState<'1h' | '24h'>('24h');
-  const [country, setCountry] = useState('PK');
 
   useEffect(() => {
-    api.getTrending(country, timeframe).then(setTopics).catch(() => setTopics([]));
-  }, [country, timeframe]);
+    api.getTrending('GLOBAL', timeframe).then(setTopics).catch(() => setTopics([]));
+  }, [timeframe]);
 
   return (
     <aside className="w-80 flex-shrink-0 sticky top-16 h-[calc(100vh-4rem)] p-4 space-y-4 overflow-y-auto hidden lg:block select-none transition-colors">
 
-      {/* Regional Trending Card */}
+      {/* Trending Topics Card */}
       <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-4 shadow-sm">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
@@ -49,27 +48,6 @@ export const RightWidgetSidebar: React.FC<RightWidgetSidebarProps> = ({
               24h
             </button>
           </div>
-        </div>
-
-        {/* Country Selector */}
-        <div className="flex gap-1.5 mb-3">
-          {[
-            { id: 'PK', label: 'Pakistan' },
-            { id: 'SG', label: 'Singapore' },
-            { id: 'GLOBAL', label: 'Global' },
-          ].map((c) => (
-            <button
-              key={c.id}
-              onClick={() => setCountry(c.id)}
-              className={`px-2 py-1 rounded-lg text-[11px] font-medium transition-colors ${
-                country === c.id
-                  ? 'bg-blue-50 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 font-semibold border border-blue-200 dark:border-blue-800'
-                  : 'bg-slate-50 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-750'
-              }`}
-            >
-              {c.label}
-            </button>
-          ))}
         </div>
 
         {/* Trending List */}

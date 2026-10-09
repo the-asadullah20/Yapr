@@ -17,10 +17,13 @@ import {
   AlertCircle,
   CheckCircle2,
   Flag,
+  X,
+  Users,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../api/apiClient';
 import { UserProfile, Yap } from '../types';
+import { YapCard } from '../components/yaps/YapCard';
 
 interface ProfilePageProps {
   viewingUsername?: string | null;
@@ -29,9 +32,27 @@ interface ProfilePageProps {
   onOpenProfile?: (username: string) => void;
 }
 
+const checkPasswordRequirements = (pw: string): string | null => {
+  if (pw.length < 8) {
+    return 'Password must be at least 8 characters.';
+  }
+  if (!/[A-Z]/.test(pw)) {
+    return 'Password must contain at least one uppercase letter (A-Z).';
+  }
+  if (!/[0-9]/.test(pw)) {
+    return 'Password must contain at least one number (0-9).';
+  }
+  if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?~`]/.test(pw)) {
+    return 'Password must contain at least one special character (!@#$%^&*).';
+  }
+  return null;
+};
+
 export const ProfilePage: React.FC<ProfilePageProps> = ({
   viewingUsername,
   onBack,
+  onOpenThread,
+  onOpenProfile,
 }) => {
   const { user, updateUser } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -44,6 +65,19 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
   const [followerCount, setFollowerCount] = useState(0);
   const [isBlocked, setIsBlocked] = useState(false);
   const [isBlocking, setIsBlocking] = useState(false);
+
+  // User's Yaps (Posts) state
+  const [userYaps, setUserYaps] = useState<Yap[]>([]);
+  const [loadingUserYaps, setLoadingUserYaps] = useState(false);
+
+  // Account Privacy state
+  const [isPrivateAccount, setIsPrivateAccount] = useState(user?.is_private || false);
+  const [isUpdatingPrivacy, setIsUpdatingPrivacy] = useState(false);
+
+  // Followers & Following Modal state
+  const [followListModal, setFollowListModal] = useState<'followers' | 'following' | null>(null);
+  const [followListUsers, setFollowListUsers] = useState<UserProfile[]>([]);
+  const [loadingFollowList, setLoadingFollowList] = useState(false);
 
   // Own profile edit state
   const [isEditing, setIsEditing] = useState(false);
@@ -120,6 +154,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
       setBio(user.bio || '');
       setCountryCode(user.country_code || 'PK');
       setResetEmail(user.email || '');
+      setIsPrivateAccount(!!user.is_private);
       fetchBlockedUsers();
       fetchUserReports();
     }
@@ -145,6 +180,66 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
         });
     }
   }, [viewingUsername, isViewingOther]);
+
+  // Load yaps for current profile
+  useEffect(() => {
+    const target = isViewingOther ? viewingUsername : user?.username;
+    if (target) {
+      setLoadingUserYaps(true);
+      api
+        .getUserYaps(target)
+        .then((res) => {
+          setUserYaps(res.yaps || []);
+          setLoadingUserYaps(false);
+        })
+        .catch(() => {
+          setUserYaps([]);
+          setLoadingUserYaps(false);
+        });
+    }
+  }, [isViewingOther, viewingUsername, user?.username]);
+
+  const handleDeleteYap = async (yapId: string) => {
+    try {
+      await api.deleteYap(yapId);
+      setUserYaps((prev) => prev.filter((y) => y.id !== yapId));
+    } catch (err: any) {
+      alert(err.message || 'Failed to delete yap');
+    }
+  };
+
+  const handleOpenFollowList = async (type: 'followers' | 'following', targetUsername: string) => {
+    setFollowListModal(type);
+    setLoadingFollowList(true);
+    setFollowListUsers([]);
+    try {
+      if (type === 'followers') {
+        const list = await api.getFollowers(targetUsername);
+        setFollowListUsers(list);
+      } else {
+        const list = await api.getFollowing(targetUsername);
+        setFollowListUsers(list);
+      }
+    } catch {
+      setFollowListUsers([]);
+    } finally {
+      setLoadingFollowList(false);
+    }
+  };
+
+  const handleTogglePrivacy = async () => {
+    setIsUpdatingPrivacy(true);
+    const next = !isPrivateAccount;
+    try {
+      await api.updateProfile({ is_private: next });
+      setIsPrivateAccount(next);
+      updateUser({ is_private: next });
+    } catch (err: any) {
+      alert(err.message || 'Failed to update account privacy');
+    } finally {
+      setIsUpdatingPrivacy(false);
+    }
+  };
 
   const handleToggleFollow = async () => {
     if (!user) {
@@ -203,8 +298,9 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
       setChangePasswordError('Please enter your current password.');
       return;
     }
-    if (changeNewPassword.length < 6) {
-      setChangePasswordError('New password must be at least 6 characters.');
+    const pwErr = checkPasswordRequirements(changeNewPassword);
+    if (pwErr) {
+      setChangePasswordError(pwErr);
       return;
     }
     if (changeNewPassword !== confirmNewPassword) {
@@ -276,8 +372,9 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
       setResetError('Please enter the 6-digit reset code.');
       return;
     }
-    if (newPassword.length < 6) {
-      setResetError('New password must be at least 6 characters.');
+    const pwErr = checkPasswordRequirements(newPassword);
+    if (pwErr) {
+      setResetError(pwErr);
       return;
     }
     setIsSubmittingReset(true);
@@ -490,18 +587,26 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
 
               {/* Stats */}
               <div className="flex items-center gap-5 mt-4 text-xs">
-                <div>
-                  <span className="font-bold text-slate-900 dark:text-white">
+                <button
+                  type="button"
+                  onClick={() => handleOpenFollowList('following', otherProfile.username)}
+                  className="hover:underline text-left group"
+                >
+                  <span className="font-bold text-slate-900 dark:text-white group-hover:text-blue-600 transition-colors">
                     {(otherProfile.following_count || 0).toLocaleString()}
                   </span>{' '}
                   <span className="text-slate-500 dark:text-slate-400">Following</span>
-                </div>
-                <div>
-                  <span className="font-bold text-slate-900 dark:text-white">
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleOpenFollowList('followers', otherProfile.username)}
+                  className="hover:underline text-left group"
+                >
+                  <span className="font-bold text-slate-900 dark:text-white group-hover:text-blue-600 transition-colors">
                     {followerCount.toLocaleString()}
                   </span>{' '}
                   <span className="text-slate-500 dark:text-slate-400">Followers</span>
-                </div>
+                </button>
               </div>
 
               {/* Blocked Notification Banner */}
@@ -514,6 +619,106 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
             </div>
           </div>
         </div>
+
+        {/* Private Account Lock Screen OR Posts Feed */}
+        {otherProfile.is_private && !isFollowing && otherProfile.id !== user?.id ? (
+          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 p-8 text-center space-y-3 shadow-sm">
+            <div className="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center mx-auto text-slate-600 dark:text-slate-300">
+              <Lock className="w-6 h-6" />
+            </div>
+            <h3 className="text-base font-bold text-slate-900 dark:text-white">This Account is Private</h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto">
+              Follow @{otherProfile.username} to view their yaps, replies, and activities.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <h3 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider px-1">
+              Yaps by @{otherProfile.username}
+            </h3>
+            {loadingUserYaps ? (
+              <div className="py-8 text-center text-xs text-slate-400">
+                <Loader2 className="w-5 h-5 animate-spin mx-auto text-blue-600 mb-2" />
+                Loading yaps...
+              </div>
+            ) : userYaps.length === 0 ? (
+              <div className="bg-white dark:bg-slate-900 rounded-3xl p-8 border border-dashed border-slate-200 dark:border-slate-800 text-center text-xs text-slate-400">
+                @{otherProfile.username} has not posted any yaps yet.
+              </div>
+            ) : (
+              userYaps.map((yap) => (
+                <YapCard
+                  key={yap.id}
+                  yap={yap}
+                  onOpenThread={(y) => onOpenThread?.(y)}
+                  onOpenProfile={(u) => onOpenProfile?.(u)}
+                />
+              ))
+            )}
+          </div>
+        )}
+
+        {/* Followers / Following Modal */}
+        {followListModal && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fadeIn"
+            onClick={() => setFollowListModal(null)}
+          >
+            <div
+              className="bg-white dark:bg-slate-900 rounded-3xl max-w-sm w-full p-5 shadow-2xl border border-slate-200 dark:border-slate-800"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+                <div className="flex items-center gap-2">
+                  <Users className="w-4 h-4 text-blue-600" />
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white capitalize">
+                    {followListModal}
+                  </h3>
+                </div>
+                <button
+                  onClick={() => setFollowListModal(null)}
+                  className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-full"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="py-3 max-h-72 overflow-y-auto space-y-2.5">
+                {loadingFollowList ? (
+                  <p className="text-center text-xs text-slate-400 py-4">Loading {followListModal}...</p>
+                ) : followListUsers.length === 0 ? (
+                  <p className="text-center text-xs text-slate-400 py-4">No {followListModal} found.</p>
+                ) : (
+                  followListUsers.map((u) => (
+                    <div
+                      key={u.id}
+                      onClick={() => {
+                        setFollowListModal(null);
+                        onOpenProfile?.(u.username);
+                      }}
+                      className="flex items-center justify-between p-2 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/60 cursor-pointer transition-colors"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <img
+                          src={u.avatar_url || `https://api.dicebear.com/7.x/bottts/svg?seed=${u.username}`}
+                          alt=""
+                          className="w-8 h-8 rounded-full object-cover ring-1 ring-slate-100 dark:ring-slate-700"
+                        />
+                        <div>
+                          <h4 className="text-xs font-bold text-slate-900 dark:text-white hover:text-blue-600 flex items-center gap-1">
+                            {u.display_name}
+                            {u.is_verified && <span className="text-[10px] text-blue-600">✓</span>}
+                          </h4>
+                          <p className="text-[10px] text-slate-400">@{u.username}</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -662,6 +867,36 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                 </select>
               </div>
 
+              {/* Account Visibility (Public vs. Private) */}
+              <div className="p-3.5 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 flex items-center justify-between">
+                <div>
+                  <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200">Account Visibility</h4>
+                  <p className="text-[11px] text-slate-400">
+                    {isPrivateAccount
+                      ? 'Private account: only people you approve can see your yaps.'
+                      : 'Public account: anyone can see your yaps and profile.'}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleTogglePrivacy}
+                  disabled={isUpdatingPrivacy}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all border ${
+                    isPrivateAccount
+                      ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-300 dark:border-amber-800'
+                      : 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-300 dark:border-blue-800'
+                  }`}
+                >
+                  {isUpdatingPrivacy ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : isPrivateAccount ? (
+                    'Private'
+                  ) : (
+                    'Public'
+                  )}
+                </button>
+              </div>
+
               <button
                 type="submit"
                 disabled={isSaving}
@@ -689,18 +924,26 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
 
               {/* Stats */}
               <div className="flex items-center gap-5 mt-4 text-xs">
-                <div>
-                  <span className="font-bold text-slate-900 dark:text-white">
+                <button
+                  type="button"
+                  onClick={() => handleOpenFollowList('following', user.username)}
+                  className="hover:underline text-left group"
+                >
+                  <span className="font-bold text-slate-900 dark:text-white group-hover:text-blue-600 transition-colors">
                     {user.following_count?.toLocaleString() || 0}
                   </span>{' '}
                   <span className="text-slate-500 dark:text-slate-400">Following</span>
-                </div>
-                <div>
-                  <span className="font-bold text-slate-900 dark:text-white">
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleOpenFollowList('followers', user.username)}
+                  className="hover:underline text-left group"
+                >
+                  <span className="font-bold text-slate-900 dark:text-white group-hover:text-blue-600 transition-colors">
                     {user.follower_count?.toLocaleString() || 0}
                   </span>{' '}
                   <span className="text-slate-500 dark:text-slate-400">Followers</span>
-                </div>
+                </button>
               </div>
             </div>
           )}
@@ -709,9 +952,9 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
 
       {/* Security & Password Card */}
       <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-sm p-6 transition-colors">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-blue-50 dark:bg-blue-950/60 border border-blue-200/50 dark:border-blue-900/50 flex items-center justify-center text-blue-600 dark:text-blue-400">
+            <div className="w-8 h-8 rounded-xl bg-blue-50 dark:bg-blue-950/60 border border-blue-200/50 dark:border-blue-900/50 flex items-center justify-center text-blue-600 dark:text-blue-400 flex-shrink-0">
               <Lock className="w-4 h-4" />
             </div>
             <div>
@@ -721,7 +964,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
           </div>
 
           {/* Tab Switcher: Change Password vs Forgot Password */}
-          <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl text-xs font-semibold">
+          <div className="flex bg-slate-100 dark:bg-slate-800 p-0.5 rounded-xl text-xs font-semibold self-start sm:self-auto">
             <button
               type="button"
               onClick={() => {
@@ -729,7 +972,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                 setChangePasswordError(null);
                 setChangePasswordSuccess(null);
               }}
-              className={`px-3 py-1 rounded-lg transition-all ${
+              className={`px-2.5 py-1 rounded-lg transition-all ${
                 activePasswordTab === 'change'
                   ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm'
                   : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
@@ -744,7 +987,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                 setResetError(null);
                 setResetSuccess(null);
               }}
-              className={`px-3 py-1 rounded-lg transition-all ${
+              className={`px-2.5 py-1 rounded-lg transition-all ${
                 activePasswordTab === 'forgot'
                   ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm'
                   : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
@@ -802,7 +1045,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
             {/* New Password */}
             <div>
               <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                New Password (min. 6 characters)
+                New Password <span className="text-[11px] font-normal text-slate-400 dark:text-slate-500">(min. 8 chars, 1 uppercase, 1 number, 1 special char)</span>
               </label>
               <div className="flex items-center px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus-within:border-blue-500">
                 <Lock className="w-4 h-4 text-slate-400 mr-2" />
@@ -811,7 +1054,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                   value={changeNewPassword}
                   onChange={(e) => setChangeNewPassword(e.target.value)}
                   placeholder="Enter new password"
-                  minLength={6}
+                  minLength={8}
                   required
                   className="w-full text-xs bg-transparent outline-none text-slate-900 dark:text-white"
                 />
@@ -837,7 +1080,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                   value={confirmNewPassword}
                   onChange={(e) => setConfirmNewPassword(e.target.value)}
                   placeholder="Confirm new password"
-                  minLength={6}
+                  minLength={8}
                   required
                   className="w-full text-xs bg-transparent outline-none text-slate-900 dark:text-white"
                 />
@@ -940,14 +1183,14 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    New Password (min. 6 characters)
+                    New Password <span className="text-[11px] font-normal text-slate-400 dark:text-slate-500">(min. 8 chars, 1 uppercase, 1 number, 1 special char)</span>
                   </label>
                   <input
                     type="password"
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
                     placeholder="Enter new password"
-                    minLength={6}
+                    minLength={8}
                     required
                     className="w-full px-3.5 py-2.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none text-slate-900 dark:text-white"
                   />
@@ -1119,6 +1362,101 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
           </div>
         )}
       </div>
+
+      {/* ========================================================================= */}
+      {/* USER'S POSTS / YAPS FEED */}
+      {/* ========================================================================= */}
+      <div className="space-y-3 pt-2">
+        <div className="flex items-center justify-between px-1">
+          <h3 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+            Your Yaps ({userYaps.length})
+          </h3>
+          <span className="text-[11px] text-slate-400">All your public posts</span>
+        </div>
+
+        {loadingUserYaps ? (
+          <div className="py-8 text-center text-xs text-slate-400">
+            <Loader2 className="w-5 h-5 animate-spin mx-auto text-blue-600 mb-2" />
+            Loading your yaps...
+          </div>
+        ) : userYaps.length === 0 ? (
+          <div className="bg-white dark:bg-slate-900 rounded-3xl p-8 border border-dashed border-slate-200 dark:border-slate-800 text-center text-xs text-slate-400">
+            You haven&apos;t posted any yaps yet. Head to your feed to share your first yap!
+          </div>
+        ) : (
+          userYaps.map((yap) => (
+            <YapCard
+              key={yap.id}
+              yap={yap}
+              onOpenThread={(y) => onOpenThread?.(y)}
+              onOpenProfile={(u) => onOpenProfile?.(u)}
+              onDeleteYap={handleDeleteYap}
+            />
+          ))
+        )}
+      </div>
+
+      {/* Followers / Following Modal */}
+      {followListModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fadeIn"
+          onClick={() => setFollowListModal(null)}
+        >
+          <div
+            className="bg-white dark:bg-slate-900 rounded-3xl max-w-sm w-full p-5 shadow-2xl border border-slate-200 dark:border-slate-800"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-2">
+                <Users className="w-4 h-4 text-blue-600" />
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white capitalize">
+                  {followListModal}
+                </h3>
+              </div>
+              <button
+                onClick={() => setFollowListModal(null)}
+                className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-full"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="py-3 max-h-72 overflow-y-auto space-y-2.5">
+              {loadingFollowList ? (
+                <p className="text-center text-xs text-slate-400 py-4">Loading {followListModal}...</p>
+              ) : followListUsers.length === 0 ? (
+                <p className="text-center text-xs text-slate-400 py-4">No {followListModal} found.</p>
+              ) : (
+                followListUsers.map((u) => (
+                  <div
+                    key={u.id}
+                    onClick={() => {
+                      setFollowListModal(null);
+                      onOpenProfile?.(u.username);
+                    }}
+                    className="flex items-center justify-between p-2 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/60 cursor-pointer transition-colors"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <img
+                        src={u.avatar_url || `https://api.dicebear.com/7.x/bottts/svg?seed=${u.username}`}
+                        alt=""
+                        className="w-8 h-8 rounded-full object-cover ring-1 ring-slate-100 dark:ring-slate-700"
+                      />
+                      <div>
+                        <h4 className="text-xs font-bold text-slate-900 dark:text-white hover:text-blue-600 flex items-center gap-1">
+                          {u.display_name}
+                          {u.is_verified && <span className="text-[10px] text-blue-600">✓</span>}
+                        </h4>
+                        <p className="text-[10px] text-slate-400">@{u.username}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

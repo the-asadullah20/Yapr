@@ -16,6 +16,21 @@ registeredUsers.set('asad@yapr.app', {
   username: 'asadahmad',
 });
 
+export function validatePasswordStrength(password: string): void {
+  if (!password || password.length < 8) {
+    throw new Error('Password must be at least 8 characters long');
+  }
+  if (!/[A-Z]/.test(password)) {
+    throw new Error('Password must contain at least one uppercase letter (A-Z)');
+  }
+  if (!/[0-9]/.test(password)) {
+    throw new Error('Password must contain at least one number (0-9)');
+  }
+  if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?~`]/.test(password)) {
+    throw new Error('Password must contain at least one special character (!@#$%^&* etc.)');
+  }
+}
+
 export class AuthService {
   /**
    * Request OTP for email signup / login
@@ -140,9 +155,10 @@ export class AuthService {
     const cleanEmail = params.email.toLowerCase().trim();
     const cleanUsername = params.username.toLowerCase().trim();
 
-    if (!cleanEmail || !params.password || params.password.length < 6) {
-      throw new Error('Password must be at least 6 characters');
+    if (!cleanEmail) {
+      throw new Error('Valid email address is required');
     }
+    validatePasswordStrength(params.password);
 
     if (!cleanUsername || cleanUsername.length < 3) {
       throw new Error('Username must be at least 3 characters');
@@ -314,9 +330,7 @@ export class AuthService {
    */
   async resetPassword(email: string, code: string, newPassword: string): Promise<{ success: boolean; message: string }> {
     const cleanEmail = email.toLowerCase().trim();
-    if (!newPassword || newPassword.length < 6) {
-      throw new Error('New password must be at least 6 characters');
-    }
+    validatePasswordStrength(newPassword);
 
     const cacheKey = `yapr:reset-otp:${cleanEmail}`;
     const storedHash = await cacheClient.get(cacheKey);
@@ -376,9 +390,7 @@ export class AuthService {
     if (!currentPassword) {
       throw new Error('Current password is required');
     }
-    if (!newPassword || newPassword.length < 6) {
-      throw new Error('New password must be at least 6 characters');
-    }
+    validatePasswordStrength(newPassword);
 
     if (isSupabaseConfigured) {
       if (email) {
