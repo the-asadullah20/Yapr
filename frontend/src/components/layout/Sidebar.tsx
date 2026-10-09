@@ -43,7 +43,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'explore', label: 'Explore', icon: Compass },
     { id: 'notifications', label: 'Notifications', icon: Bell, badge: unreadCount > 0 ? unreadCount : undefined },
     { id: 'bookmarks', label: 'Bookmarks', icon: Bookmark },
-    { id: 'ai-studio', label: 'Yapr AI', icon: Sparkles, action: onOpenAiStudio },
     { id: 'profile', label: 'Profile', icon: User, action: !user ? onOpenAuth : undefined },
   ];
 

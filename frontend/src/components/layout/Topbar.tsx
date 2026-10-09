@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, Bell, Sliders, Sparkles, X, Sun, Moon } from 'lucide-react';
+import { Search, Bell, Sliders, X, Sun, Moon } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useSocket } from '../../context/SocketContext';
 import { useTheme } from '../../context/ThemeContext';
@@ -9,7 +9,7 @@ import { SearchResult } from '../../types';
 interface TopbarProps {
   onOpenSliders: () => void;
   onOpenNotifications: () => void;
-  onOpenAiStudio: () => void;
+  onOpenAiStudio?: () => void;
   onSelectSearchResult?: (result: SearchResult) => void;
 }
 
@@ -146,15 +146,6 @@ export const Topbar: React.FC<TopbarProps> = ({
 
       {/* Right Controls */}
       <div className="flex items-center gap-2.5">
-        {/* Yapr AI Assistant Button */}
-        <button
-          onClick={onOpenAiStudio}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/50 text-xs font-semibold border border-blue-200/80 dark:border-blue-800 transition-colors"
-          title="Open Yapr AI"
-        >
-          <Sparkles className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-          <span className="hidden sm:inline">Yapr AI</span>
-        </button>
 
         {/* Algorithm Tuning Trigger */}
         <button

@@ -63,8 +63,7 @@ export class NotificationsService {
       }
     }
 
-    const unreadCount = mockNotifications.filter((n) => !n.read_at).length;
-    return { notifications: mockNotifications, unreadCount };
+    return { notifications: [], unreadCount: 0 };
   }
 
   async markAllAsRead(userId: string): Promise<void> {

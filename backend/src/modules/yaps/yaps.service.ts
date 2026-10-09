@@ -57,7 +57,7 @@ export class YapsService {
           tagged_label: taggedLabel || null,
           created_at: now,
         })
-        .select('*, author:profiles(*)')
+        .select('*, author:profiles!author_id(*)')
         .single();
 
       if (error) throw error;
@@ -142,7 +142,7 @@ export class YapsService {
     if (isSupabaseConfigured) {
       const { data, error } = await supabaseAdmin
         .from('yaps')
-        .select('*, author:profiles(*)')
+        .select('*, author:profiles!author_id(*)')
         .eq('id', yapId)
         .is('deleted_at', null)
         .single();
@@ -160,7 +160,7 @@ export class YapsService {
     if (isSupabaseConfigured) {
       const { data, error } = await supabaseAdmin
         .from('yaps')
-        .select('*, author:profiles(*)')
+        .select('*, author:profiles!author_id(*)')
         .eq('parent_id', parentYapId)
         .is('deleted_at', null)
         .order('created_at', { ascending: true });
@@ -225,7 +225,7 @@ export class YapsService {
         .from('yaps')
         .update({ body: newBody, edited_at: new Date().toISOString() })
         .eq('id', yapId)
-        .select('*, author:profiles(*)')
+        .select('*, author:profiles!author_id(*)')
         .single();
 
       if (error) throw error;

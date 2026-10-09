@@ -89,7 +89,7 @@ export class FeedService {
     if (isSupabaseConfigured) {
       const { data, error } = await supabaseAdmin
         .from('yaps')
-        .select('*, author:profiles(*)')
+        .select('*, author:profiles!author_id(*)')
         .is('parent_id', null)
         .is('deleted_at', null)
         .order('created_at', { ascending: false })
