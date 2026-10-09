@@ -66,7 +66,7 @@ Respond with only the summary sentence, no preamble.`;
   // 3. Fallback Heuristic
   const sentences = yapText.split(/[.!?\n]+/).filter(Boolean);
   const fallback = sentences[0] ? sentences[0].slice(0, 120) + '...' : yapText.slice(0, 100);
-  return { summary: `TL;DR: ${fallback}`, provider: 'ai' };
+  return { summary: fallback, provider: 'ai' };
 }
 
 /**

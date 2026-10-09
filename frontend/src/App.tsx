@@ -49,6 +49,8 @@ export const AppContent: React.FC = () => {
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [selectedThreadYap, setSelectedThreadYap] = useState<Yap | null>(null);
   const [selectedTag, setSelectedTag] = useState<string | undefined>(undefined);
+  const [viewingProfileUsername, setViewingProfileUsername] = useState<string | null>(null);
+  const [refreshFeedKey, setRefreshFeedKey] = useState(0);
 
   // If user signs out or is unauthenticated and not browsing as guest, show Landing Page
   if (!user && !isGuestBrowsing) {
@@ -75,11 +77,17 @@ export const AppContent: React.FC = () => {
     setActiveTab('explore');
   };
 
+  const handleOpenProfile = (username: string) => {
+    setViewingProfileUsername(username);
+    setActiveTab('profile');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   const handleSelectSearchResult = (result: SearchResult) => {
     if (result.type === 'hashtag') {
       handleSelectHashtag(result.title.replace(/^#/, ''));
     } else if (result.type === 'user') {
-      setActiveTab('profile');
+      handleOpenProfile(result.title.replace(/^@/, ''));
     }
   };
 
@@ -89,7 +97,10 @@ export const AppContent: React.FC = () => {
         {/* Left Sidebar (Hidden on mobile, visible md+) */}
         <Sidebar
           activeTab={activeTab}
-          setActiveTab={setActiveTab}
+          setActiveTab={(tab) => {
+            if (tab === 'profile') setViewingProfileUsername(null);
+            setActiveTab(tab);
+          }}
           onOpenComposer={() => {
             setActiveTab('feed');
             window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -111,10 +122,12 @@ export const AppContent: React.FC = () => {
           <main className="flex-1 pb-20 md:pb-16">
             {activeTab === 'feed' && (
               <FeedPage
+                key={refreshFeedKey}
                 onOpenThread={(yap) => setSelectedThreadYap(yap)}
                 onOpenQuote={(yap) => setSelectedThreadYap(yap)}
                 onOpenSliders={() => setIsSlidersOpen(true)}
                 sliderSettings={sliderSettings}
+                onOpenProfile={handleOpenProfile}
               />
             )}
 
@@ -126,7 +139,9 @@ export const AppContent: React.FC = () => {
               />
             )}
 
-            {activeTab === 'notifications' && <NotificationsPage />}
+            {activeTab === 'notifications' && (
+              <NotificationsPage onOpenProfile={handleOpenProfile} />
+            )}
 
             {activeTab === 'bookmarks' && (
               <BookmarksPage
@@ -135,7 +150,16 @@ export const AppContent: React.FC = () => {
               />
             )}
 
-            {activeTab === 'profile' && <ProfilePage />}
+            {activeTab === 'profile' && (
+              <ProfilePage
+                viewingUsername={viewingProfileUsername}
+                onBack={() => {
+                  setViewingProfileUsername(null);
+                  setActiveTab('feed');
+                }}
+                onOpenProfile={handleOpenProfile}
+              />
+            )}
           </main>
         </div>
 
@@ -187,7 +211,14 @@ export const AppContent: React.FC = () => {
         </button>
 
         <button
-          onClick={() => (user ? setActiveTab('profile') : setIsAuthOpen(true))}
+          onClick={() => {
+            if (user) {
+              setViewingProfileUsername(null);
+              setActiveTab('profile');
+            } else {
+              setIsAuthOpen(true);
+            }
+          }}
           className={`p-2 rounded-xl transition-colors ${
             activeTab === 'profile' ? 'text-blue-600 dark:text-blue-400' : 'text-slate-500 dark:text-slate-400'
           }`}
@@ -207,6 +238,10 @@ export const AppContent: React.FC = () => {
       <ReplyThreadModal
         yap={selectedThreadYap}
         onClose={() => setSelectedThreadYap(null)}
+        onOpenProfile={handleOpenProfile}
+        onYapReplied={() => {
+          setRefreshFeedKey((k) => k + 1);
+        }}
       />
 
       <AiStudioModal

@@ -75,8 +75,35 @@ export class YapsService {
           country_code: countryCode,
         });
       }
+
+      // If replying to a parent Yap, increment parent's reply_count and notify parent author
+      if (parentId) {
+        const { data: parent } = await supabaseAdmin
+          .from('yaps')
+          .select('reply_count, author_id')
+          .eq('id', parentId)
+          .single();
+        if (parent) {
+          await supabaseAdmin
+            .from('yaps')
+            .update({ reply_count: (parent.reply_count || 0) + 1 })
+            .eq('id', parentId);
+
+          if (parent.author_id && parent.author_id !== authorId) {
+            await queueService.publish(env.AMQP_QUEUE_NOTIFICATIONS || 'yapr.notifications', {
+              id: `notif_reply_${authorId}_${yapId}`,
+              name: 'reply_notification',
+              payload: { recipientId: parent.author_id, actorId: authorId, yapId, type: 'reply' },
+            });
+          }
+        }
+      }
     } else {
       // In-memory mock yap creation
+      if (parentId) {
+        const parent = mockYaps.find((y) => y.id === parentId);
+        if (parent) parent.reply_count = (parent.reply_count || 0) + 1;
+      }
       newYap = {
         id: yapId,
         author_id: authorId,

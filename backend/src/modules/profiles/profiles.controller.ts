@@ -5,7 +5,7 @@ export class ProfilesController {
   async getProfile(req: Request, res: Response, next: NextFunction) {
     try {
       const { identifier } = req.params;
-      const profile = await profilesService.getProfile(identifier);
+      const profile = await profilesService.getProfile(identifier, req.user?.id);
       res.json({ profile });
     } catch (err) {
       next(err);

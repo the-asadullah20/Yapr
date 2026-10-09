@@ -68,6 +68,16 @@ export class SocialController {
       next(err);
     }
   }
+
+  async getYapLikers(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { yapId } = req.params;
+      const likers = await socialService.getYapLikers(yapId);
+      res.json({ likers });
+    } catch (err) {
+      next(err);
+    }
+  }
 }
 
 export const socialController = new SocialController();

@@ -101,7 +101,7 @@ export class ProfilesService {
 
   }
 
-  async getProfile(identifier: string): Promise<any> {
+  async getProfile(identifier: string, viewerId?: string): Promise<any> {
     if (isSupabaseConfigured) {
       const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(identifier);
       const query = supabaseAdmin.from('profiles').select('*');
@@ -111,8 +111,19 @@ export class ProfilesService {
 
       if (error) throw error;
       if (data) {
+        let isFollowing = false;
+        if (viewerId && viewerId !== data.id) {
+          const { data: follow } = await supabaseAdmin
+            .from('follows')
+            .select('follower_id')
+            .eq('follower_id', viewerId)
+            .eq('followee_id', data.id)
+            .maybeSingle();
+          isFollowing = !!follow;
+        }
         return {
           ...data,
+          is_following: isFollowing,
           country: getCountryByCode(data.country_code || 'PK'),
         };
       }
@@ -123,12 +134,13 @@ export class ProfilesService {
       if (p.id === identifier || p.username.toLowerCase() === identifier.toLowerCase()) {
         return {
           ...p,
+          is_following: false,
           country: getCountryByCode(p.country_code || 'PK'),
         };
       }
     }
 
-    // Return dummy profile if not found in dev
+    // Return profile if not found in dev
     return {
       id: identifier,
       username: identifier,
@@ -139,6 +151,7 @@ export class ProfilesService {
       country: getCountryByCode('PK'),
       follower_count: 0,
       following_count: 0,
+      is_following: false,
     };
   }
 
@@ -151,6 +164,20 @@ export class ProfilesService {
 
     if (sanitized.username) {
       sanitized.username = sanitized.username.toLowerCase().trim();
+      if (sanitized.username.length < 3 || sanitized.username.length > 30) {
+        throw new Error('Username must be between 3 and 30 characters');
+      }
+      if (isSupabaseConfigured) {
+        const { data: existing } = await supabaseAdmin
+          .from('profiles')
+          .select('id')
+          .ilike('username', sanitized.username)
+          .neq('id', userId)
+          .maybeSingle();
+        if (existing) {
+          throw new Error(`Username @${sanitized.username} is already taken`);
+        }
+      }
       await usernameBloomFilter.add(sanitized.username);
     }
 

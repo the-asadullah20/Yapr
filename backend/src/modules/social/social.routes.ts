@@ -5,6 +5,7 @@ import { requireAuth } from '../../middleware/auth.js';
 const router = Router();
 
 router.post('/like/:yapId', requireAuth, (req, res, next) => socialController.toggleLike(req, res, next));
+router.get('/likes/:yapId', (req, res, next) => socialController.getYapLikers(req, res, next));
 router.post('/reyap/:yapId', requireAuth, (req, res, next) => socialController.toggleReyap(req, res, next));
 router.post('/follow/:followeeId', requireAuth, (req, res, next) => socialController.toggleFollow(req, res, next));
 router.post('/bookmark/:yapId', requireAuth, (req, res, next) => socialController.toggleBookmark(req, res, next));

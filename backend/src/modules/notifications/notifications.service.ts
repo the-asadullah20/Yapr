@@ -48,6 +48,43 @@ const mockNotifications: NotificationItem[] = [
 ];
 
 export class NotificationsService {
+  private formatNotificationText(type: string, actors: any[]): string {
+    if (!actors || actors.length === 0) {
+      return type === 'like' ? 'Someone liked your Yap' : `New ${type} notification`;
+    }
+    const primaryName = actors[0].display_name || `@${actors[0].username}` || 'Someone';
+    if (actors.length === 1) {
+      switch (type) {
+        case 'like':
+          return `${primaryName} liked your Yap`;
+        case 'reply':
+          return `${primaryName} commented on your Yap`;
+        case 'reyap':
+          return `${primaryName} shared your Yap`;
+        case 'follow':
+          return `${primaryName} started following you`;
+        case 'new_yap':
+          return `${primaryName} posted a new Yap`;
+        default:
+          return `${primaryName} interacted with you`;
+      }
+    }
+    const othersCount = actors.length - 1;
+    const othersLabel = othersCount === 1 ? '1 other' : `${othersCount} others`;
+    switch (type) {
+      case 'like':
+        return `${primaryName} and ${othersLabel} liked your Yap`;
+      case 'reply':
+        return `${primaryName} and ${othersLabel} commented on your Yap`;
+      case 'reyap':
+        return `${primaryName} and ${othersLabel} shared your Yap`;
+      case 'follow':
+        return `${primaryName} and ${othersLabel} started following you`;
+      default:
+        return `${primaryName} and ${othersLabel} interacted with you`;
+    }
+  }
+
   async getNotifications(userId: string): Promise<{ notifications: NotificationItem[]; unreadCount: number }> {
     if (isSupabaseConfigured) {
       const { data, error } = await supabaseAdmin
@@ -55,15 +92,65 @@ export class NotificationsService {
         .select('*')
         .eq('user_id', userId)
         .order('created_at', { ascending: false })
-        .limit(30);
+        .limit(40);
 
       if (!error && data) {
         const unreadCount = data.filter((n) => !n.read_at).length;
-        return { notifications: data, unreadCount };
+
+        // Gather all actor UUIDs
+        const actorIdSet = new Set<string>();
+        data.forEach((row: any) => {
+          if (Array.isArray(row.actor_ids)) {
+            row.actor_ids.forEach((id: string) => actorIdSet.add(id));
+          }
+        });
+
+        // Batch fetch profile data for all actors
+        const actorIds = Array.from(actorIdSet);
+        const profileMap = new Map<string, any>();
+        if (actorIds.length > 0) {
+          const { data: profiles } = await supabaseAdmin
+            .from('profiles')
+            .select('id, username, display_name, avatar_url, is_verified')
+            .in('id', actorIds);
+
+          (profiles || []).forEach((p: any) => {
+            profileMap.set(p.id, {
+              ...p,
+              avatar_url: p.avatar_url || `https://api.dicebear.com/7.x/bottts/svg?seed=${p.username || p.id}`,
+            });
+          });
+        }
+
+        const enriched: NotificationItem[] = data.map((row: any) => {
+          const rawActorIds: string[] = Array.isArray(row.actor_ids) ? row.actor_ids : [];
+          const actors = rawActorIds.map(
+            (id) =>
+              profileMap.get(id) || {
+                id,
+                username: 'yapr',
+                display_name: 'A user',
+                avatar_url: `https://api.dicebear.com/7.x/bottts/svg?seed=${id}`,
+              }
+          );
+          return {
+            id: row.id,
+            user_id: row.user_id,
+            type: row.type,
+            actor_ids: rawActorIds,
+            yap_id: row.yap_id,
+            read_at: row.read_at,
+            created_at: row.created_at,
+            actors,
+            formatted_text: this.formatNotificationText(row.type, actors),
+          };
+        });
+
+        return { notifications: enriched, unreadCount };
       }
     }
 
-    return { notifications: [], unreadCount: 0 };
+    return { notifications: mockNotifications.filter((n) => n.user_id === userId), unreadCount: 0 };
   }
 
   async markAllAsRead(userId: string): Promise<void> {
@@ -88,6 +175,23 @@ export class NotificationsService {
     const { userId, type, actorId, yapId } = params;
     if (userId === actorId) return; // don't notify self
 
+    let actorProfile: any = null;
+    if (isSupabaseConfigured) {
+      const { data: p } = await supabaseAdmin
+        .from('profiles')
+        .select('id, username, display_name, avatar_url, is_verified')
+        .eq('id', actorId)
+        .single();
+      actorProfile = p;
+    }
+
+    const fallbackActor = actorProfile || {
+      id: actorId,
+      username: 'yapr',
+      display_name: 'Someone',
+      avatar_url: `https://api.dicebear.com/7.x/bottts/svg?seed=${actorId}`,
+    };
+
     const notifItem: NotificationItem = {
       id: crypto.randomUUID(),
       user_id: userId,
@@ -96,6 +200,8 @@ export class NotificationsService {
       yap_id: yapId,
       read_at: null,
       created_at: new Date().toISOString(),
+      actors: [fallbackActor],
+      formatted_text: this.formatNotificationText(type, [fallbackActor]),
     };
 
     if (isSupabaseConfigured) {

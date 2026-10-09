@@ -10,6 +10,7 @@ interface FeedPageProps {
   onOpenQuote: (yap: Yap) => void;
   onOpenSliders: () => void;
   sliderSettings: FeedSliderSettings;
+  onOpenProfile?: (username: string) => void;
 }
 
 export const FeedPage: React.FC<FeedPageProps> = ({
@@ -17,6 +18,7 @@ export const FeedPage: React.FC<FeedPageProps> = ({
   onOpenQuote,
   onOpenSliders,
   sliderSettings,
+  onOpenProfile,
 }) => {
   const [feedMode, setFeedMode] = useState<'ranked' | 'chronological' | 'regional'>('ranked');
   const [yaps, setYaps] = useState<Yap[]>([]);
@@ -92,6 +94,7 @@ export const FeedPage: React.FC<FeedPageProps> = ({
               onOpenThread={onOpenThread}
               onOpenQuote={onOpenQuote}
               onDeleteYap={handleDeleteYap}
+              onOpenProfile={onOpenProfile}
             />
           ))}
         </div>

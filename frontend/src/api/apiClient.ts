@@ -41,11 +41,17 @@ export const api = {
   },
 
   // Create Yap
-  async createYap(body: string, media: string[] = [], taggedLabel?: string, countryCode?: string): Promise<Yap> {
+  async createYap(
+    body: string,
+    media: string[] = [],
+    taggedLabel?: string,
+    countryCode?: string,
+    parentId?: string
+  ): Promise<Yap> {
     const res = await fetch(`${API_BASE}/yaps`, {
       method: 'POST',
       headers: getAuthHeaders(),
-      body: JSON.stringify({ body, media, taggedLabel, countryCode }),
+      body: JSON.stringify({ body, media, taggedLabel, countryCode, parentId }),
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
@@ -74,6 +80,17 @@ export const api = {
     return await res.json();
   },
 
+  async getYapLikers(yapId: string): Promise<UserProfile[]> {
+    try {
+      const res = await fetch(`${API_BASE}/social/likes/${yapId}`);
+      if (!res.ok) return [];
+      const data = await res.json();
+      return data.likers || [];
+    } catch {
+      return [];
+    }
+  },
+
   async toggleReyap(yapId: string, quoteBody?: string): Promise<{ reyapped: boolean; reyapCount: number }> {
     const res = await fetch(`${API_BASE}/social/reyap/${yapId}`, {
       method: 'POST',
@@ -95,6 +112,23 @@ export const api = {
     const res = await fetch(`${API_BASE}/social/bookmark/${yapId}`, {
       method: 'POST',
       headers: getAuthHeaders(),
+    });
+    return await res.json();
+  },
+
+  async blockUser(userId: string): Promise<{ success: boolean }> {
+    const res = await fetch(`${API_BASE}/social/block/${userId}`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+    });
+    return await res.json();
+  },
+
+  async reportContent(payload: { yapId?: string; reportedUserId?: string; reason: string }): Promise<{ success: boolean }> {
+    const res = await fetch(`${API_BASE}/social/report`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(payload),
     });
     return await res.json();
   },

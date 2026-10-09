@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { X, Send, CheckCircle2, HelpCircle, FileText, AlertCircle } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { X, Send, CheckCircle2, HelpCircle, FileText, AlertCircle, Image, Loader2, Smile } from 'lucide-react';
 import { Yap } from '../../types';
 import { api } from '../../api/apiClient';
 import { formatTimeAgo } from '../../utils/formatters';
@@ -8,18 +8,26 @@ interface ReplyThreadModalProps {
   yap: Yap | null;
   onClose: () => void;
   onYapReplied?: () => void;
+  onOpenProfile?: (username: string) => void;
 }
+
+const QUICK_EMOJIS = ['❤️', '👍', '🔥', '😂', '🎉', '💡', '💯', '👏'];
 
 export const ReplyThreadModal: React.FC<ReplyThreadModalProps> = ({
   yap,
   onClose,
   onYapReplied,
+  onOpenProfile,
 }) => {
   const [replies, setReplies] = useState<Yap[]>([]);
   const [loading, setLoading] = useState(false);
   const [replyText, setReplyText] = useState('');
+  const [mediaUrls, setMediaUrls] = useState<string[]>([]);
   const [taggedLabel, setTaggedLabel] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [showEmojiBar, setShowEmojiBar] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (yap) {
@@ -40,27 +48,75 @@ export const ReplyThreadModal: React.FC<ReplyThreadModalProps> = ({
     { label: 'Source', icon: FileText, color: 'text-blue-600 bg-blue-50 dark:bg-blue-950/40 border-blue-300 dark:border-blue-800' },
   ];
 
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (mediaUrls.length >= 4) {
+      alert('You can attach up to 4 images');
+      return;
+    }
+    setIsUploading(true);
+    try {
+      const res = await api.uploadMedia(file);
+      setMediaUrls((prev) => [...prev, res.url]);
+    } catch (err: any) {
+      alert(err.message || 'Failed to upload image');
+    } finally {
+      setIsUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
   const handlePostReply = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!replyText.trim() || isSubmitting) return;
+    if ((!replyText.trim() && mediaUrls.length === 0) || isSubmitting) return;
 
     setIsSubmitting(true);
     try {
       const newReply = await api.createYap(
         replyText,
-        [],
+        mediaUrls,
         taggedLabel || undefined,
-        yap.author?.country_code || 'PK'
+        yap.author?.country_code || 'PK',
+        yap.id // Critical: pass parent Yap ID
       );
-      setReplies([...replies, newReply]);
+
+      setReplies((prev) => [...prev, newReply]);
+      yap.reply_count = (yap.reply_count || 0) + 1;
       setReplyText('');
+      setMediaUrls([]);
       setTaggedLabel(null);
       onYapReplied?.();
     } catch (err: any) {
-      alert(err.message || 'Failed to submit reply');
+      alert(err.message || 'Failed to submit comment');
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  // Helper to render text with clickable links, hashtags, and emojis
+  const renderFormattedText = (text: string) => {
+    // Regex splits by URLs
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    const parts = text.split(urlRegex);
+
+    return parts.map((part, index) => {
+      if (part.match(urlRegex)) {
+        return (
+          <a
+            key={index}
+            href={part}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-600 dark:text-blue-400 font-semibold underline hover:text-blue-700 break-all"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {part}
+          </a>
+        );
+      }
+      return part;
+    });
   };
 
   return (
@@ -83,12 +139,26 @@ export const ReplyThreadModal: React.FC<ReplyThreadModalProps> = ({
           <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700">
             <div className="flex items-center gap-3 mb-2">
               <img
-                src={yap.author?.avatar_url || (yap as any).avatar_url || `https://api.dicebear.com/7.x/bottts/svg?seed=${yap.author?.username || yap.author_id || 'yapr'}`}
+                src={
+                  yap.author?.avatar_url ||
+                  (yap as any).avatar_url ||
+                  `https://api.dicebear.com/7.x/bottts/svg?seed=${yap.author?.username || yap.author_id || 'yapr'}`
+                }
                 alt=""
-                className="w-9 h-9 rounded-full object-cover ring-2 ring-slate-100 dark:ring-slate-800"
+                onClick={() => {
+                  const uname = yap.author?.username || (yap as any).username;
+                  if (uname) onOpenProfile?.(uname);
+                }}
+                className="w-9 h-9 rounded-full object-cover ring-2 ring-slate-100 dark:ring-slate-800 cursor-pointer"
               />
-              <div>
-                <h4 className="text-xs font-bold text-slate-900 dark:text-white">
+              <div
+                onClick={() => {
+                  const uname = yap.author?.username || (yap as any).username;
+                  if (uname) onOpenProfile?.(uname);
+                }}
+                className="cursor-pointer"
+              >
+                <h4 className="text-xs font-bold text-slate-900 dark:text-white hover:text-blue-600 transition-colors">
                   {yap.author?.display_name || (yap as any).display_name || 'Yapr User'}
                 </h4>
                 <p className="text-[11px] text-slate-400 dark:text-slate-500">
@@ -96,7 +166,25 @@ export const ReplyThreadModal: React.FC<ReplyThreadModalProps> = ({
                 </p>
               </div>
             </div>
-            <p className="text-xs text-slate-800 dark:text-slate-200 leading-relaxed">{yap.body}</p>
+
+            <p className="text-xs text-slate-800 dark:text-slate-200 leading-relaxed whitespace-pre-wrap">
+              {renderFormattedText(yap.body)}
+            </p>
+
+            {/* Parent Media preview */}
+            {yap.media && yap.media.length > 0 && (
+              <div className="flex gap-2 mt-3 overflow-x-auto py-1">
+                {yap.media.map((url, i) => (
+                  <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="block">
+                    <img
+                      src={url}
+                      alt="Attached media"
+                      className="w-24 h-24 object-cover rounded-xl border border-slate-200 dark:border-slate-700 hover:opacity-90 transition-opacity"
+                    />
+                  </a>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Replies divider */}
@@ -115,19 +203,38 @@ export const ReplyThreadModal: React.FC<ReplyThreadModalProps> = ({
           ) : (
             <div className="space-y-3">
               {replies.map((r) => (
-                <div key={r.id} className="p-3.5 rounded-2xl bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 shadow-sm">
+                <div
+                  key={r.id}
+                  className="p-3.5 rounded-2xl bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 shadow-sm"
+                >
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2.5">
                       <img
-                        src={r.author?.avatar_url || (r as any).avatar_url || `https://api.dicebear.com/7.x/bottts/svg?seed=${r.author?.username || r.author_id || 'yapr'}`}
+                        src={
+                          r.author?.avatar_url ||
+                          (r as any).avatar_url ||
+                          `https://api.dicebear.com/7.x/bottts/svg?seed=${r.author?.username || r.author_id || 'yapr'}`
+                        }
                         alt=""
-                        className="w-7 h-7 rounded-full object-cover ring-1 ring-slate-100 dark:ring-slate-700"
+                        onClick={() => {
+                          const uname = r.author?.username || (r as any).username;
+                          if (uname) onOpenProfile?.(uname);
+                        }}
+                        className="w-7 h-7 rounded-full object-cover ring-1 ring-slate-100 dark:ring-slate-700 cursor-pointer"
                       />
-                      <div>
-                        <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                      <div
+                        onClick={() => {
+                          const uname = r.author?.username || (r as any).username;
+                          if (uname) onOpenProfile?.(uname);
+                        }}
+                        className="cursor-pointer"
+                      >
+                        <span className="text-xs font-bold text-slate-800 dark:text-slate-200 hover:text-blue-600 transition-colors">
                           {r.author?.display_name || (r as any).display_name || 'Yapr User'}
                         </span>
-                        <span className="text-[10px] text-slate-400 dark:text-slate-500 ml-1.5">{formatTimeAgo(r.created_at)}</span>
+                        <span className="text-[10px] text-slate-400 dark:text-slate-500 ml-1.5">
+                          {formatTimeAgo(r.created_at)}
+                        </span>
                       </div>
                     </div>
 
@@ -138,7 +245,25 @@ export const ReplyThreadModal: React.FC<ReplyThreadModalProps> = ({
                       </span>
                     )}
                   </div>
-                  <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed">{r.body}</p>
+
+                  <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-wrap">
+                    {renderFormattedText(r.body)}
+                  </p>
+
+                  {/* Attached media images */}
+                  {r.media && r.media.length > 0 && (
+                    <div className="flex gap-2 mt-2 overflow-x-auto py-1">
+                      {r.media.map((url, mi) => (
+                        <a key={mi} href={url} target="_blank" rel="noopener noreferrer">
+                          <img
+                            src={url}
+                            alt="Reply photo"
+                            className="w-20 h-20 object-cover rounded-xl border border-slate-200 dark:border-slate-700 hover:opacity-90 transition-opacity"
+                          />
+                        </a>
+                      ))}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -146,7 +271,10 @@ export const ReplyThreadModal: React.FC<ReplyThreadModalProps> = ({
         </div>
 
         {/* Reply Composer Form */}
-        <form onSubmit={handlePostReply} className="p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40 space-y-3">
+        <form
+          onSubmit={handlePostReply}
+          className="p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40 space-y-2.5"
+        >
           {/* Tagged Reply Selector */}
           <div className="flex items-center gap-1.5 flex-wrap">
             <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 mr-1">Tag reply:</span>
@@ -171,20 +299,90 @@ export const ReplyThreadModal: React.FC<ReplyThreadModalProps> = ({
             })}
           </div>
 
-          <div className="flex gap-2">
+          {/* Quick Emoji bar */}
+          {showEmojiBar && (
+            <div className="flex items-center gap-1.5 py-1 px-2 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+              <span className="text-[10px] font-bold text-slate-400 mr-1">Emojis:</span>
+              {QUICK_EMOJIS.map((emoji) => (
+                <button
+                  key={emoji}
+                  type="button"
+                  onClick={() => setReplyText((prev) => prev + emoji)}
+                  className="text-sm hover:scale-125 transition-transform p-0.5"
+                >
+                  {emoji}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Uploaded media previews */}
+          {mediaUrls.length > 0 && (
+            <div className="flex gap-2 py-1">
+              {mediaUrls.map((url, i) => (
+                <div key={i} className="relative w-14 h-14 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700">
+                  <img src={url} alt="" className="w-full h-full object-cover" />
+                  <button
+                    type="button"
+                    onClick={() => setMediaUrls(mediaUrls.filter((_, idx) => idx !== i))}
+                    className="absolute top-0.5 right-0.5 bg-black/60 rounded-full p-0.5 text-white"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Reply Input Bar */}
+          <div className="flex items-center gap-2">
             <input
               type="text"
               value={replyText}
               onChange={(e) => setReplyText(e.target.value)}
-              placeholder="Write your tagged reply..."
-              className="flex-1 px-3 py-2 text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:border-blue-500 text-slate-900 dark:text-slate-100"
+              placeholder="Write your comment or reply... (links & emojis supported)"
+              className="flex-1 px-3.5 py-2 text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:border-blue-500 text-slate-900 dark:text-slate-100"
             />
+
+            {/* Emoji toggle button */}
+            <button
+              type="button"
+              onClick={() => setShowEmojiBar(!showEmojiBar)}
+              title="Add Emoji"
+              className={`p-2 rounded-xl border transition-colors ${
+                showEmojiBar
+                  ? 'bg-blue-50 dark:bg-blue-900/40 text-blue-600 border-blue-200 dark:border-blue-800'
+                  : 'bg-white dark:bg-slate-800 text-slate-500 border-slate-200 dark:border-slate-700 hover:text-slate-800'
+              }`}
+            >
+              <Smile className="w-3.5 h-3.5" />
+            </button>
+
+            {/* Photo upload button */}
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isUploading}
+              title="Attach Photo"
+              className="p-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-500 hover:text-blue-600 transition-colors"
+            >
+              {isUploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Image className="w-3.5 h-3.5" />}
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleImageUpload}
+            />
+
+            {/* Submit button */}
             <button
               type="submit"
-              disabled={!replyText.trim() || isSubmitting}
+              disabled={(!replyText.trim() && mediaUrls.length === 0) || isSubmitting}
               className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-sm transition-colors"
             >
-              <Send className="w-3 h-3" />
+              {isSubmitting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />}
               <span>Reply</span>
             </button>
           </div>

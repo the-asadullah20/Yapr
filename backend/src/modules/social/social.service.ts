@@ -151,6 +151,25 @@ export class SocialService {
     }
     return true;
   }
+
+  async getYapLikers(yapId: string): Promise<any[]> {
+    if (isSupabaseConfigured) {
+      const { data, error } = await supabaseAdmin
+        .from('likes')
+        .select('user_id, created_at, profile:profiles!user_id(id, username, display_name, avatar_url, is_verified)')
+        .eq('yap_id', yapId)
+        .order('created_at', { ascending: false });
+
+      if (!error && data) {
+        return data.map((d: any) => ({
+          ...d.profile,
+          liked_at: d.created_at,
+          avatar_url: d.profile?.avatar_url || `https://api.dicebear.com/7.x/bottts/svg?seed=${d.profile?.username || d.user_id}`,
+        })).filter((p: any) => !!p.id);
+      }
+    }
+    return [];
+  }
 }
 
 export const socialService = new SocialService();
