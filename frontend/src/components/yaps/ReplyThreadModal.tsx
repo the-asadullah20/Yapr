@@ -303,7 +303,7 @@ export const ReplyThreadModal: React.FC<ReplyThreadModalProps> = ({
                     <div
                       key={r.id}
                       className={`relative p-3.5 rounded-2xl bg-white dark:bg-slate-800/90 border border-slate-100 dark:border-slate-700 shadow-sm transition-all ${
-                        isNestedReply ? 'ml-2 sm:ml-4 border-l-2 border-l-blue-500' : ''
+                        isNestedReply ? 'ml-2 sm:ml-4' : ''
                       }`}
                     >
                       {/* Left horizontal connector dot */}

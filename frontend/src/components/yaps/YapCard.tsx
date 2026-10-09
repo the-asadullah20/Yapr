@@ -390,7 +390,7 @@ export const YapCard: React.FC<YapCardProps> = ({
               </span>
             ) : (
               <p className="text-slate-800 dark:text-slate-200 whitespace-pre-wrap">
-                {summaryText.replace(/^TL;DR\s*:?\s*/i, '')}
+                {summaryText.replace(/^TL;DR\s*:?\s*/i, '').replace(/\*{1,4}/g, '').trim()}
               </p>
             )}
           </div>
@@ -418,7 +418,7 @@ export const YapCard: React.FC<YapCardProps> = ({
               </span>
             ) : (
               <p className="whitespace-pre-wrap text-slate-900 dark:text-slate-100 font-medium">
-                {translationText}
+                {translationText.replace(/<\/?[^>]+(>|$)/g, '').replace(/\*{1,4}/g, '').trim()}
               </p>
             )}
           </div>

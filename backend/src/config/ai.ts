@@ -24,12 +24,16 @@ if (env.GEMINI_API_KEY) {
  * Summarizes a Yap or thread with dual fallback: Gemini Flash Lite -> Groq GPT-OSS -> Heuristic
  */
 export async function summarizeYap(yapText: string, repliesText: string = ''): Promise<{ summary: string; provider: string }> {
-  const prompt = `You are the Yapr AI Summarizer. Provide a crisp, concise 1-2 sentence summary capturing the key thought, mood, and takeaways of this post. Support English, Urdu, and Roman Urdu.
+  const prompt = `You are the Yapr AI Summarizer. Provide a crisp, concise 1-2 sentence plain-text summary capturing the core thought and takeaway of this post.
+Do NOT include asterisks, bold formatting (**), bullets, headings, or language labels.
 Post content:
 "${yapText}"
 ${repliesText ? `Thread context:\n"${repliesText}"` : ''}
 
-Respond with ONLY the summary sentences, no quotes, no TL;DR prefix.`;
+Respond with ONLY the plain-text summary sentence, no quotes, no TL;DR prefix.`;
+
+  const sanitizeSummary = (t: string) =>
+    t.replace(/\*{1,4}/g, '').replace(/<\/?[^>]+(>|$)/g, '').replace(/^TL;DR:?\s*/i, '').replace(/^"|"$/g, '').trim();
 
   // 1. Try Gemini Flash Lite first (reliable & fast)
   if (geminiClient && env.GEMINI_API_KEY) {
@@ -38,7 +42,7 @@ Respond with ONLY the summary sentences, no quotes, no TL;DR prefix.`;
       const response = await model.generateContent(prompt);
       const text = response.response.text()?.trim();
       if (text) {
-        return { summary: text.replace(/^TL;DR:?\s*/i, '').replace(/^"|"$/g, ''), provider: 'gemini' };
+        return { summary: sanitizeSummary(text), provider: 'gemini' };
       }
     } catch (err: any) {
       console.warn('⚠️ Gemini summary error:', err.message);
@@ -56,7 +60,7 @@ Respond with ONLY the summary sentences, no quotes, no TL;DR prefix.`;
       });
       const text = chatCompletion.choices[0]?.message?.content?.trim();
       if (text) {
-        return { summary: text.replace(/^TL;DR:?\s*/i, '').replace(/^"|"$/g, ''), provider: 'groq' };
+        return { summary: sanitizeSummary(text), provider: 'groq' };
       }
     } catch (err: any) {
       console.warn('⚠️ Groq summary error:', err.message);
@@ -66,7 +70,7 @@ Respond with ONLY the summary sentences, no quotes, no TL;DR prefix.`;
   // 3. Fallback Heuristic
   const sentences = yapText.split(/[.!?\n]+/).filter(Boolean);
   const fallback = sentences[0] ? sentences[0].slice(0, 140) : yapText.slice(0, 120);
-  return { summary: fallback, provider: 'ai' };
+  return { summary: sanitizeSummary(fallback), provider: 'ai' };
 }
 
 /**
@@ -76,11 +80,15 @@ export async function translateYap(text: string, targetLanguage: string): Promis
   const prompt = `You are a professional social media translator for Yapr.
 Translate the following post into ${targetLanguage}.
 Keep the informal social tone, emotional nuance, and original emojis/hashtags.
+Do NOT use HTML tags (like <p>, </p>, <br>), markdown formatting, asterisks (**), or quotes.
 
 Post text:
 "${text}"
 
-Respond with ONLY the translated text, without quotes or additional comments.`;
+Respond with ONLY the plain translated text without any HTML or markdown markup.`;
+
+  const sanitizeTranslation = (t: string) =>
+    t.replace(/<\/?[^>]+(>|$)/g, '').replace(/\*{1,4}/g, '').replace(/^"|"$/g, '').trim();
 
   // 1. Try Gemini Flash Lite
   if (geminiClient && env.GEMINI_API_KEY) {
@@ -89,7 +97,7 @@ Respond with ONLY the translated text, without quotes or additional comments.`;
       const response = await model.generateContent(prompt);
       const resultText = response.response.text()?.trim();
       if (resultText) {
-        return { translation: resultText.replace(/^"|"$/g, ''), targetLanguage, provider: 'gemini' };
+        return { translation: sanitizeTranslation(resultText), targetLanguage, provider: 'gemini' };
       }
     } catch (err: any) {
       console.warn('⚠️ Gemini translate error:', err.message);
@@ -107,14 +115,14 @@ Respond with ONLY the translated text, without quotes or additional comments.`;
       });
       const resultText = chatCompletion.choices[0]?.message?.content?.trim();
       if (resultText) {
-        return { translation: resultText.replace(/^"|"$/g, ''), targetLanguage, provider: 'groq' };
+        return { translation: sanitizeTranslation(resultText), targetLanguage, provider: 'groq' };
       }
     } catch (err: any) {
       console.warn('⚠️ Groq translate error:', err.message);
     }
   }
 
-  return { translation: text, targetLanguage, provider: 'fallback' };
+  return { translation: sanitizeTranslation(text), targetLanguage, provider: 'fallback' };
 }
 
 /**
