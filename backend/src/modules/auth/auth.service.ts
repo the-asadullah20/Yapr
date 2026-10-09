@@ -155,21 +155,45 @@ export class AuthService {
     let profile: any = null;
 
     if (isSupabaseConfigured) {
-      const { data, error } = await supabaseAdmin.auth.signUp({
-        email: cleanEmail,
-        password: params.password,
-        options: {
-          data: {
+      const { data: list } = await supabaseAdmin.auth.admin.listUsers();
+      const existing = list?.users?.find((u) => u.email === cleanEmail);
+
+      if (existing) {
+        userId = existing.id;
+        await supabaseAdmin.auth.admin.updateUserById(userId, {
+          password: params.password,
+          user_metadata: {
             username: cleanUsername,
             display_name: params.displayName || cleanUsername,
             country_code: params.countryCode || 'PK',
           },
-        },
-      });
-      if (error) throw error;
-      userId = data.user?.id || '';
-      const { data: p } = await supabaseAdmin.from('profiles').select('*').eq('id', userId).single();
-      profile = p;
+        });
+        await supabaseAdmin.from('profiles').upsert({
+          id: userId,
+          username: cleanUsername,
+          display_name: params.displayName || cleanUsername,
+          country_code: params.countryCode || 'PK',
+          avatar_url: `https://api.dicebear.com/7.x/bottts/svg?seed=${cleanUsername}`,
+        });
+        const { data: p } = await supabaseAdmin.from('profiles').select('*').eq('id', userId).single();
+        profile = p;
+      } else {
+        const { data, error } = await supabaseAdmin.auth.signUp({
+          email: cleanEmail,
+          password: params.password,
+          options: {
+            data: {
+              username: cleanUsername,
+              display_name: params.displayName || cleanUsername,
+              country_code: params.countryCode || 'PK',
+            },
+          },
+        });
+        if (error) throw error;
+        userId = data.user?.id || '';
+        const { data: p } = await supabaseAdmin.from('profiles').select('*').eq('id', userId).single();
+        profile = p;
+      }
     } else {
       userId = crypto.createHash('md5').update(cleanEmail).digest('hex');
       userId = `${userId.slice(0, 8)}-${userId.slice(8, 12)}-4${userId.slice(13, 16)}-8${userId.slice(17, 20)}-${userId.slice(20, 32)}`;

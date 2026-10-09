@@ -219,10 +219,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
         await loginWithOtp(email, otpCode);
         onClose();
       } else {
-        // In signup mode, verify code then proceed to username picker
-        if (otpCode !== '123456' && previewCode && otpCode !== previewCode) {
-          throw new Error('Invalid verification code');
-        }
+        // Real backend verification against Upstash Redis
+        await api.verifyOtp(email, otpCode);
         // Move to Step 3: Choose Username!
         setSignupStep(3);
       }
