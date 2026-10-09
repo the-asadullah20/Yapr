@@ -140,21 +140,23 @@ export const YapCard: React.FC<YapCardProps> = ({
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-3">
           <img
-            src={yap.author?.avatar_url || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150'}
-            alt={yap.author?.display_name || ''}
-            className="w-10 h-10 rounded-full object-cover ring-2 ring-slate-100 dark:ring-slate-800"
+            src={yap.author?.avatar_url || (yap as any).avatar_url || 'https://api.dicebear.com/7.x/bottts/svg?seed=yapr'}
+            alt={yap.author?.display_name || (yap as any).display_name || ''}
+            className="w-10 h-10 rounded-full object-cover ring-2 ring-slate-100 dark:ring-slate-800 bg-slate-100 dark:bg-slate-800"
           />
           <div>
             <div className="flex items-center gap-2">
               <h3 className="text-sm font-semibold text-slate-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 cursor-pointer">
-                {yap.author?.display_name || 'Anonymous Yapr'}
+                {yap.author?.display_name || (yap as any).display_name || 'Yapr User'}
               </h3>
-              {yap.author?.is_verified && (
+              {(yap.author?.is_verified || (yap as any).is_verified) && (
                 <span className="w-3.5 h-3.5 rounded-full bg-blue-600 text-white flex items-center justify-center text-[9px] font-bold">
                   ✓
                 </span>
               )}
-              <span className="text-xs text-slate-400 dark:text-slate-500">@{yap.author?.username}</span>
+              <span className="text-xs text-slate-400 dark:text-slate-500">
+                @{yap.author?.username || (yap as any).username || 'yapr'}
+              </span>
             </div>
 
             <div className="flex items-center gap-2 text-xs text-slate-400 dark:text-slate-500 mt-0.5">
@@ -245,7 +247,7 @@ export const YapCard: React.FC<YapCardProps> = ({
             {loadingSummary ? (
               <span className="flex items-center gap-2 text-slate-500 dark:text-slate-400">
                 <Sparkles className="w-3.5 h-3.5 animate-spin text-blue-600" />
-                Analyzing with Gemini & Groq fallback...
+                Generating AI Summary...
               </span>
             ) : (
               <p>

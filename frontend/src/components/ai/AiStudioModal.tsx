@@ -77,7 +77,7 @@ export const AiStudioModal: React.FC<AiStudioModalProps> = ({
 
           <h2 className="text-xl font-bold tracking-tight">Generate High-Impact Social Content</h2>
           <p className="text-xs text-blue-100 mt-1">
-            Harness Groq Llama 3.3 and Google Gemini Flash to polish, summarize, and amplify your Yaps.
+            Polish your thoughts, generate punchy hashtags, and summarize threads instantly.
           </p>
 
           {/* Mode Switcher */}
@@ -144,7 +144,7 @@ export const AiStudioModal: React.FC<AiStudioModalProps> = ({
               <div className="flex items-center justify-between text-xs">
                 <span className="font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
                   <Cpu className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-                  AI Generated Result {provider && `(${provider})`}
+                  AI Generated Result
                 </span>
                 <div className="flex gap-2">
                   <button

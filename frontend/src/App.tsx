@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Home, Compass, Bell, Bookmark, Sparkles, User } from 'lucide-react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { SocketProvider, useSocket } from './context/SocketContext';
@@ -13,6 +13,7 @@ import { ExplorePage } from './pages/ExplorePage';
 import { NotificationsPage } from './pages/NotificationsPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { BookmarksPage } from './pages/BookmarksPage';
+import { LandingPage } from './pages/LandingPage';
 
 // Modals
 import { FeedSlidersModal } from './components/feed/FeedSlidersModal';
@@ -26,6 +27,16 @@ export const AppContent: React.FC = () => {
   const { user } = useAuth();
   const { unreadCount } = useSocket();
   const [activeTab, setActiveTab] = useState('feed');
+  const [isGuestBrowsing, setIsGuestBrowsing] = useState(false);
+  const [authInitialMode, setAuthInitialMode] = useState<'signin' | 'signup'>('signin');
+  const prevUserRef = useRef(user);
+
+  useEffect(() => {
+    if (prevUserRef.current && !user) {
+      setIsGuestBrowsing(false);
+    }
+    prevUserRef.current = user;
+  }, [user]);
   const [sliderSettings, setSliderSettings] = useState<FeedSliderSettings>({
     followingWeight: 1.5,
     viralWeight: 1.0,
@@ -38,6 +49,26 @@ export const AppContent: React.FC = () => {
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [selectedThreadYap, setSelectedThreadYap] = useState<Yap | null>(null);
   const [selectedTag, setSelectedTag] = useState<string | undefined>(undefined);
+
+  // If user signs out or is unauthenticated and not browsing as guest, show Landing Page
+  if (!user && !isGuestBrowsing) {
+    return (
+      <>
+        <LandingPage
+          onOpenAuth={(mode = 'signin') => {
+            setAuthInitialMode(mode);
+            setIsAuthOpen(true);
+          }}
+          onExploreGuest={() => setIsGuestBrowsing(true)}
+        />
+        <AuthModal
+          isOpen={isAuthOpen}
+          initialMode={authInitialMode}
+          onClose={() => setIsAuthOpen(false)}
+        />
+      </>
+    );
+  }
 
   const handleSelectHashtag = (tag: string) => {
     setSelectedTag(tag);
@@ -188,6 +219,7 @@ export const AppContent: React.FC = () => {
 
       <AuthModal
         isOpen={isAuthOpen}
+        initialMode={authInitialMode}
         onClose={() => setIsAuthOpen(false)}
       />
     </div>

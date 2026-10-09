@@ -46,13 +46,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'profile', label: 'Profile', icon: User, action: !user ? onOpenAuth : undefined },
   ];
 
-  const topicCircles = [
-    { id: 'Tech', name: 'Tech & Startups', initial: 'TS', color: 'bg-blue-600' },
-    { id: 'Cricket', name: 'Sports & Cricket', initial: 'SC', color: 'bg-emerald-600' },
-    { id: 'YaprAi', name: 'Yapr AI Community', initial: 'YA', color: 'bg-indigo-600' },
-    { id: 'Design', name: 'Design & Aesthetics', initial: 'DA', color: 'bg-violet-600' },
-  ];
-
   return (
     <aside className="hidden md:flex w-64 flex-shrink-0 sticky top-0 h-screen flex-col justify-between p-4 bg-white dark:bg-slate-900 border-r border-slate-200/80 dark:border-slate-800 select-none transition-colors duration-200">
 
@@ -87,29 +80,41 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         {/* User Mini Profile Card or Sign In Banner */}
         {user ? (
-          <div className="p-3 bg-slate-50 dark:bg-slate-800/60 hover:bg-slate-100/80 dark:hover:bg-slate-800 rounded-2xl border border-slate-200/60 dark:border-slate-700/60 transition-all">
-            <div className="flex items-center gap-3">
+          <div className="p-2.5 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200/60 dark:border-slate-700/60 flex items-center justify-between transition-all">
+            <div
+              className="flex items-center gap-2.5 flex-1 min-w-0 cursor-pointer"
+              onClick={() => setActiveTab('profile')}
+            >
               <img
-                src={user.avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150'}
+                src={user.avatar_url || `https://api.dicebear.com/7.x/bottts/svg?seed=${user.username}`}
                 alt={user.display_name}
-                className="w-10 h-10 rounded-full object-cover ring-2 ring-blue-500/20"
+                className="w-9 h-9 rounded-full object-cover ring-2 ring-blue-500/20 flex-shrink-0"
               />
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-1.5">
-                  <h4 className="text-sm font-semibold text-slate-900 dark:text-white truncate">{user.display_name}</h4>
-                  <span className="px-1.5 py-0.2 bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 rounded text-[10px] font-bold">
+                <div className="flex items-center gap-1">
+                  <h4 className="text-xs font-bold text-slate-900 dark:text-white truncate">{user.display_name}</h4>
+                  <span className="px-1 py-0.2 bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 rounded text-[9px] font-bold">
                     {user.country_code || 'PK'}
                   </span>
                 </div>
-                <p className="text-xs text-slate-500 dark:text-slate-400 truncate">@{user.username}</p>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">@{user.username}</p>
               </div>
             </div>
+
+            {/* Quick Sign Out Button directly on User Card */}
+            <button
+              onClick={logout}
+              title="Sign Out"
+              className="p-1.5 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-xl transition-colors ml-1"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
           </div>
         ) : (
-          <div className="p-3.5 bg-blue-50/70 dark:bg-blue-950/40 rounded-2xl border border-blue-100 dark:border-blue-900/60 flex items-center justify-between">
+          <div className="p-3 bg-blue-50/70 dark:bg-blue-950/40 rounded-2xl border border-blue-100 dark:border-blue-900/60 flex items-center justify-between">
             <div>
               <p className="text-xs font-semibold text-blue-950 dark:text-blue-200">Welcome to Yapr</p>
-              <p className="text-[11px] text-blue-700 dark:text-blue-400">Sign In or Create Account</p>
+              <p className="text-[11px] text-blue-700 dark:text-blue-400">Sign In or Join</p>
             </div>
             <button
               onClick={onOpenAuth}
@@ -168,33 +173,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <Send className="w-4 h-4" />
           <span>{user ? 'Yap Something' : 'Sign In to Yap'}</span>
         </button>
-
-        {/* TOPICS & CIRCLES */}
-        <div className="pt-2">
-          <div className="flex items-center justify-between px-2 mb-2">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
-              Circles & Topics
-            </span>
-          </div>
-          <div className="space-y-1">
-            {topicCircles.map((circle) => (
-              <button
-                key={circle.id}
-                onClick={() => setActiveTab('explore')}
-                className="w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors group text-xs font-medium"
-              >
-                <div className="flex items-center gap-2.5">
-                  <div
-                    className={`w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px] font-bold ${circle.color}`}
-                  >
-                    {circle.initial}
-                  </div>
-                  <span className="truncate group-hover:text-slate-900 dark:group-hover:text-white">{circle.name}</span>
-                </div>
-              </button>
-            ))}
-          </div>
-        </div>
       </div>
 
       {/* Bottom Footer Actions */}

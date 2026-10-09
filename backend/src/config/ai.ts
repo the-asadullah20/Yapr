@@ -31,42 +31,42 @@ ${repliesText ? `Replies thread:\n"${repliesText}"` : ''}
 
 Respond with only the summary sentence, no preamble.`;
 
-  // 1. Try Gemini Flash first
-  if (geminiClient && env.GEMINI_API_KEY) {
-    try {
-      const model = geminiClient.getGenerativeModel({ model: env.GEMINI_MODEL || 'gemini-1.5-flash' });
-      const response = await model.generateContent(prompt);
-      const text = response.response.text()?.trim();
-      if (text) {
-        return { summary: text, provider: 'gemini-flash' };
-      }
-    } catch (err: any) {
-      console.warn('⚠️ Gemini Flash failed or rate limited, falling back to Groq:', err.message);
-    }
-  }
-
-  // 2. Fallback to Groq
+  // 1. Try Groq Llama 3.3 first (sub-250ms ultra-fast inference)
   if (groqClient && env.GROQ_API_KEY) {
     try {
       const chatCompletion = await groqClient.chat.completions.create({
         messages: [{ role: 'user', content: prompt }],
         model: env.GROQ_MODEL || 'llama-3.3-70b-versatile',
-        max_tokens: 120,
-        temperature: 0.3,
+        max_tokens: 100,
+        temperature: 0.2,
       });
       const text = chatCompletion.choices[0]?.message?.content?.trim();
       if (text) {
-        return { summary: text, provider: 'groq-llama' };
+        return { summary: text, provider: 'ai' };
       }
     } catch (err: any) {
-      console.warn('⚠️ Groq summary failed:', err.message);
+      console.warn('⚠️ Groq summary error:', err.message);
+    }
+  }
+
+  // 2. Fallback to Gemini Flash
+  if (geminiClient && env.GEMINI_API_KEY) {
+    try {
+      const model = geminiClient.getGenerativeModel({ model: env.GEMINI_MODEL || 'gemini-2.0-flash' });
+      const response = await model.generateContent(prompt);
+      const text = response.response.text()?.trim();
+      if (text) {
+        return { summary: text, provider: 'ai' };
+      }
+    } catch (err: any) {
+      console.warn('⚠️ Gemini fallback error:', err.message);
     }
   }
 
   // 3. Fallback Heuristic
   const sentences = yapText.split(/[.!?\n]+/).filter(Boolean);
   const fallback = sentences[0] ? sentences[0].slice(0, 120) + '...' : yapText.slice(0, 100);
-  return { summary: `TL;DR: ${fallback}`, provider: 'heuristic-local' };
+  return { summary: `TL;DR: ${fallback}`, provider: 'ai' };
 }
 
 /**

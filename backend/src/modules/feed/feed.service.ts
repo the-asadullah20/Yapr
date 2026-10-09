@@ -37,8 +37,34 @@ export class FeedService {
       });
 
       if (!error && data) {
+        const mappedYaps = data.map((row: any) => ({
+          id: row.yap_id || row.id,
+          author_id: row.author_id,
+          body: row.body,
+          media: row.media || [],
+          like_count: row.like_count ?? 0,
+          reply_count: row.reply_count ?? 0,
+          reyap_count: row.reyap_count ?? 0,
+          summary: row.summary,
+          tagged_label: row.tagged_label,
+          created_at: row.created_at,
+          is_liked: row.is_liked || false,
+          is_reyapped: row.is_reyapped || false,
+          is_bookmarked: row.is_bookmarked || false,
+          final_score: row.final_score,
+          why_label: row.why_label,
+          author: row.author || {
+            id: row.author_id,
+            username: row.username || 'yapr',
+            display_name: row.display_name || row.username || 'Yapr User',
+            avatar_url: row.avatar_url || `https://api.dicebear.com/7.x/bottts/svg?seed=${row.username || row.author_id || 'yapr'}`,
+            country_code: row.author_country || 'PK',
+            is_verified: row.is_verified || false,
+          },
+        }));
+
         return {
-          yaps: data,
+          yaps: mappedYaps,
           algorithmMetadata: {
             stage: 'Stage 1 Rule-Based',
             formula: 'score = (likes*1 + replies*3 + reyaps*2) * recency_decay + author_affinity + follow_bonus',

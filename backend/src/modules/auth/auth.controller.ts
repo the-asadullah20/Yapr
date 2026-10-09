@@ -91,7 +91,8 @@ export class AuthController {
       if (!req.user) {
         return res.status(401).json({ error: 'Not authenticated' });
       }
-      res.json({ user: req.user });
+      const fullProfile = await authService.getMeProfile(req.user.id, req.user.email);
+      res.json({ user: fullProfile });
     } catch (err) {
       next(err);
     }

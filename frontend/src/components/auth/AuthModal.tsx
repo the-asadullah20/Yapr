@@ -19,13 +19,20 @@ import { api } from '../../api/apiClient';
 interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
+  initialMode?: 'signin' | 'signup' | 'forgot_password';
 }
 
-export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
+export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMode = 'signin' }) => {
   const { loginWithPassword, registerWithPassword, loginWithOtp } = useAuth();
 
   // Mode: 'signin' | 'signup' | 'forgot_password'
-  const [mode, setMode] = useState<'signin' | 'signup' | 'forgot_password'>('signin');
+  const [mode, setMode] = useState<'signin' | 'signup' | 'forgot_password'>(initialMode);
+
+  useEffect(() => {
+    if (isOpen && initialMode) {
+      setMode(initialMode);
+    }
+  }, [isOpen, initialMode]);
   // Signup step: 1 (credentials) -> 2 (otp) -> 3 (choose username)
   const [signupStep, setSignupStep] = useState<1 | 2 | 3>(1);
   // Forgot password step: 1 (email) -> 2 (otp + new password)

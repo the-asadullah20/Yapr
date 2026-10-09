@@ -361,6 +361,42 @@ export class AuthService {
       message: 'Password reset successful! You can now sign in with your new password.',
     };
   }
+
+  /**
+   * Get full user profile for authenticated session
+   */
+  async getMeProfile(userId: string, email?: string): Promise<any> {
+    if (isSupabaseConfigured) {
+      const { data: p } = await supabaseAdmin.from('profiles').select('*').eq('id', userId).single();
+      if (p) {
+        return { ...p, email: email || p.email, id: userId };
+      }
+    }
+    for (const record of registeredUsers.values()) {
+      if (record.userId === userId) {
+        return {
+          id: userId,
+          email: record.email,
+          username: record.username,
+          display_name: record.username,
+          avatar_url: `https://api.dicebear.com/7.x/bottts/svg?seed=${record.username}`,
+          country_code: 'PK',
+          follower_count: 0,
+          following_count: 0,
+        };
+      }
+    }
+    return {
+      id: userId,
+      email,
+      username: email ? email.split('@')[0] : 'yapr',
+      display_name: email ? email.split('@')[0] : 'Yapr User',
+      avatar_url: `https://api.dicebear.com/7.x/bottts/svg?seed=${userId}`,
+      country_code: 'PK',
+      follower_count: 0,
+      following_count: 0,
+    };
+  }
 }
 
 export const authService = new AuthService();

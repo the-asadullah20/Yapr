@@ -83,13 +83,17 @@ export const ReplyThreadModal: React.FC<ReplyThreadModalProps> = ({
           <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700">
             <div className="flex items-center gap-3 mb-2">
               <img
-                src={yap.author?.avatar_url || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150'}
+                src={yap.author?.avatar_url || (yap as any).avatar_url || `https://api.dicebear.com/7.x/bottts/svg?seed=${yap.author?.username || yap.author_id || 'yapr'}`}
                 alt=""
-                className="w-9 h-9 rounded-full object-cover"
+                className="w-9 h-9 rounded-full object-cover ring-2 ring-slate-100 dark:ring-slate-800"
               />
               <div>
-                <h4 className="text-xs font-bold text-slate-900 dark:text-white">{yap.author?.display_name}</h4>
-                <p className="text-[11px] text-slate-400 dark:text-slate-500">@{yap.author?.username} · {formatTimeAgo(yap.created_at)}</p>
+                <h4 className="text-xs font-bold text-slate-900 dark:text-white">
+                  {yap.author?.display_name || (yap as any).display_name || 'Yapr User'}
+                </h4>
+                <p className="text-[11px] text-slate-400 dark:text-slate-500">
+                  @{yap.author?.username || (yap as any).username || 'yapr'} · {formatTimeAgo(yap.created_at)}
+                </p>
               </div>
             </div>
             <p className="text-xs text-slate-800 dark:text-slate-200 leading-relaxed">{yap.body}</p>
@@ -115,12 +119,14 @@ export const ReplyThreadModal: React.FC<ReplyThreadModalProps> = ({
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2.5">
                       <img
-                        src={r.author?.avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150'}
+                        src={r.author?.avatar_url || (r as any).avatar_url || `https://api.dicebear.com/7.x/bottts/svg?seed=${r.author?.username || r.author_id || 'yapr'}`}
                         alt=""
-                        className="w-7 h-7 rounded-full object-cover"
+                        className="w-7 h-7 rounded-full object-cover ring-1 ring-slate-100 dark:ring-slate-700"
                       />
                       <div>
-                        <span className="text-xs font-bold text-slate-800 dark:text-slate-200">{r.author?.display_name}</span>
+                        <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                          {r.author?.display_name || (r as any).display_name || 'Yapr User'}
+                        </span>
                         <span className="text-[10px] text-slate-400 dark:text-slate-500 ml-1.5">{formatTimeAgo(r.created_at)}</span>
                       </div>
                     </div>

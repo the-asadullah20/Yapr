@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Camera, Edit3, Loader2 } from 'lucide-react';
+import { Camera, Edit3, Loader2, Lock, KeyRound } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../api/apiClient';
 
@@ -13,6 +13,16 @@ export const ProfilePage: React.FC = () => {
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [avatarError, setAvatarError] = useState<string | null>(null);
 
+  // Forgot / Reset Password state
+  const [resetEmail, setResetEmail] = useState(user?.email || '');
+  const [resetStep, setResetStep] = useState(false);
+  const [resetOtp, setResetOtp] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [isSendingReset, setIsSendingReset] = useState(false);
+  const [isSubmittingReset, setIsSubmittingReset] = useState(false);
+  const [resetSuccess, setResetSuccess] = useState<string | null>(null);
+  const [resetError, setResetError] = useState<string | null>(null);
+
   if (!user) {
     return (
       <div className="max-w-2xl mx-auto py-12 text-center text-slate-500 dark:text-slate-400">
@@ -20,6 +30,63 @@ export const ProfilePage: React.FC = () => {
       </div>
     );
   }
+
+  const handleInitiateForgot = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const targetEmail = user?.email || resetEmail.trim();
+    if (!targetEmail) {
+      setResetError('Please enter your email address.');
+      return;
+    }
+    setIsSendingReset(true);
+    setResetError(null);
+    setResetSuccess(null);
+    try {
+      await api.forgotPassword(targetEmail);
+      setResetSuccess(`A 6-digit reset code has been sent to ${targetEmail}`);
+      setResetStep(true);
+    } catch (err: any) {
+      setResetError(err.message || 'Failed to send reset code');
+    } finally {
+      setIsSendingReset(false);
+    }
+  };
+
+  const handleCompleteReset = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const targetEmail = user?.email || resetEmail.trim();
+    if (!targetEmail) {
+      setResetError('Email address is missing.');
+      return;
+    }
+    if (!resetOtp.trim()) {
+      setResetError('Please enter the 6-digit reset code.');
+      return;
+    }
+    if (newPassword.length < 6) {
+      setResetError('New password must be at least 6 characters.');
+      return;
+    }
+    setIsSubmittingReset(true);
+    setResetError(null);
+    try {
+      const res = await api.resetPassword({
+        email: targetEmail,
+        code: resetOtp.trim(),
+        newPassword,
+      });
+      setResetSuccess(res.message || 'Password updated successfully!');
+      setNewPassword('');
+      setResetOtp('');
+      setTimeout(() => {
+        setResetStep(false);
+      }, 3000);
+    } catch (err: any) {
+      setResetError(err.message || 'Failed to reset password');
+    } finally {
+      setIsSubmittingReset(false);
+    }
+  };
 
   const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -187,6 +254,109 @@ export const ProfilePage: React.FC = () => {
             </div>
           )}
         </div>
+      </div>
+
+      {/* Security & Password Reset Card */}
+      <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-sm p-6 transition-colors">
+        <div className="flex items-center gap-2.5 mb-4">
+          <div className="w-9 h-9 rounded-xl bg-blue-50 dark:bg-blue-950/60 border border-blue-200/50 dark:border-blue-900/50 flex items-center justify-center text-blue-600 dark:text-blue-400">
+            <Lock className="w-4 h-4" />
+          </div>
+          <div>
+            <h3 className="text-sm font-bold text-slate-900 dark:text-white">Security & Password</h3>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400">Forgot or want to change your password</p>
+          </div>
+        </div>
+
+        {resetSuccess && (
+          <div className="mb-4 p-3 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-xl text-xs text-emerald-700 dark:text-emerald-300">
+            {resetSuccess}
+          </div>
+        )}
+
+        {resetError && (
+          <div className="mb-4 p-3 bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800 rounded-xl text-xs text-rose-700 dark:text-rose-300">
+            {resetError}
+          </div>
+        )}
+
+        {!resetStep ? (
+          <form onSubmit={handleInitiateForgot} className="space-y-3">
+            {!user.email && (
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Account Email</label>
+                <input
+                  type="email"
+                  value={resetEmail}
+                  onChange={(e) => setResetEmail(e.target.value)}
+                  placeholder="your.email@example.com"
+                  required
+                  className="w-full px-3.5 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none text-slate-900 dark:text-white"
+                />
+              </div>
+            )}
+            {user.email && (
+              <p className="text-xs text-slate-600 dark:text-slate-300">
+                Click below to send a 6-digit verification code to <span className="font-semibold text-slate-900 dark:text-white">{user.email}</span>.
+              </p>
+            )}
+            <button
+              type="submit"
+              disabled={isSendingReset}
+              className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white rounded-xl text-xs font-bold transition-all shadow-sm"
+            >
+              {isSendingReset ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <KeyRound className="w-3.5 h-3.5" />}
+              <span>{isSendingReset ? 'Sending Reset Code...' : 'Request Password Reset OTP'}</span>
+            </button>
+          </form>
+        ) : (
+          <form onSubmit={handleCompleteReset} className="space-y-3">
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">6-Digit Reset Code</label>
+              <input
+                type="text"
+                value={resetOtp}
+                onChange={(e) => setResetOtp(e.target.value)}
+                placeholder="123456"
+                maxLength={6}
+                required
+                className="w-full px-3.5 py-2 text-xs font-mono tracking-widest bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none text-slate-900 dark:text-white"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">New Password</label>
+              <input
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="At least 6 characters"
+                required
+                className="w-full px-3.5 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none text-slate-900 dark:text-white"
+              />
+            </div>
+            <div className="flex items-center gap-2 pt-1">
+              <button
+                type="submit"
+                disabled={isSubmittingReset}
+                className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white rounded-xl text-xs font-bold transition-all shadow-sm"
+              >
+                {isSubmittingReset ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
+                <span>{isSubmittingReset ? 'Updating Password...' : 'Update Password'}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setResetStep(false);
+                  setResetError(null);
+                  setResetSuccess(null);
+                }}
+                className="px-4 py-2.5 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-bold transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        )}
       </div>
     </div>
   );

@@ -90,27 +90,15 @@ export const YapComposer: React.FC<YapComposerProps> = ({ onYapCreated, defaultH
 
   return (
     <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-4 shadow-sm mb-4 transition-colors">
-      <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-100 dark:border-slate-800">
+      <div className="pb-3 mb-3 border-b border-slate-100 dark:border-slate-800">
         <h3 className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Yap Thoughts</h3>
-        <div className="flex items-center gap-2">
-          <select
-            value={countryCode}
-            onChange={(e) => setCountryCode(e.target.value)}
-            className="text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 text-slate-700 dark:text-slate-300 outline-none"
-          >
-            <option value="PK">PK · Pakistan</option>
-            <option value="US">US · United States</option>
-            <option value="SG">SG · Singapore</option>
-            <option value="GB">GB · United Kingdom</option>
-          </select>
-        </div>
       </div>
 
       <form onSubmit={handleSubmit}>
         <div className="flex gap-3 items-start">
           <img
-            src={user?.avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150'}
-            alt=""
+            src={user?.avatar_url || (user?.username ? `https://api.dicebear.com/7.x/bottts/svg?seed=${user.username}` : 'https://api.dicebear.com/7.x/bottts/svg?seed=yapr')}
+            alt={user?.display_name || ''}
             className="w-10 h-10 rounded-full object-cover ring-2 ring-slate-100 dark:ring-slate-800 flex-shrink-0"
           />
 
