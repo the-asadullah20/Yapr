@@ -584,6 +584,18 @@ function checkPasswordRequirements(pw: string): string | null {
                 We sent a 6-digit reset code to:
                 <p className="font-semibold text-blue-950 dark:text-white mt-0.5">{email}</p>
                 <p className="text-[11px] text-blue-600 dark:text-blue-400 mt-1">Please check your inbox to reset your password.</p>
+                {previewCode && (
+                  <div className="mt-2.5 pt-2 border-t border-blue-200/80 dark:border-blue-800/80 flex items-center justify-between text-[11px]">
+                    <span className="text-blue-700 dark:text-blue-300 font-medium">Quick code (demo/testing):</span>
+                    <button
+                      type="button"
+                      onClick={() => setOtpCode(previewCode)}
+                      className="font-mono font-bold px-2 py-0.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors cursor-pointer"
+                    >
+                      {previewCode} (Fill)
+                    </button>
+                  </div>
+                )}
               </div>
 
               <div>
@@ -802,6 +814,18 @@ function checkPasswordRequirements(pw: string): string | null {
                 We sent a 6-digit confirmation code to:
                 <p className="font-semibold text-blue-950 dark:text-white mt-0.5">{email}</p>
                 <p className="text-[11px] text-blue-600 dark:text-blue-400 mt-1">Please check your inbox to verify your account.</p>
+                {previewCode && (
+                  <div className="mt-2.5 pt-2 border-t border-blue-200/80 dark:border-blue-800/80 flex items-center justify-between text-[11px]">
+                    <span className="text-blue-700 dark:text-blue-300 font-medium">Quick code (demo/testing):</span>
+                    <button
+                      type="button"
+                      onClick={() => setOtpCode(previewCode)}
+                      className="font-mono font-bold px-2 py-0.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors cursor-pointer"
+                    >
+                      {previewCode} (Fill)
+                    </button>
+                  </div>
+                )}
               </div>
 
               <div>

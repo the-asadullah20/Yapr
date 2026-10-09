@@ -225,6 +225,22 @@ export const AppContent: React.FC = () => {
         <button
           onClick={() => {
             if (user) {
+              setActiveTab('bookmarks');
+            } else {
+              setIsAuthOpen(true);
+            }
+          }}
+          className={`p-2 rounded-xl transition-colors ${
+            activeTab === 'bookmarks' ? 'text-blue-600 dark:text-blue-400' : 'text-slate-500 dark:text-slate-400'
+          }`}
+          title="Saved Posts"
+        >
+          <Bookmark className="w-5 h-5" />
+        </button>
+
+        <button
+          onClick={() => {
+            if (user) {
               setViewingProfileUsername(null);
               setActiveTab('profile');
             } else {

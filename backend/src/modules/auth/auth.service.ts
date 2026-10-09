@@ -57,9 +57,11 @@ export class AuthService {
 
     console.log(`🔑 [Yapr OTP] Generated code for ${cleanEmail}: ${otp}`);
 
+    const isSmtpReady = Boolean(env.SMTP_HOST && env.SMTP_USER && env.SMTP_PASS);
     return {
       success: true,
-      message: 'Verification code sent to your email.',
+      message: isSmtpReady ? 'Verification code sent to your email.' : 'Verification code generated.',
+      previewCode: isSmtpReady ? undefined : otp,
     };
   }
 
@@ -176,6 +178,7 @@ export class AuthService {
         userId = existing.id;
         await supabaseAdmin.auth.admin.updateUserById(userId, {
           password: params.password,
+          email_confirm: true,
           user_metadata: {
             username: cleanUsername,
             display_name: params.displayName || cleanUsername,
@@ -192,19 +195,25 @@ export class AuthService {
         const { data: p } = await supabaseAdmin.from('profiles').select('*').eq('id', userId).single();
         profile = p;
       } else {
-        const { data, error } = await supabaseAnon.auth.signUp({
+        const { data: newUser, error } = await supabaseAdmin.auth.admin.createUser({
           email: cleanEmail,
           password: params.password,
-          options: {
-            data: {
-              username: cleanUsername,
-              display_name: params.displayName || cleanUsername,
-              country_code: params.countryCode || 'PK',
-            },
+          email_confirm: true,
+          user_metadata: {
+            username: cleanUsername,
+            display_name: params.displayName || cleanUsername,
+            country_code: params.countryCode || 'PK',
           },
         });
         if (error) throw error;
-        userId = data.user?.id || '';
+        userId = newUser.user.id;
+        await supabaseAdmin.from('profiles').upsert({
+          id: userId,
+          username: cleanUsername,
+          display_name: params.displayName || cleanUsername,
+          country_code: params.countryCode || 'PK',
+          avatar_url: `https://api.dicebear.com/7.x/bottts/svg?seed=${cleanUsername}`,
+        });
         const { data: p } = await supabaseAdmin.from('profiles').select('*').eq('id', userId).single();
         profile = p;
       }
@@ -320,8 +329,10 @@ export class AuthService {
 
     console.log(`🔑 [Yapr Reset OTP] Generated code for ${cleanEmail}: ${resetOtp}`);
 
+    const isSmtpReady = Boolean(env.SMTP_HOST && env.SMTP_USER && env.SMTP_PASS);
     return {
-      message: 'Password reset code has been sent to your email.',
+      message: isSmtpReady ? 'Password reset code has been sent to your email.' : 'Password reset code generated.',
+      previewCode: isSmtpReady ? undefined : resetOtp,
     };
   }
 
