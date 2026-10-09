@@ -25,11 +25,31 @@ class QueueService {
       
       const connectPromise = amqplib.connect(env.LAVINMQ_URL);
       const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('AMQP Connection Timeout (broker offline)')), 1500)
+        setTimeout(() => reject(new Error('AMQP Connection Timeout (broker offline)')), 8000)
       );
 
       this.connection = (await Promise.race([connectPromise, timeoutPromise])) as any;
+      
+      this.connection.on('error', (err: any) => {
+        console.warn('⚠️ LavinMQ connection error:', err?.message || err);
+        this.isConnected = false;
+      });
+
+      this.connection.on('close', () => {
+        console.warn('⚠️ LavinMQ connection closed, fallback active.');
+        this.isConnected = false;
+      });
+
       this.channel = await this.connection.createChannel();
+
+      this.channel.on('error', (err: any) => {
+        console.warn('⚠️ LavinMQ channel error:', err?.message || err);
+      });
+
+      this.channel.on('close', () => {
+        console.warn('⚠️ LavinMQ channel closed.');
+      });
+
       this.isConnected = true;
       console.log('✅ Connected to LavinMQ / AMQP');
 
