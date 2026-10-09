@@ -552,14 +552,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
               <div className="p-3.5 bg-blue-50 dark:bg-blue-950/40 rounded-2xl border border-blue-100 dark:border-blue-900 text-xs text-blue-900 dark:text-blue-300">
                 We sent a 6-digit reset code to:
                 <p className="font-semibold text-blue-950 dark:text-white mt-0.5">{email}</p>
-                {previewCode && (
-                  <div className="mt-2 pt-2 border-t border-blue-200/60 dark:border-blue-800 flex items-center justify-between">
-                    <span className="text-[11px] text-blue-700 dark:text-blue-300 font-medium">Dev test code:</span>
-                    <span className="bg-white dark:bg-slate-800 px-2.5 py-0.5 rounded font-mono font-bold text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-700">
-                      {previewCode}
-                    </span>
-                  </div>
-                )}
+                <p className="text-[11px] text-blue-600 dark:text-blue-400 mt-1">Please check your inbox to reset your password.</p>
               </div>
 
               <div>
@@ -777,14 +770,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
               <div className="p-3.5 bg-blue-50 dark:bg-blue-950/40 rounded-2xl border border-blue-100 dark:border-blue-900 text-xs text-blue-900 dark:text-blue-300">
                 We sent a 6-digit confirmation code to:
                 <p className="font-semibold text-blue-950 dark:text-white mt-0.5">{email}</p>
-                {previewCode && (
-                  <div className="mt-2 pt-2 border-t border-blue-200/60 dark:border-blue-800 flex items-center justify-between">
-                    <span className="text-[11px] text-blue-700 dark:text-blue-300 font-medium">Dev test code:</span>
-                    <span className="bg-white dark:bg-slate-800 px-2.5 py-0.5 rounded font-mono font-bold text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-700">
-                      {previewCode}
-                    </span>
-                  </div>
-                )}
+                <p className="text-[11px] text-blue-600 dark:text-blue-400 mt-1">Please check your inbox to verify your account.</p>
               </div>
 
               <div>

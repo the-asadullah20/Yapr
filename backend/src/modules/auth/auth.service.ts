@@ -47,7 +47,6 @@ export class AuthService {
     return {
       success: true,
       message: 'Verification code sent to your email.',
-      previewCode: process.env.NODE_ENV !== 'production' ? otp : undefined,
     };
   }
 
@@ -285,7 +284,6 @@ export class AuthService {
 
     return {
       message: 'Password reset code has been sent to your email.',
-      previewCode: process.env.NODE_ENV !== 'production' ? resetOtp : undefined,
     };
   }
 
