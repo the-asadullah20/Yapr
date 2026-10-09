@@ -275,6 +275,16 @@ export const api = {
     return await res.json();
   },
 
+  async translateYap(text: string, targetLanguage: string): Promise<{ translation: string; targetLanguage: string; provider: string }> {
+    const res = await fetch(`${API_BASE}/ai/translate`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ text, targetLanguage }),
+    });
+    if (!res.ok) throw new Error('AI translation failed');
+    return await res.json();
+  },
+
   async polishYap(text: string): Promise<{ polished: string; hashtags: string[]; provider: string }> {
     const res = await fetch(`${API_BASE}/ai/polish`, {
       method: 'POST',

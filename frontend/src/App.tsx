@@ -61,9 +61,23 @@ export const AppContent: React.FC = () => {
 
   const handleOpenYapById = async (yapId: string) => {
     try {
-      const yap = await api.getYapById(yapId);
+      let yap = await api.getYapById(yapId);
       if (yap) {
-        setSelectedThreadYap(yap);
+        // Trace back to root original post so user sees entire thread in context
+        let current = yap;
+        while (current.parent_id) {
+          try {
+            const parent = await api.getYapById(current.parent_id);
+            if (parent) {
+              current = parent;
+            } else {
+              break;
+            }
+          } catch {
+            break;
+          }
+        }
+        setSelectedThreadYap(current);
       }
     } catch (e) {
       console.error('Failed to open yap by id', e);

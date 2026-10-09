@@ -4,9 +4,21 @@ import { aiService } from './ai.service.js';
 export class AiController {
   async summarize(req: Request, res: Response, next: NextFunction) {
     try {
-      const { yapId, text, threadText } = req.body;
-      if (!text) return res.status(400).json({ error: 'Text is required for summarization' });
-      const result = await aiService.summarize(yapId, text, threadText);
+      const { yapId, text, yapText, threadText } = req.body;
+      const content = text || yapText;
+      if (!content) return res.status(400).json({ error: 'Text is required for summarization' });
+      const result = await aiService.summarize(yapId, content, threadText);
+      res.json(result);
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  async translate(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { text, targetLanguage = 'English' } = req.body;
+      if (!text) return res.status(400).json({ error: 'Text is required for translation' });
+      const result = await aiService.translate(text, targetLanguage);
       res.json(result);
     } catch (err) {
       next(err);
