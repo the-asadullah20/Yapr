@@ -437,14 +437,29 @@ export class AuthService {
    * Get full user profile for authenticated session
    */
   async getMeProfile(userId: string, email?: string): Promise<any> {
+    const cleanEmail = (email || '').toLowerCase().trim();
     if (isSupabaseConfigured) {
-      const { data: p } = await supabaseAdmin.from('profiles').select('*').eq('id', userId).single();
+      let { data: p } = await supabaseAdmin.from('profiles').select('*').eq('id', userId).maybeSingle();
+
+      // If not found by userId, check if another profile exists with the same email
+      if (!p && cleanEmail) {
+        const { data: list } = await supabaseAdmin.auth.admin.listUsers();
+        const match = list?.users?.find((u) => u.email === cleanEmail && u.id !== userId);
+        if (match) {
+          const { data: matchedProfile } = await supabaseAdmin.from('profiles').select('*').eq('id', match.id).maybeSingle();
+          if (matchedProfile) {
+            p = { ...matchedProfile, id: userId };
+          }
+        }
+      }
+
       if (p) {
-        return { ...p, email: email || p.email, id: userId };
+        return { ...p, email: cleanEmail || p.email, id: userId };
       }
     }
+
     for (const record of registeredUsers.values()) {
-      if (record.userId === userId) {
+      if (record.userId === userId || (cleanEmail && record.email === cleanEmail)) {
         return {
           id: userId,
           email: record.email,
@@ -457,12 +472,96 @@ export class AuthService {
         };
       }
     }
+
     return {
       id: userId,
-      email,
-      username: email ? email.split('@')[0] : 'yapr',
-      display_name: email ? email.split('@')[0] : 'Yapr User',
+      email: cleanEmail,
+      username: cleanEmail ? cleanEmail.split('@')[0] : 'yapr',
+      display_name: cleanEmail ? cleanEmail.split('@')[0] : 'Yapr User',
       avatar_url: `https://api.dicebear.com/7.x/bottts/svg?seed=${userId}`,
+      country_code: 'PK',
+      follower_count: 0,
+      following_count: 0,
+    };
+  }
+
+  /**
+   * Sync OAuth Login User while PRESERVING custom profile info (PFP, username, display name)
+   */
+  async syncOAuthUser(userId: string, email: string, rawMetadata: any): Promise<any> {
+    const cleanEmail = (email || '').toLowerCase().trim();
+
+    if (isSupabaseConfigured) {
+      // 1. Check if user already has an existing profile in public.profiles
+      let { data: p } = await supabaseAdmin.from('profiles').select('*').eq('id', userId).maybeSingle();
+
+      // 2. If no profile exists for this userId, check if another profile exists with the exact same email
+      if (!p && cleanEmail) {
+        const { data: list } = await supabaseAdmin.auth.admin.listUsers();
+        const existing = list?.users?.find((u) => u.email === cleanEmail && u.id !== userId);
+        if (existing) {
+          const { data: matchedProfile } = await supabaseAdmin.from('profiles').select('*').eq('id', existing.id).maybeSingle();
+          if (matchedProfile) {
+            // Replicate existing custom profile so this OAuth identity shares the same username/PFP
+            await supabaseAdmin.from('profiles').upsert({
+              id: userId,
+              username: matchedProfile.username,
+              display_name: matchedProfile.display_name,
+              avatar_url: matchedProfile.avatar_url,
+              bio: matchedProfile.bio || '',
+              country_code: matchedProfile.country_code || 'PK',
+            });
+            p = { ...matchedProfile, id: userId };
+          }
+        }
+      }
+
+      // 3. If user is brand new (no previous profile anywhere)
+      if (!p) {
+        const baseUsername = (rawMetadata?.user_name || rawMetadata?.username || cleanEmail.split('@')[0] || `user_${userId.slice(0, 6)}`)
+          .replace(/[^a-zA-Z0-9_]/g, '')
+          .slice(0, 20) || `user_${userId.slice(0, 6)}`;
+        const displayName = rawMetadata?.full_name || rawMetadata?.name || cleanEmail.split('@')[0] || 'Yapr User';
+        const avatarUrl = rawMetadata?.avatar_url || rawMetadata?.picture || `https://api.dicebear.com/7.x/bottts/svg?seed=${baseUsername}`;
+
+        await supabaseAdmin.from('profiles').upsert({
+          id: userId,
+          username: baseUsername,
+          display_name: displayName,
+          avatar_url: avatarUrl,
+          country_code: 'PK',
+        });
+
+        const { data: created } = await supabaseAdmin.from('profiles').select('*').eq('id', userId).single();
+        p = created;
+      }
+
+      // Return profile - Note: We DO NOT overwrite p.avatar_url or p.display_name with Google/FB metadata!
+      return { ...p, email: cleanEmail, id: userId };
+    }
+
+    // Dev mock fallback
+    const existing = registeredUsers.get(cleanEmail);
+    if (existing) {
+      return {
+        id: userId,
+        email: cleanEmail,
+        username: existing.username,
+        display_name: existing.username,
+        avatar_url: `https://api.dicebear.com/7.x/bottts/svg?seed=${existing.username}`,
+        country_code: 'PK',
+        follower_count: 0,
+        following_count: 0,
+      };
+    }
+
+    const baseUsername = cleanEmail.split('@')[0].replace(/[^a-zA-Z0-9_]/g, '') || `user_${userId.slice(0, 6)}`;
+    return {
+      id: userId,
+      email: cleanEmail,
+      username: baseUsername,
+      display_name: rawMetadata?.full_name || cleanEmail.split('@')[0] || 'Yapr User',
+      avatar_url: rawMetadata?.avatar_url || rawMetadata?.picture || `https://api.dicebear.com/7.x/bottts/svg?seed=${baseUsername}`,
       country_code: 'PK',
       follower_count: 0,
       following_count: 0,

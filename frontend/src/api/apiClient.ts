@@ -402,6 +402,31 @@ export const api = {
     return await res.json();
   },
 
+  async getMe(): Promise<{ user: UserProfile }> {
+    const res = await fetch(`${API_BASE}/auth/me`, {
+      headers: getAuthHeaders(),
+    });
+    if (!res.ok) {
+      throw new Error('Failed to fetch user session');
+    }
+    return await res.json();
+  },
+
+  async syncOAuthUser(token: string, metadata?: any): Promise<{ user: UserProfile }> {
+    const res = await fetch(`${API_BASE}/auth/oauth-sync`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ metadata }),
+    });
+    if (!res.ok) {
+      throw new Error('Failed to sync OAuth user');
+    }
+    return await res.json();
+  },
+
 
   // Profile
   async getProfile(identifier: string): Promise<UserProfile> {
