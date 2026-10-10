@@ -309,8 +309,7 @@ export const api = {
     return await res.json();
   },
 
-  // Auth
-  async requestOtp(email: string): Promise<{ success: boolean; previewCode?: string }> {
+  async requestOtp(email: string): Promise<{ success: boolean; message?: string }> {
     const res = await fetch(`${API_BASE}/auth/otp/request`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -364,7 +363,7 @@ export const api = {
     return await res.json();
   },
 
-  async forgotPassword(email: string): Promise<{ message: string; previewCode?: string }> {
+  async forgotPassword(email: string): Promise<{ message: string }> {
     const res = await fetch(`${API_BASE}/auth/forgot-password`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
