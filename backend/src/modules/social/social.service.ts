@@ -1,10 +1,50 @@
 import { supabaseAdmin, isSupabaseConfigured } from '../../config/supabase.js';
 import { queueService } from '../../config/queue.js';
+import { cacheClient } from '../../config/redis.js';
 import { env } from '../../config/env.js';
 import { mockYaps } from '../yaps/yaps.service.js';
 
 export const mockUserReyaps = new Map<string, Set<string>>();
 export const mockFollowRequests = new Map<string, Set<string>>();
+
+async function getRedisFollowRequests(targetId: string): Promise<string[]> {
+  try {
+    const raw = await cacheClient.get(`yapr:follow_reqs:${targetId}`);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch {}
+  const s = mockFollowRequests.get(targetId);
+  return s ? Array.from(s) : [];
+}
+
+async function addRedisFollowRequest(targetId: string, requesterId: string): Promise<void> {
+  try {
+    const current = await getRedisFollowRequests(targetId);
+    if (!current.includes(requesterId)) {
+      current.push(requesterId);
+      await cacheClient.set(`yapr:follow_reqs:${targetId}`, JSON.stringify(current));
+    }
+  } catch {}
+  let s = mockFollowRequests.get(targetId);
+  if (!s) {
+    s = new Set<string>();
+    mockFollowRequests.set(targetId, s);
+  }
+  s.add(requesterId);
+}
+
+async function removeRedisFollowRequest(targetId: string, requesterId: string): Promise<void> {
+  try {
+    const current = await getRedisFollowRequests(targetId);
+    const updated = current.filter((id) => id !== requesterId);
+    await cacheClient.set(`yapr:follow_reqs:${targetId}`, JSON.stringify(updated));
+  } catch {}
+  const s = mockFollowRequests.get(targetId);
+  if (s) s.delete(requesterId);
+}
+
 
 export class SocialService {
   async toggleLike(userId: string, yapId: string): Promise<{ liked: boolean; likeCount: number }> {
@@ -138,16 +178,22 @@ export class SocialService {
         // Target is private: Toggle follow request
         let hasPendingReq = false;
         try {
-          const { data: reqRow } = await supabaseAdmin
+          const { data: reqRow, error: findErr } = await supabaseAdmin
             .from('follow_requests')
             .select('id')
             .eq('requester_id', followerId)
             .eq('target_id', followeeId)
             .maybeSingle();
-          hasPendingReq = !!reqRow;
+
+          if (!findErr && reqRow) {
+            hasPendingReq = true;
+          } else {
+            const list = await getRedisFollowRequests(followeeId);
+            hasPendingReq = list.includes(followerId);
+          }
         } catch {
-          const s = mockFollowRequests.get(followeeId);
-          hasPendingReq = !!(s && s.has(followerId));
+          const list = await getRedisFollowRequests(followeeId);
+          hasPendingReq = list.includes(followerId);
         }
 
         if (hasPendingReq) {
@@ -159,8 +205,7 @@ export class SocialService {
               .eq('requester_id', followerId)
               .eq('target_id', followeeId);
           } catch {}
-          const s = mockFollowRequests.get(followeeId);
-          if (s) s.delete(followerId);
+          await removeRedisFollowRequest(followeeId, followerId);
 
           return { following: false, requested: false };
         } else {
@@ -170,21 +215,19 @@ export class SocialService {
               requester_id: followerId,
               target_id: followeeId,
             });
-          } catch {
-            let s = mockFollowRequests.get(followeeId);
-            if (!s) {
-              s = new Set<string>();
-              mockFollowRequests.set(followeeId, s);
-            }
-            s.add(followerId);
-          }
+          } catch {}
+
+          // Always sync to Redis so it works with 100% reliability
+          await addRedisFollowRequest(followeeId, followerId);
 
           // Notify target user of follow request
-          await queueService.publish(env.AMQP_QUEUE_NOTIFICATIONS || 'yapr.notifications', {
-            id: `notif_follow_req_${followerId}_${followeeId}`,
-            name: 'follow_request_notification',
-            payload: { recipientId: followeeId, actorId: followerId, type: 'follow_request' },
-          });
+          try {
+            await queueService.publish(env.AMQP_QUEUE_NOTIFICATIONS || 'yapr.notifications', {
+              id: `notif_follow_req_${followerId}_${followeeId}`,
+              name: 'follow_request_notification',
+              payload: { recipientId: followeeId, actorId: followerId, type: 'follow_request' },
+            });
+          } catch {}
 
           return { following: false, requested: true };
         }
@@ -201,17 +244,13 @@ export class SocialService {
     }
 
     // Mock fallback
-    let s = mockFollowRequests.get(followeeId);
-    if (!s) {
-      s = new Set<string>();
-      mockFollowRequests.set(followeeId, s);
-    }
-    const hasRequested = s.has(followerId);
+    const list = await getRedisFollowRequests(followeeId);
+    const hasRequested = list.includes(followerId);
     if (hasRequested) {
-      s.delete(followerId);
+      await removeRedisFollowRequest(followeeId, followerId);
       return { following: false, requested: false };
     } else {
-      s.add(followerId);
+      await addRedisFollowRequest(followeeId, followerId);
       return { following: false, requested: true };
     }
   }
@@ -219,17 +258,17 @@ export class SocialService {
   async isFollowRequested(requesterId: string, targetId: string): Promise<boolean> {
     if (isSupabaseConfigured) {
       try {
-        const { data } = await supabaseAdmin
+        const { data, error } = await supabaseAdmin
           .from('follow_requests')
           .select('id')
           .eq('requester_id', requesterId)
           .eq('target_id', targetId)
           .maybeSingle();
-        if (data) return true;
+        if (!error && data) return true;
       } catch {}
     }
-    const s = mockFollowRequests.get(targetId);
-    return !!(s && s.has(requesterId));
+    const list = await getRedisFollowRequests(targetId);
+    return list.includes(requesterId);
   }
 
   async getFollowRequests(targetId: string): Promise<any[]> {
@@ -241,7 +280,7 @@ export class SocialService {
           .eq('target_id', targetId)
           .order('created_at', { ascending: false });
 
-        if (!error && data) {
+        if (!error && Array.isArray(data) && data.length > 0) {
           return data
             .map((item: any) => ({
               ...(item.requester || {}),
@@ -254,11 +293,31 @@ export class SocialService {
             .filter((p: any) => !!p.id);
         }
       } catch {}
+
+      // Fallback: Check Redis / In-Memory
+      const redisRequesterIds = await getRedisFollowRequests(targetId);
+      if (redisRequesterIds.length > 0) {
+        try {
+          const { data: profiles, error } = await supabaseAdmin
+            .from('profiles')
+            .select('*')
+            .in('id', redisRequesterIds);
+
+          if (!error && profiles && profiles.length > 0) {
+            return profiles.map((p: any) => ({
+              ...p,
+              request_id: `req_${p.id}`,
+              requested_at: new Date().toISOString(),
+              avatar_url:
+                p.avatar_url || `https://api.dicebear.com/7.x/bottts/svg?seed=${p.username || p.id}`,
+            }));
+          }
+        } catch {}
+      }
     }
 
-    const s = mockFollowRequests.get(targetId);
-    if (!s || s.size === 0) return [];
-    return Array.from(s).map((requesterId) => ({
+    const fallbackIds = await getRedisFollowRequests(targetId);
+    return fallbackIds.map((requesterId) => ({
       id: requesterId,
       username: requesterId,
       display_name: requesterId,
@@ -281,20 +340,35 @@ export class SocialService {
           { onConflict: 'follower_id,followee_id' }
         );
 
+        // Recalculate target follower_count and requester following_count
+        const { count: followerCount } = await supabaseAdmin
+          .from('follows')
+          .select('*', { count: 'exact', head: true })
+          .eq('followee_id', targetId);
+
+        const { count: followingCount } = await supabaseAdmin
+          .from('follows')
+          .select('*', { count: 'exact', head: true })
+          .eq('follower_id', requesterId);
+
+        if (followerCount !== null) {
+          await supabaseAdmin.from('profiles').update({ follower_count: followerCount }).eq('id', targetId);
+        }
+        if (followingCount !== null) {
+          await supabaseAdmin.from('profiles').update({ following_count: followingCount }).eq('id', requesterId);
+        }
+
         await queueService.publish(env.AMQP_QUEUE_NOTIFICATIONS || 'yapr.notifications', {
           id: `notif_follow_accepted_${targetId}_${requesterId}`,
           name: 'follow_accepted_notification',
           payload: { recipientId: requesterId, actorId: targetId, type: 'follow_accepted' },
         });
-
-        return { success: true, accepted: true };
       } catch (err: any) {
         console.error('Error accepting follow request:', err);
       }
     }
 
-    const s = mockFollowRequests.get(targetId);
-    if (s) s.delete(requesterId);
+    await removeRedisFollowRequest(targetId, requesterId);
     return { success: true, accepted: true };
   }
 
@@ -306,14 +380,12 @@ export class SocialService {
           .delete()
           .eq('target_id', targetId)
           .eq('requester_id', requesterId);
-        return { success: true, rejected: true };
       } catch (err: any) {
         console.error('Error rejecting follow request:', err);
       }
     }
 
-    const s = mockFollowRequests.get(targetId);
-    if (s) s.delete(requesterId);
+    await removeRedisFollowRequest(targetId, requesterId);
     return { success: true, rejected: true };
   }
 

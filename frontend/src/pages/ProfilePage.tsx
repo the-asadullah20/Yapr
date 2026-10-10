@@ -224,9 +224,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
       setIsPrivateAccount(!!user.is_private);
       fetchBlockedUsers();
       fetchUserReports();
-      if (user.is_private) {
-        fetchFollowRequests();
-      }
+      fetchFollowRequests();
     }
   }, [user, isViewingOther]);
 
@@ -599,10 +597,11 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
           </div>
 
           {/* Profile Header */}
-          <div className="p-6 pt-0 relative">
-            <div className="flex items-end justify-between -mt-12 mb-4 gap-4 sm:gap-6">
+          {/* Profile Header */}
+          <div className="p-4 sm:p-6 pt-0 relative">
+            <div className="flex items-end justify-between -mt-10 sm:-mt-12 mb-3 sm:mb-4 gap-2 sm:gap-4">
               <div
-                className="relative flex-shrink-0 w-24 h-24 aspect-square cursor-pointer group"
+                className="relative flex-shrink-0 w-20 h-20 sm:w-24 sm:h-24 aspect-square cursor-pointer group"
                 onClick={() =>
                   setPreviewAvatarUrl(
                     otherProfile.avatar_url ||
@@ -617,16 +616,16 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                     `https://api.dicebear.com/7.x/bottts/svg?seed=${otherProfile.username}`
                   }
                   alt={otherProfile.display_name}
-                  className="w-24 h-24 aspect-square rounded-full object-cover ring-4 ring-white dark:ring-slate-900 shadow-lg bg-slate-100 dark:bg-slate-800 flex-shrink-0 group-hover:opacity-90 transition-opacity"
+                  className="w-20 h-20 sm:w-24 sm:h-24 aspect-square rounded-full object-cover ring-4 ring-white dark:ring-slate-900 shadow-lg bg-slate-100 dark:bg-slate-800 flex-shrink-0 group-hover:opacity-90 transition-opacity"
                 />
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
                 {/* Follow / Unfollow / Requested Button */}
                 <button
                   onClick={handleToggleFollow}
                   disabled={isBlocked}
-                  className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-sm ${
+                  className={`flex items-center justify-center gap-1 sm:gap-1.5 h-8 sm:h-9 px-3 sm:px-4 py-1 sm:py-2 rounded-xl text-[11px] sm:text-xs font-bold transition-all shadow-sm whitespace-nowrap ${
                     isBlocked
                       ? 'opacity-40 cursor-not-allowed bg-slate-100 dark:bg-slate-800 text-slate-400'
                       : isFollowing
@@ -639,17 +638,17 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                 >
                   {isFollowing ? (
                     <>
-                      <UserCheck className="w-3.5 h-3.5 text-blue-600" />
+                      <UserCheck className="w-3.5 h-3.5 text-blue-600 flex-shrink-0" />
                       <span>Following</span>
                     </>
                   ) : isRequested ? (
                     <>
-                      <Clock className="w-3.5 h-3.5 text-amber-500" />
+                      <Clock className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />
                       <span>Requested</span>
                     </>
                   ) : (
                     <>
-                      <UserPlus className="w-3.5 h-3.5" />
+                      <UserPlus className="w-3.5 h-3.5 flex-shrink-0" />
                       <span>Follow</span>
                     </>
                   )}
@@ -659,7 +658,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                 <button
                   onClick={handleToggleBlock}
                   disabled={isBlocking}
-                  className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all border ${
+                  className={`flex items-center justify-center gap-1 sm:gap-1.5 h-8 sm:h-9 px-2.5 sm:px-3.5 py-1 sm:py-2 rounded-xl text-[11px] sm:text-xs font-bold transition-all border whitespace-nowrap ${
                     isBlocked
                       ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 border-rose-200 dark:border-rose-900 hover:bg-rose-100'
                       : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200'
@@ -667,11 +666,11 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                   title={isBlocked ? 'Unblock this user' : 'Block this user'}
                 >
                   {isBlocking ? (
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <Loader2 className="w-3.5 h-3.5 animate-spin flex-shrink-0" />
                   ) : isBlocked ? (
-                    <ShieldCheck className="w-3.5 h-3.5" />
+                    <ShieldCheck className="w-3.5 h-3.5 flex-shrink-0" />
                   ) : (
-                    <UserX className="w-3.5 h-3.5" />
+                    <UserX className="w-3.5 h-3.5 flex-shrink-0" />
                   )}
                   <span>{isBlocked ? 'Unblock' : 'Block'}</span>
                 </button>
@@ -681,7 +680,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
             {/* User Info */}
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-xl font-black text-slate-900 dark:text-white">
+                <h2 className="text-xl font-black text-slate-900 dark:text-white break-words break-all">
                   {otherProfile.display_name}
                 </h2>
                 {otherProfile.is_verified && (
@@ -834,6 +833,13 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
             </div>
           </div>
         )}
+
+        {/* Lightbox Modal for Full Profile Photo View */}
+        <LightboxModal
+          images={previewAvatarUrl ? [previewAvatarUrl] : []}
+          isOpen={!!previewAvatarUrl}
+          onClose={() => setPreviewAvatarUrl(null)}
+        />
       </div>
     );
   }
@@ -868,10 +874,10 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
         </div>
 
         {/* Profile Content */}
-        <div className="p-6 pt-0 relative">
+        <div className="p-4 sm:p-6 pt-0 relative">
           {/* Avatar with Camera Upload Overlay & Preview */}
-          <div className="flex items-end justify-between -mt-12 mb-4 gap-4 sm:gap-6">
-            <div className="relative flex-shrink-0 w-24 h-24 aspect-square">
+          <div className="flex items-end justify-between -mt-10 sm:-mt-12 mb-3 sm:mb-4 gap-2 sm:gap-4">
+            <div className="relative flex-shrink-0 w-20 h-20 sm:w-24 sm:h-24 aspect-square">
               <img
                 src={user.avatar_url || `https://api.dicebear.com/7.x/bottts/svg?seed=${user.username}`}
                 alt={user.display_name}
@@ -881,18 +887,18 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                   )
                 }
                 title="Click to view full photo"
-                className="w-24 h-24 aspect-square rounded-full object-cover ring-4 ring-white dark:ring-slate-900 shadow-lg bg-slate-100 dark:bg-slate-800 flex-shrink-0 cursor-pointer hover:opacity-90 transition-opacity"
+                className="w-20 h-20 sm:w-24 sm:h-24 aspect-square rounded-full object-cover ring-4 ring-white dark:ring-slate-900 shadow-lg bg-slate-100 dark:bg-slate-800 flex-shrink-0 cursor-pointer hover:opacity-90 transition-opacity"
               />
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 title="Change profile picture"
-                className="absolute bottom-0 right-0 p-2 bg-blue-600 hover:bg-blue-700 text-white rounded-full ring-2 ring-white dark:ring-slate-900 shadow-md transition-transform hover:scale-110 flex items-center justify-center cursor-pointer"
+                className="absolute bottom-0 right-0 p-1.5 sm:p-2 bg-blue-600 hover:bg-blue-700 text-white rounded-full ring-2 ring-white dark:ring-slate-900 shadow-md transition-transform hover:scale-110 flex items-center justify-center cursor-pointer"
               >
                 {uploadingAvatar ? (
-                  <Loader2 className="w-3.5 h-3.5 text-white animate-spin" />
+                  <Loader2 className="w-3 sm:w-3.5 h-3 sm:h-3.5 text-white animate-spin" />
                 ) : (
-                  <Camera className="w-3.5 h-3.5 text-white" />
+                  <Camera className="w-3 sm:w-3.5 h-3 sm:h-3.5 text-white" />
                 )}
               </button>
               <input
@@ -904,7 +910,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
               />
             </div>
 
-            <div className="flex items-center gap-3 flex-wrap sm:flex-nowrap">
+            <div className="flex items-center gap-1.5 sm:gap-2.5 flex-nowrap flex-shrink-0">
               {isPrivateAccount && (
                 <button
                   type="button"
@@ -912,7 +918,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                     fetchFollowRequests();
                     setShowFollowRequestsModal(true);
                   }}
-                  className="h-9 px-4 py-2 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-900 hover:bg-blue-100 dark:hover:bg-blue-900/40 text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-1.5 whitespace-nowrap min-w-[110px]"
+                  className="h-8 sm:h-9 px-2.5 sm:px-4 py-1 sm:py-2 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-900 hover:bg-blue-100 dark:hover:bg-blue-900/40 text-[11px] sm:text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-1 sm:gap-1.5 whitespace-nowrap"
                 >
                   <Users className="w-3.5 h-3.5 flex-shrink-0" />
                   <span>Requests</span>
@@ -930,7 +936,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                   setIsEditing(!isEditing);
                   setSaveError(null);
                 }}
-                className="h-9 px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 transition-all shadow-sm flex items-center justify-center gap-1.5 whitespace-nowrap min-w-[110px]"
+                className="h-8 sm:h-9 px-2.5 sm:px-4 py-1 sm:py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-[11px] sm:text-xs font-bold text-slate-700 dark:text-slate-200 transition-all shadow-sm flex items-center justify-center gap-1 sm:gap-1.5 whitespace-nowrap"
               >
                 <Edit3 className="w-3.5 h-3.5 flex-shrink-0" />
                 <span>{isEditing ? 'Cancel' : 'Edit Profile'}</span>
@@ -1050,7 +1056,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
           ) : (
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-xl font-black text-slate-900 dark:text-white">{user.display_name}</h2>
+                <h2 className="text-xl font-black text-slate-900 dark:text-white break-words break-all">{user.display_name}</h2>
                 {user.is_verified && (
                   <span className="w-4 h-4 rounded-full bg-blue-600 text-white flex items-center justify-center text-[10px] font-bold">
                     ✓
