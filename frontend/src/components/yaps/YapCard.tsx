@@ -201,6 +201,18 @@ export const YapCard: React.FC<YapCardProps> = ({
 
   return (
     <article className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-3.5 sm:p-5 shadow-sm hover:shadow-hover transition-all duration-200 mb-4 relative">
+      {/* Reyapped by banner (Twitter/X style) */}
+      {(yap.is_reyap || (yap as any).reyapped_by) && (
+        <div className="flex items-center gap-1.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400 mb-2.5 px-0.5">
+          <Repeat className="w-3.5 h-3.5 flex-shrink-0" />
+          <span className="truncate">
+            {(yap as any).reyapped_by?.username?.toLowerCase() === user?.username?.toLowerCase()
+              ? 'You'
+              : (yap as any).reyapped_by?.display_name || `@${(yap as any).reyapped_by?.username || 'user'}`} reyapped
+          </span>
+        </div>
+      )}
+
       {/* Header: Author + Timestamp + Options */}
       <div className="flex items-start justify-between gap-2 sm:gap-3">
         <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
@@ -459,17 +471,17 @@ export const YapCard: React.FC<YapCardProps> = ({
           </button>
         </div>
 
-        {/* Reyap / Share */}
+        {/* Reyap */}
         <button
           onClick={handleReyap}
           className={`flex items-center gap-1 sm:gap-1.5 transition-colors py-1 px-1 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/50 ${
             isReyapped ? 'text-emerald-600 font-semibold' : 'hover:text-emerald-600'
           }`}
-          title="Share"
+          title={isReyapped ? 'Reyapped' : 'Reyap'}
         >
           <Repeat className="w-4 h-4 flex-shrink-0" />
           <span className="font-semibold">{formatCompactNumber(reyapCount)}</span>
-          <span className="hidden sm:inline">Share</span>
+          <span className="hidden sm:inline">Reyap</span>
         </button>
 
         {/* Saved / Bookmark */}
