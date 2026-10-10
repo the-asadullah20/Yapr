@@ -4,6 +4,7 @@ import { queueService } from '../../config/queue.js';
 import { cacheClient } from '../../config/redis.js';
 import { env } from '../../config/env.js';
 import { summarizeYap } from '../../config/ai.js';
+import { notificationsService } from '../notifications/notifications.service.js';
 
 // In-memory yaps store for dev
 export const mockYaps: any[] = [];
@@ -97,11 +98,21 @@ export class YapsService {
           .maybeSingle();
 
         if (parent?.author_id && parent.author_id !== authorId) {
-          await queueService.publish(env.AMQP_QUEUE_NOTIFICATIONS || 'yapr.notifications', {
-            id: `notif_reply_${authorId}_${yapId}`,
-            name: 'reply_notification',
-            payload: { recipientId: parent.author_id, actorId: authorId, yapId, type: 'reply' },
-          });
+          // Guaranteed real-time delivery: write to DB + send WebSocket event immediately!
+          await notificationsService.createNotification({
+            userId: parent.author_id,
+            type: 'reply',
+            actorId: authorId,
+            yapId,
+          }).catch((err) => console.error('Error creating reply notification:', err));
+
+          try {
+            await queueService.publish(env.AMQP_QUEUE_NOTIFICATIONS || 'yapr.notifications', {
+              id: `notif_reply_${authorId}_${yapId}`,
+              name: 'reply_notification',
+              payload: { recipientId: parent.author_id, actorId: authorId, yapId, type: 'reply' },
+            });
+          } catch {}
         }
       }
     } else {
