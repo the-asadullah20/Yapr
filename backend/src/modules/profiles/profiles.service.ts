@@ -2,6 +2,7 @@ import { supabaseAdmin, isSupabaseConfigured } from '../../config/supabase.js';
 import { usernameBloomFilter } from '../../utils/bloomFilter.js';
 import { COUNTRIES, getCountryByCode } from '../../utils/countries.js';
 import { mockYaps } from '../yaps/yaps.service.js';
+import { mockUserReyaps } from '../social/social.service.js';
 
 // In-memory mock profiles for dev/fallback
 const mockProfiles = new Map<string, any>([
@@ -212,7 +213,8 @@ export class ProfilesService {
     }
 
     if (isSupabaseConfigured) {
-      const { data, error } = await supabaseAdmin
+      // 1. Fetch user's own authored yaps
+      const { data: ownYaps, error: ownErr } = await supabaseAdmin
         .from('yaps')
         .select('*, author:profiles!author_id(*)')
         .eq('author_id', profile.id)
@@ -220,13 +222,114 @@ export class ProfilesService {
         .is('deleted_at', null)
         .order('created_at', { ascending: false });
 
-      if (!error && data) {
-        return { is_private: false, yaps: data };
+      // 2. Fetch yaps reyapped by this user
+      const { data: reyapRecords, error: reyapErr } = await supabaseAdmin
+        .from('reyaps')
+        .select(`
+          created_at,
+          yap:yaps!yap_id(
+            *,
+            author:profiles!author_id(*)
+          )
+        `)
+        .eq('user_id', profile.id)
+        .order('created_at', { ascending: false });
+
+      const mappedReyaps: any[] = [];
+        for (const item of (reyapRecords as any[])) {
+          const yapData: any = Array.isArray(item.yap) ? item.yap[0] : item.yap;
+          if (yapData && !yapData.deleted_at) {
+            mappedReyaps.push({
+              ...yapData,
+              is_reyap: true,
+              reyapped_by: {
+                id: profile.id,
+                username: profile.username,
+                display_name: profile.display_name,
+              },
+              activity_at: item.created_at || yapData.created_at,
+            });
+          }
+        }
+
+      const mappedOwn = (ownYaps || []).map((y: any) => ({
+        ...y,
+        activity_at: y.created_at,
+      }));
+
+      // Combine both lists (avoiding duplicates if user reyapped their own yap)
+      const combinedMap = new Map<string, any>();
+      for (const y of mappedOwn) {
+        combinedMap.set(y.id, y);
+      }
+      for (const ry of mappedReyaps) {
+        if (!combinedMap.has(ry.id)) {
+          combinedMap.set(ry.id, ry);
+        } else {
+          const existing = combinedMap.get(ry.id);
+          combinedMap.set(ry.id, { ...existing, is_reyap: true, reyapped_by: ry.reyapped_by });
+        }
+      }
+
+      let mergedYaps = Array.from(combinedMap.values()).sort(
+        (a, b) => new Date(b.activity_at || b.created_at).getTime() - new Date(a.activity_at || a.created_at).getTime()
+      );
+
+      // Hydrate viewer like/reyap/bookmark status if viewerId is present
+      if (viewerId && mergedYaps.length > 0) {
+        const yapIds = mergedYaps.map((y) => y.id);
+        const [{ data: userLikes }, { data: userReyaps }, { data: userBookmarks }] = await Promise.all([
+          supabaseAdmin.from('likes').select('yap_id').eq('user_id', viewerId).in('yap_id', yapIds),
+          supabaseAdmin.from('reyaps').select('yap_id').eq('user_id', viewerId).in('yap_id', yapIds),
+          supabaseAdmin.from('bookmarks').select('yap_id').eq('user_id', viewerId).in('yap_id', yapIds),
+        ]);
+
+        const likedSet = new Set((userLikes || []).map((l: any) => l.yap_id));
+        const reyappedSet = new Set((userReyaps || []).map((r: any) => r.yap_id));
+        const bookmarkedSet = new Set((userBookmarks || []).map((b: any) => b.yap_id));
+
+        mergedYaps = mergedYaps.map((y) => ({
+          ...y,
+          is_liked: likedSet.has(y.id),
+          is_reyapped: reyappedSet.has(y.id),
+          is_bookmarked: bookmarkedSet.has(y.id),
+        }));
+      }
+
+      return { is_private: false, yaps: mergedYaps };
+    }
+
+    // Fallback in-memory mock mode
+    const userSet = mockUserReyaps.get(profile.id) || new Set<string>();
+    const ownYaps = mockYaps
+      .filter((y) => (y.author_id === profile.id || y.author?.username?.toLowerCase() === profile.username?.toLowerCase()) && !y.parent_id)
+      .map((y) => ({ ...y, activity_at: y.created_at }));
+
+    const reyappedYaps = mockYaps
+      .filter((y) => userSet.has(y.id))
+      .map((y) => ({
+        ...y,
+        is_reyap: true,
+        reyapped_by: {
+          id: profile.id,
+          username: profile.username,
+          display_name: profile.display_name,
+        },
+        activity_at: y.created_at,
+      }));
+
+    const combinedMap = new Map<string, any>();
+    for (const y of ownYaps) combinedMap.set(y.id, y);
+    for (const ry of reyappedYaps) {
+      if (!combinedMap.has(ry.id)) combinedMap.set(ry.id, ry);
+      else {
+        const existing = combinedMap.get(ry.id);
+        combinedMap.set(ry.id, { ...existing, is_reyap: true, reyapped_by: ry.reyapped_by });
       }
     }
 
-    const yaps = mockYaps.filter(
-      (y) => (y.author_id === profile.id || y.author?.username?.toLowerCase() === profile.username?.toLowerCase()) && !y.parent_id
+    const yaps = Array.from(combinedMap.values()).sort(
+      (a, b) => new Date(b.activity_at || b.created_at).getTime() - new Date(a.activity_at || a.created_at).getTime()
     );
     return { is_private: false, yaps };
   }

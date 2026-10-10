@@ -30,6 +30,12 @@ export interface Yap {
   is_reyapped?: boolean;
   is_bookmarked?: boolean;
   is_following?: boolean;
+  is_reyap?: boolean;
+  reyapped_by?: {
+    id: string;
+    username: string;
+    display_name?: string;
+  };
   final_score?: number;
   why_label?: string;
 }

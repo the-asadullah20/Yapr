@@ -3,6 +3,8 @@ import { queueService } from '../../config/queue.js';
 import { env } from '../../config/env.js';
 import { mockYaps } from '../yaps/yaps.service.js';
 
+export const mockUserReyaps = new Map<string, Set<string>>();
+
 export class SocialService {
   async toggleLike(userId: string, yapId: string): Promise<{ liked: boolean; likeCount: number }> {
     if (isSupabaseConfigured) {
@@ -71,9 +73,24 @@ export class SocialService {
 
     const yap = mockYaps.find((y) => y.id === yapId);
     if (!yap) throw new Error('Yap not found');
-    yap.is_reyapped = !yap.is_reyapped;
-    yap.reyap_count = Math.max(0, yap.reyap_count + (yap.is_reyapped ? 1 : -1));
-    return { reyapped: yap.is_reyapped, reyapCount: yap.reyap_count };
+
+    let userSet = mockUserReyaps.get(userId);
+    if (!userSet) {
+      userSet = new Set<string>();
+      mockUserReyaps.set(userId, userSet);
+    }
+
+    const isCurrentlyReyapped = userSet.has(yapId);
+    if (isCurrentlyReyapped) {
+      userSet.delete(yapId);
+      yap.is_reyapped = false;
+      yap.reyap_count = Math.max(0, (yap.reyap_count || 1) - 1);
+    } else {
+      userSet.add(yapId);
+      yap.is_reyapped = true;
+      yap.reyap_count = (yap.reyap_count || 0) + 1;
+    }
+    return { reyapped: !isCurrentlyReyapped, reyapCount: yap.reyap_count };
   }
 
   async toggleFollow(followerId: string, followeeId: string): Promise<{ following: boolean }> {

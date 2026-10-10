@@ -647,7 +647,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
             ) : (
               userYaps.map((yap) => (
                 <YapCard
-                  key={yap.id}
+                  key={`${yap.id}_${yap.is_reyap ? 'reyap' : 'orig'}`}
                   yap={yap}
                   onOpenThread={(y) => onOpenThread?.(y)}
                   onOpenProfile={(u) => onOpenProfile?.(u)}
@@ -1403,7 +1403,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
         ) : (
           userYaps.map((yap) => (
             <YapCard
-              key={yap.id}
+              key={`${yap.id}_${yap.is_reyap ? 'reyap' : 'orig'}`}
               yap={yap}
               onOpenThread={(y) => onOpenThread?.(y)}
               onOpenProfile={(u) => onOpenProfile?.(u)}
