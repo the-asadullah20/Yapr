@@ -317,6 +317,21 @@ export class SocialService {
     return { success: true, rejected: true };
   }
 
+  async removeFollower(userId: string, followerId: string): Promise<{ success: boolean }> {
+    if (isSupabaseConfigured) {
+      try {
+        await supabaseAdmin
+          .from('follows')
+          .delete()
+          .eq('follower_id', followerId)
+          .eq('followee_id', userId);
+      } catch (err: any) {
+        console.error('Error removing follower:', err);
+      }
+    }
+    return { success: true };
+  }
+
   async toggleBookmark(userId: string, yapId: string): Promise<{ bookmarked: boolean }> {
     if (isSupabaseConfigured) {
       const { data: existing } = await supabaseAdmin

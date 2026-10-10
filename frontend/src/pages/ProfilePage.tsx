@@ -25,6 +25,7 @@ import { useAuth } from '../context/AuthContext';
 import { api } from '../api/apiClient';
 import { UserProfile, Yap } from '../types';
 import { YapCard } from '../components/yaps/YapCard';
+import { LightboxModal } from '../components/common/LightboxModal';
 
 interface ProfilePageProps {
   viewingUsername?: string | null;
@@ -72,6 +73,26 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
   const [showFollowRequestsModal, setShowFollowRequestsModal] = useState(false);
   const [pendingFollowRequests, setPendingFollowRequests] = useState<UserProfile[]>([]);
   const [loadingFollowRequests, setLoadingFollowRequests] = useState(false);
+
+  // Profile photo preview & follower removal state
+  const [previewAvatarUrl, setPreviewAvatarUrl] = useState<string | null>(null);
+  const [removingFollowerId, setRemovingFollowerId] = useState<string | null>(null);
+
+  const handleRemoveFollower = async (followerId: string) => {
+    if (!window.confirm('Are you sure you want to remove this follower?')) return;
+    setRemovingFollowerId(followerId);
+    try {
+      await api.removeFollower(followerId);
+      setFollowListUsers((prev) => prev.filter((u) => u.id !== followerId));
+      if (user) {
+        updateUser({ follower_count: Math.max(0, (user.follower_count || 1) - 1) });
+      }
+    } catch (err: any) {
+      alert(err.message || 'Failed to remove follower');
+    } finally {
+      setRemovingFollowerId(null);
+    }
+  };
 
   // User's Yaps (Posts) state
   const [userYaps, setUserYaps] = useState<Yap[]>([]);
@@ -579,15 +600,26 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
 
           {/* Profile Header */}
           <div className="p-6 pt-0 relative">
-            <div className="flex items-end justify-between -mt-12 mb-4">
-              <img
-                src={
-                  otherProfile.avatar_url ||
-                  `https://api.dicebear.com/7.x/bottts/svg?seed=${otherProfile.username}`
+            <div className="flex items-end justify-between -mt-12 mb-4 gap-4 sm:gap-6">
+              <div
+                className="relative flex-shrink-0 w-24 h-24 aspect-square cursor-pointer group"
+                onClick={() =>
+                  setPreviewAvatarUrl(
+                    otherProfile.avatar_url ||
+                    `https://api.dicebear.com/7.x/bottts/svg?seed=${otherProfile.username}`
+                  )
                 }
-                alt={otherProfile.display_name}
-                className="w-24 h-24 rounded-full object-cover ring-4 ring-white dark:ring-slate-900 shadow-lg bg-slate-100 dark:bg-slate-800"
-              />
+                title="Click to view full photo"
+              >
+                <img
+                  src={
+                    otherProfile.avatar_url ||
+                    `https://api.dicebear.com/7.x/bottts/svg?seed=${otherProfile.username}`
+                  }
+                  alt={otherProfile.display_name}
+                  className="w-24 h-24 aspect-square rounded-full object-cover ring-4 ring-white dark:ring-slate-900 shadow-lg bg-slate-100 dark:bg-slate-800 flex-shrink-0 group-hover:opacity-90 transition-opacity"
+                />
+              </div>
 
               <div className="flex items-center gap-2">
                 {/* Follow / Unfollow / Requested Button */}
@@ -837,28 +869,32 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
 
         {/* Profile Content */}
         <div className="p-6 pt-0 relative">
-          {/* Avatar with Camera Upload Overlay */}
-          <div className="flex items-end justify-between -mt-12 mb-4">
-            <div
-              className="relative group cursor-pointer"
-              onClick={() => fileInputRef.current?.click()}
-              title="Click to upload profile picture"
-            >
+          {/* Avatar with Camera Upload Overlay & Preview */}
+          <div className="flex items-end justify-between -mt-12 mb-4 gap-4 sm:gap-6">
+            <div className="relative flex-shrink-0 w-24 h-24 aspect-square">
               <img
                 src={user.avatar_url || `https://api.dicebear.com/7.x/bottts/svg?seed=${user.username}`}
                 alt={user.display_name}
-                className="w-24 h-24 rounded-full object-cover ring-4 ring-white dark:ring-slate-900 shadow-lg bg-slate-100 dark:bg-slate-800 transition-all"
+                onClick={() =>
+                  setPreviewAvatarUrl(
+                    user.avatar_url || `https://api.dicebear.com/7.x/bottts/svg?seed=${user.username}`
+                  )
+                }
+                title="Click to view full photo"
+                className="w-24 h-24 aspect-square rounded-full object-cover ring-4 ring-white dark:ring-slate-900 shadow-lg bg-slate-100 dark:bg-slate-800 flex-shrink-0 cursor-pointer hover:opacity-90 transition-opacity"
               />
-              <div className="absolute inset-0 bg-black/40 rounded-full flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                title="Change profile picture"
+                className="absolute bottom-0 right-0 p-2 bg-blue-600 hover:bg-blue-700 text-white rounded-full ring-2 ring-white dark:ring-slate-900 shadow-md transition-transform hover:scale-110 flex items-center justify-center cursor-pointer"
+              >
                 {uploadingAvatar ? (
-                  <Loader2 className="w-6 h-6 text-white animate-spin" />
+                  <Loader2 className="w-3.5 h-3.5 text-white animate-spin" />
                 ) : (
-                  <>
-                    <Camera className="w-5 h-5 text-white mb-0.5" />
-                    <span className="text-[10px] text-white font-semibold">Change</span>
-                  </>
+                  <Camera className="w-3.5 h-3.5 text-white" />
                 )}
-              </div>
+              </button>
               <input
                 ref={fileInputRef}
                 type="file"
@@ -868,7 +904,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
               />
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3 flex-wrap sm:flex-nowrap">
               {isPrivateAccount && (
                 <button
                   type="button"
@@ -876,12 +912,12 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                     fetchFollowRequests();
                     setShowFollowRequestsModal(true);
                   }}
-                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-900 hover:bg-blue-100 dark:hover:bg-blue-900/40 text-xs font-bold transition-colors shadow-sm"
+                  className="h-9 px-4 py-2 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-900 hover:bg-blue-100 dark:hover:bg-blue-900/40 text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-1.5 whitespace-nowrap min-w-[110px]"
                 >
-                  <Users className="w-3.5 h-3.5" />
+                  <Users className="w-3.5 h-3.5 flex-shrink-0" />
                   <span>Requests</span>
                   {pendingFollowRequests.length > 0 && (
-                    <span className="ml-0.5 px-1.5 py-0.5 bg-blue-600 text-white rounded-full text-[10px] font-bold">
+                    <span className="px-1.5 py-0.2 bg-blue-600 text-white rounded-full text-[10px] font-bold">
                       {pendingFollowRequests.length}
                     </span>
                   )}
@@ -889,13 +925,14 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
               )}
 
               <button
+                type="button"
                 onClick={() => {
                   setIsEditing(!isEditing);
                   setSaveError(null);
                 }}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-bold text-slate-700 dark:text-slate-200 transition-colors shadow-sm"
+                className="h-9 px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 transition-all shadow-sm flex items-center justify-center gap-1.5 whitespace-nowrap min-w-[110px]"
               >
-                <Edit3 className="w-3.5 h-3.5" />
+                <Edit3 className="w-3.5 h-3.5 flex-shrink-0" />
                 <span>{isEditing ? 'Cancel' : 'Edit Profile'}</span>
               </button>
             </div>
@@ -1588,7 +1625,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                       </button>
                       <button
                         onClick={() => handleRejectRequestModal(req.id)}
-                        className="px-3 py-1.5 bg-slate-200 dark:bg-slate-750 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40 dark:hover:text-rose-400 text-slate-700 dark:text-slate-300 text-xs font-semibold rounded-xl transition-colors"
+                        className="px-3 py-1.5 bg-slate-200 dark:bg-slate-700 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40 dark:hover:text-rose-400 text-slate-700 dark:text-slate-300 text-xs font-semibold rounded-xl transition-colors"
                       >
                         Decline
                       </button>
@@ -1655,6 +1692,21 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                         <p className="text-[10px] text-slate-400">@{u.username}</p>
                       </div>
                     </div>
+
+                    {/* Remove Follower Button if viewing own followers */}
+                    {followListModal === 'followers' && !isViewingOther && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleRemoveFollower(u.id);
+                        }}
+                        disabled={removingFollowerId === u.id}
+                        className="px-2.5 py-1 text-xs font-semibold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/60 rounded-lg border border-rose-200 dark:border-rose-900 transition-colors"
+                      >
+                        {removingFollowerId === u.id ? 'Removing...' : 'Remove'}
+                      </button>
+                    )}
                   </div>
                 ))
               )}
@@ -1662,6 +1714,13 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
           </div>
         </div>
       )}
+
+      {/* Lightbox Modal for Full Profile Photo View */}
+      <LightboxModal
+        images={previewAvatarUrl ? [previewAvatarUrl] : []}
+        isOpen={!!previewAvatarUrl}
+        onClose={() => setPreviewAvatarUrl(null)}
+      />
     </div>
   );
 };

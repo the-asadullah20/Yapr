@@ -157,6 +157,14 @@ export const api = {
     return await res.json();
   },
 
+  async removeFollower(followerId: string): Promise<{ success: boolean }> {
+    const res = await fetch(`${API_BASE}/social/followers/${followerId}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders(),
+    });
+    return await res.json();
+  },
+
   async toggleBookmark(yapId: string): Promise<{ bookmarked: boolean }> {
     const res = await fetch(`${API_BASE}/social/bookmark/${yapId}`, {
       method: 'POST',
