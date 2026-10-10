@@ -205,7 +205,14 @@ export const YapCard: React.FC<YapCardProps> = ({
       {(yap.is_reyap || (yap as any).reyapped_by) && (
         <div className="flex items-center gap-1.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400 mb-2.5 px-0.5">
           <Repeat className="w-3.5 h-3.5 flex-shrink-0" />
-          <span className="truncate">
+          <span
+            onClick={(e) => {
+              e.stopPropagation();
+              const rUser = (yap as any).reyapped_by?.username;
+              if (rUser) onOpenProfile?.(rUser);
+            }}
+            className="truncate hover:underline cursor-pointer"
+          >
             {(yap as any).reyapped_by?.username?.toLowerCase() === user?.username?.toLowerCase()
               ? 'You'
               : (yap as any).reyapped_by?.display_name || `@${(yap as any).reyapped_by?.username || 'user'}`} reyapped

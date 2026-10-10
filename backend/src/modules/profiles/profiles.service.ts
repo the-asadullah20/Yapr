@@ -107,11 +107,25 @@ export class ProfilesService {
     if (isSupabaseConfigured) {
       const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(identifier);
       const query = supabaseAdmin.from('profiles').select('*');
-      const { data, error } = isUuid
+      let { data, error } = isUuid
         ? await query.eq('id', identifier).maybeSingle()
         : await query.ilike('username', identifier).maybeSingle();
 
       if (error) throw error;
+
+      // Fallback: If not found by username and identifier is not UUID, check by display_name
+      if (!data && !isUuid) {
+        const { data: byDisplayName, error: dnError } = await supabaseAdmin
+          .from('profiles')
+          .select('*')
+          .ilike('display_name', identifier)
+          .maybeSingle();
+        if (dnError) throw dnError;
+        if (byDisplayName) {
+          data = byDisplayName;
+        }
+      }
+
       if (data) {
         let isFollowing = false;
         let isRequested = false;
@@ -135,11 +149,17 @@ export class ProfilesService {
           country: getCountryByCode(data.country_code || 'PK'),
         };
       }
+
+      return null;
     }
 
     // Fallback lookup
     for (const p of mockProfiles.values()) {
-      if (p.id === identifier || p.username.toLowerCase() === identifier.toLowerCase()) {
+      if (
+        p.id === identifier ||
+        p.username.toLowerCase() === identifier.toLowerCase() ||
+        p.display_name?.toLowerCase() === identifier.toLowerCase()
+      ) {
         const isRequested = viewerId && viewerId !== p.id && p.is_private
           ? await socialService.isFollowRequested(viewerId, p.id)
           : false;
@@ -152,19 +172,7 @@ export class ProfilesService {
       }
     }
 
-    // Return profile if not found in dev
-    return {
-      id: identifier,
-      username: identifier,
-      display_name: identifier,
-      bio: 'Yapr Explorer',
-      avatar_url: `https://api.dicebear.com/7.x/bottts/svg?seed=${identifier}`,
-      country_code: 'PK',
-      country: getCountryByCode('PK'),
-      follower_count: 0,
-      following_count: 0,
-      is_following: false,
-    };
+    return null;
   }
 
   async updateProfile(userId: string, updates: any): Promise<any> {

@@ -88,7 +88,10 @@ export const AppContent: React.FC = () => {
     if (result.type === 'hashtag') {
       handleSelectHashtag(result.title.replace(/^#/, ''));
     } else if (result.type === 'user') {
-      handleOpenProfile(result.title.replace(/^@/, ''));
+      const targetUser =
+        result.username ||
+        (result.subtitle?.startsWith('@') ? result.subtitle.replace(/^@/, '') : result.title.replace(/^@/, ''));
+      handleOpenProfile(targetUser);
     } else if (result.type === 'yap' && result.id) {
       handleOpenYapById(result.id);
     }
