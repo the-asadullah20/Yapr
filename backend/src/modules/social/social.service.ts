@@ -129,6 +129,50 @@ export class SocialService {
     return { bookmarked: yap?.is_bookmarked ?? true };
   }
 
+  async getBookmarkedYaps(userId: string): Promise<any[]> {
+    if (isSupabaseConfigured) {
+      const { data: bookmarkRows, error: bmError } = await supabaseAdmin
+        .from('bookmarks')
+        .select('yap_id, created_at')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
+
+      if (bmError || !bookmarkRows || bookmarkRows.length === 0) {
+        return [];
+      }
+
+      const yapIds = bookmarkRows.map((r) => r.yap_id);
+      const { data: yaps, error: yapsError } = await supabaseAdmin
+        .from('yaps')
+        .select('*, author:profiles!author_id(*)')
+        .in('id', yapIds);
+
+      if (yapsError || !yaps) {
+        return [];
+      }
+
+      const { data: userLikes } = await supabaseAdmin
+        .from('likes')
+        .select('yap_id')
+        .eq('user_id', userId)
+        .in('yap_id', yapIds);
+
+      const likedYapIds = new Set((userLikes || []).map((l: any) => l.yap_id));
+      const yapMap = new Map(yaps.map((y) => [y.id, y]));
+
+      return yapIds
+        .map((id) => yapMap.get(id))
+        .filter(Boolean)
+        .map((y: any) => ({
+          ...y,
+          is_liked: likedYapIds.has(y.id),
+          is_bookmarked: true,
+        }));
+    }
+
+    return mockYaps.filter((y) => y.is_bookmarked);
+  }
+
   async blockUser(blockerId: string, blockedId: string): Promise<boolean> {
     if (blockerId === blockedId) throw new Error('Cannot block yourself');
     if (isSupabaseConfigured) {

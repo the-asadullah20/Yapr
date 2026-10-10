@@ -47,6 +47,16 @@ export class SocialController {
     }
   }
 
+  async getBookmarks(req: Request, res: Response, next: NextFunction) {
+    try {
+      if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+      const yaps = await socialService.getBookmarkedYaps(req.user.id);
+      res.json({ yaps });
+    } catch (err) {
+      next(err);
+    }
+  }
+
   async blockUser(req: Request, res: Response, next: NextFunction) {
     try {
       if (!req.user) return res.status(401).json({ error: 'Unauthorized' });

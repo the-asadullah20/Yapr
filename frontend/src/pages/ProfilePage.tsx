@@ -111,6 +111,13 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
   const [isSubmittingReset, setIsSubmittingReset] = useState(false);
   const [resetSuccess, setResetSuccess] = useState<string | null>(null);
   const [resetError, setResetError] = useState<string | null>(null);
+  const [previewResetCode, setPreviewResetCode] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (user?.email && !resetEmail) {
+      setResetEmail(user.email);
+    }
+  }, [user?.email]);
 
   // Blocked Accounts (Block list) state
   const [blockedUsers, setBlockedUsers] = useState<UserProfile[]>([]);
@@ -343,16 +350,15 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
   const handleInitiateForgot = async (e: React.FormEvent) => {
     e.preventDefault();
     const targetEmail = user?.email || resetEmail.trim();
-    if (!targetEmail) {
-      setResetError('Please enter your email address.');
-      return;
-    }
     setIsSendingReset(true);
     setResetError(null);
     setResetSuccess(null);
     try {
-      await api.forgotPassword(targetEmail);
-      setResetSuccess(`A 6-digit reset code has been sent to ${targetEmail}`);
+      const res = await api.forgotPassword(targetEmail);
+      if (res.previewCode) {
+        setPreviewResetCode(res.previewCode);
+      }
+      setResetSuccess(`A 6-digit reset code has been sent to ${targetEmail || 'your registered email'}`);
       setResetStep(true);
     } catch (err: any) {
       setResetError(err.message || 'Failed to send reset code');
@@ -364,10 +370,6 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
   const handleCompleteReset = async (e: React.FormEvent) => {
     e.preventDefault();
     const targetEmail = user?.email || resetEmail.trim();
-    if (!targetEmail) {
-      setResetError('Email address is missing.');
-      return;
-    }
     if (!resetOtp.trim()) {
       setResetError('Please enter the 6-digit reset code.');
       return;
@@ -388,9 +390,11 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
       setResetSuccess(res.message || 'Password updated successfully!');
       setNewPassword('');
       setResetOtp('');
+      setPreviewResetCode(null);
       setTimeout(() => {
         setResetStep(false);
-      }, 3000);
+        setActivePasswordTab('change');
+      }, 2000);
     } catch (err: any) {
       setResetError(err.message || 'Failed to reset password');
     } finally {
@@ -1142,8 +1146,26 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
               <form onSubmit={handleInitiateForgot} className="space-y-3">
                 <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
                   Send a 6-digit password reset verification code to{' '}
-                  <span className="font-semibold text-slate-900 dark:text-white">{user.email}</span>.
+                  <span className="font-semibold text-slate-900 dark:text-white">
+                    {user?.email || resetEmail || 'your registered account email'}
+                  </span>.
                 </p>
+
+                {!user?.email && !resetEmail && (
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                      Your Email Address
+                    </label>
+                    <input
+                      type="email"
+                      value={resetEmail}
+                      onChange={(e) => setResetEmail(e.target.value)}
+                      placeholder="name@example.com"
+                      required
+                      className="w-full px-3.5 py-2.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none text-slate-900 dark:text-white"
+                    />
+                  </div>
+                )}
 
                 <div className="flex items-center gap-3 pt-1">
                   <button
@@ -1166,6 +1188,18 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
               </form>
             ) : (
               <form onSubmit={handleCompleteReset} className="space-y-3">
+                {previewResetCode && (
+                  <div className="p-3 bg-blue-50 dark:bg-blue-950/40 rounded-xl border border-blue-200 dark:border-blue-800 text-xs text-blue-900 dark:text-blue-300 flex items-center justify-between">
+                    <span className="font-medium">Quick code (testing/demo):</span>
+                    <button
+                      type="button"
+                      onClick={() => setResetOtp(previewResetCode)}
+                      className="font-mono font-bold px-2.5 py-1 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors cursor-pointer"
+                    >
+                      {previewResetCode} (Fill)
+                    </button>
+                  </div>
+                )}
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                     6-Digit Verification Code
