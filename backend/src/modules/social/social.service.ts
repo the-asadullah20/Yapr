@@ -155,7 +155,20 @@ export class SocialService {
   }
 
   async toggleFollow(followerId: string, followeeId: string): Promise<{ following: boolean; requested?: boolean }> {
-    if (followerId === followeeId) {
+    let targetFolloweeId = followeeId;
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(followeeId);
+    if (!isUuid && isSupabaseConfigured) {
+      const { data: userRow } = await supabaseAdmin
+        .from('profiles')
+        .select('id')
+        .or(`username.ilike.${followeeId},display_name.ilike.${followeeId}`)
+        .maybeSingle();
+      if (userRow?.id) {
+        targetFolloweeId = userRow.id;
+      }
+    }
+
+    if (followerId === targetFolloweeId) {
       throw new Error('You cannot follow yourself');
     }
 
@@ -165,12 +178,12 @@ export class SocialService {
         .from('follows')
         .select('*')
         .eq('follower_id', followerId)
-        .eq('followee_id', followeeId)
+        .eq('followee_id', targetFolloweeId)
         .maybeSingle();
 
       if (existingFollow) {
         // Unfollow
-        await supabaseAdmin.from('follows').delete().eq('follower_id', followerId).eq('followee_id', followeeId);
+        await supabaseAdmin.from('follows').delete().eq('follower_id', followerId).eq('followee_id', targetFolloweeId);
         return { following: false, requested: false };
       }
 
@@ -178,7 +191,7 @@ export class SocialService {
       const { data: targetProfile } = await supabaseAdmin
         .from('profiles')
         .select('id, is_private')
-        .eq('id', followeeId)
+        .eq('id', targetFolloweeId)
         .maybeSingle();
 
       const isTargetPrivate = !!targetProfile?.is_private;
@@ -191,17 +204,17 @@ export class SocialService {
             .from('follow_requests')
             .select('id')
             .eq('requester_id', followerId)
-            .eq('target_id', followeeId)
+            .eq('target_id', targetFolloweeId)
             .maybeSingle();
 
           if (!findErr && reqRow) {
             hasPendingReq = true;
           } else {
-            const list = await getRedisFollowRequests(followeeId);
+            const list = await getRedisFollowRequests(targetFolloweeId);
             hasPendingReq = list.includes(followerId);
           }
         } catch {
-          const list = await getRedisFollowRequests(followeeId);
+          const list = await getRedisFollowRequests(targetFolloweeId);
           hasPendingReq = list.includes(followerId);
         }
 
@@ -212,9 +225,9 @@ export class SocialService {
               .from('follow_requests')
               .delete()
               .eq('requester_id', followerId)
-              .eq('target_id', followeeId);
+              .eq('target_id', targetFolloweeId);
           } catch {}
-          await removeRedisFollowRequest(followeeId, followerId);
+          await removeRedisFollowRequest(targetFolloweeId, followerId);
 
           return { following: false, requested: false };
         } else {
@@ -222,25 +235,25 @@ export class SocialService {
           try {
             await supabaseAdmin.from('follow_requests').insert({
               requester_id: followerId,
-              target_id: followeeId,
+              target_id: targetFolloweeId,
             });
           } catch {}
 
           // Always sync to Redis so it works with 100% reliability
-          await addRedisFollowRequest(followeeId, followerId);
+          await addRedisFollowRequest(targetFolloweeId, followerId);
 
           // Notify target user of follow request directly & via queue
           await notificationsService.createNotification({
-            userId: followeeId,
+            userId: targetFolloweeId,
             type: 'follow_request',
             actorId: followerId,
           }).catch((err) => console.error('Error creating follow_request notification:', err));
 
           try {
             await queueService.publish(env.AMQP_QUEUE_NOTIFICATIONS || 'yapr.notifications', {
-              id: `notif_follow_req_${followerId}_${followeeId}`,
+              id: `notif_follow_req_${followerId}_${targetFolloweeId}`,
               name: 'follow_request_notification',
-              payload: { recipientId: followeeId, actorId: followerId, type: 'follow_request' },
+              payload: { recipientId: targetFolloweeId, actorId: followerId, type: 'follow_request' },
             });
           } catch {}
 
@@ -249,33 +262,33 @@ export class SocialService {
       }
 
       // Public account: Follow immediately
-      await supabaseAdmin.from('follows').insert({ follower_id: followerId, followee_id: followeeId });
+      await supabaseAdmin.from('follows').insert({ follower_id: followerId, followee_id: targetFolloweeId });
 
       // Direct guaranteed notification creation
       await notificationsService.createNotification({
-        userId: followeeId,
+        userId: targetFolloweeId,
         type: 'follow',
         actorId: followerId,
       }).catch((err) => console.error('Error creating follow notification:', err));
 
       try {
         await queueService.publish(env.AMQP_QUEUE_NOTIFICATIONS || 'yapr.notifications', {
-          id: `notif_follow_${followerId}_${followeeId}`,
+          id: `notif_follow_${followerId}_${targetFolloweeId}`,
           name: 'follow_notification',
-          payload: { recipientId: followeeId, actorId: followerId, type: 'follow' },
+          payload: { recipientId: targetFolloweeId, actorId: followerId, type: 'follow' },
         });
       } catch {}
       return { following: true, requested: false };
     }
 
     // Mock fallback
-    const list = await getRedisFollowRequests(followeeId);
+    const list = await getRedisFollowRequests(targetFolloweeId);
     const hasRequested = list.includes(followerId);
     if (hasRequested) {
-      await removeRedisFollowRequest(followeeId, followerId);
+      await removeRedisFollowRequest(targetFolloweeId, followerId);
       return { following: false, requested: false };
     } else {
-      await addRedisFollowRequest(followeeId, followerId);
+      await addRedisFollowRequest(targetFolloweeId, followerId);
       return { following: false, requested: true };
     }
   }

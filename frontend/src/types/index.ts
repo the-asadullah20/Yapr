@@ -68,6 +68,7 @@ export interface TrendingTopic {
 export interface SearchResult {
   type: 'yap' | 'user' | 'hashtag';
   id?: string;
+  username?: string;
   title: string;
   subtitle: string;
   avatar_url?: string;

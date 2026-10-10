@@ -5,6 +5,7 @@ import { mockYaps } from '../yaps/yaps.service.js';
 export interface SearchResultItem {
   type: 'yap' | 'user' | 'hashtag';
   id?: string;
+  username?: string;
   title: string;
   subtitle: string;
   avatar_url?: string;
@@ -37,6 +38,7 @@ export class SearchService {
             dbResults.push({
               type: 'user',
               id: u.id,
+              username: u.username,
               title: u.display_name || u.username,
               subtitle: `@${u.username}`,
               avatar_url: u.avatar_url,
@@ -121,6 +123,7 @@ export class SearchService {
         if (u.name.toLowerCase().includes(cleanQuery.toLowerCase()) || u.handle.toLowerCase().includes(cleanQuery.toLowerCase())) {
           results.push({
             type: 'user',
+            username: u.handle,
             title: u.name,
             subtitle: `@${u.handle}`,
             avatar_url: u.pic,
