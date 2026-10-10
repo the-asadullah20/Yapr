@@ -200,10 +200,10 @@ export const YapCard: React.FC<YapCardProps> = ({
   const authorUsername = yap.author?.username || (yap as any).username;
 
   return (
-    <article className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-5 shadow-sm hover:shadow-hover transition-all duration-200 mb-4 relative">
+    <article className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-3.5 sm:p-5 shadow-sm hover:shadow-hover transition-all duration-200 mb-4 relative">
       {/* Header: Author + Timestamp + Options */}
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex items-center gap-3">
+      <div className="flex items-start justify-between gap-2 sm:gap-3">
+        <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
           <img
             src={
               yap.author?.avatar_url ||
@@ -214,20 +214,20 @@ export const YapCard: React.FC<YapCardProps> = ({
             onClick={() => {
               if (authorUsername) onOpenProfile?.(authorUsername);
             }}
-            className="w-10 h-10 rounded-full object-cover ring-2 ring-slate-100 dark:ring-slate-800 bg-slate-100 dark:bg-slate-800 cursor-pointer hover:ring-blue-500 transition-all"
+            className="w-10 h-10 rounded-full object-cover ring-2 ring-slate-100 dark:ring-slate-800 bg-slate-100 dark:bg-slate-800 cursor-pointer hover:ring-blue-500 transition-all flex-shrink-0"
           />
-          <div>
-            <div className="flex items-center gap-2">
+          <div className="min-w-0">
+            <div className="flex items-center gap-1.5 flex-wrap sm:flex-nowrap">
               <h3
                 onClick={() => {
                   if (authorUsername) onOpenProfile?.(authorUsername);
                 }}
-                className="text-sm font-semibold text-slate-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 cursor-pointer transition-colors"
+                className="text-sm font-semibold text-slate-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 cursor-pointer transition-colors truncate max-w-[140px] sm:max-w-none"
               >
                 {yap.author?.display_name || (yap as any).display_name || 'Yapr User'}
               </h3>
               {(yap.author?.is_verified || (yap as any).is_verified) && (
-                <span className="w-3.5 h-3.5 rounded-full bg-blue-600 text-white flex items-center justify-center text-[9px] font-bold">
+                <span className="w-3.5 h-3.5 rounded-full bg-blue-600 text-white flex items-center justify-center text-[9px] font-bold flex-shrink-0">
                   ✓
                 </span>
               )}
@@ -235,7 +235,7 @@ export const YapCard: React.FC<YapCardProps> = ({
                 onClick={() => {
                   if (authorUsername) onOpenProfile?.(authorUsername);
                 }}
-                className="text-xs text-slate-400 dark:text-slate-500 hover:text-blue-500 cursor-pointer"
+                className="text-xs text-slate-400 dark:text-slate-500 hover:text-blue-500 cursor-pointer truncate max-w-[110px] sm:max-w-none"
               >
                 @{authorUsername || 'yapr'}
               </span>
@@ -334,21 +334,21 @@ export const YapCard: React.FC<YapCardProps> = ({
 
       {/* AI Summary & Language Translation Controls */}
       <div className="mt-3 pt-2.5 border-t border-slate-100 dark:border-slate-800">
-        <div className="flex items-center justify-between flex-wrap gap-2">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
           {/* AI Summary Toggle */}
           <button
             onClick={handleSummarize}
-            className="flex items-center gap-1.5 text-xs font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
+            className="self-start flex items-center gap-1.5 text-xs font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
           >
-            <Sparkles className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+            <Sparkles className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 flex-shrink-0" />
             <span>{showSummary ? 'Hide AI Summary' : 'AI Yap Summary'}</span>
           </button>
 
           {/* Translate To Dropdown */}
-          <div className="flex items-center gap-1.5 text-xs">
-            <span className="text-slate-400 dark:text-slate-500 font-medium flex items-center gap-1">
-              <Globe className="w-3.5 h-3.5 text-blue-500" />
-              Translate to:
+          <div className="flex items-center gap-1.5 text-xs w-full sm:w-auto">
+            <span className="text-slate-400 dark:text-slate-500 font-medium flex items-center gap-1 whitespace-nowrap flex-shrink-0">
+              <Globe className="w-3.5 h-3.5 text-blue-500 flex-shrink-0" />
+              <span>Translate:</span>
             </span>
             <select
               value={targetLanguage}
@@ -357,7 +357,7 @@ export const YapCard: React.FC<YapCardProps> = ({
                 setTargetLanguage(newLang);
                 handleTranslate(newLang);
               }}
-              className="bg-slate-50 dark:bg-slate-850 border border-slate-200/80 dark:border-slate-700 text-slate-800 dark:text-slate-200 rounded-lg px-2 py-1 text-xs outline-none focus:border-blue-500 font-medium cursor-pointer"
+              className="flex-1 sm:flex-none min-w-0 bg-slate-50 dark:bg-slate-850 border border-slate-200/80 dark:border-slate-700 text-slate-800 dark:text-slate-200 rounded-lg px-2 py-1 text-xs outline-none focus:border-blue-500 font-medium cursor-pointer"
             >
               <option value="Urdu">Urdu (اردو)</option>
               <option value="Roman Urdu">Roman Urdu</option>
@@ -373,7 +373,7 @@ export const YapCard: React.FC<YapCardProps> = ({
             <button
               onClick={() => handleTranslate()}
               disabled={loadingTranslation}
-              className="px-2 py-1 bg-blue-50 dark:bg-blue-900/40 text-blue-600 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/60 rounded-lg font-semibold text-[11px] border border-blue-200 dark:border-blue-800 transition-colors"
+              className="flex-shrink-0 px-2.5 py-1 bg-blue-50 dark:bg-blue-900/40 text-blue-600 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/60 rounded-lg font-semibold text-[11px] border border-blue-200 dark:border-blue-800 transition-colors"
             >
               {loadingTranslation ? '...' : 'Translate'}
             </button>
@@ -430,14 +430,16 @@ export const YapCard: React.FC<YapCardProps> = ({
         {/* Comments */}
         <button
           onClick={() => onOpenThread(yap)}
-          className="flex items-center gap-1.5 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+          className="flex items-center gap-1 sm:gap-1.5 hover:text-blue-600 dark:hover:text-blue-400 transition-colors py-1 px-1 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/50"
+          title="Comments"
         >
-          <MessageSquare className="w-4 h-4" />
-          <span>{formatCompactNumber(yap.reply_count)} Comments</span>
+          <MessageSquare className="w-4 h-4 flex-shrink-0" />
+          <span className="font-semibold">{formatCompactNumber(yap.reply_count)}</span>
+          <span className="hidden sm:inline">Comments</span>
         </button>
 
         {/* Likes + View Likers List */}
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-0.5 sm:gap-1">
           <button
             onClick={handleLike}
             className={`p-1 rounded-full transition-colors ${
@@ -449,32 +451,36 @@ export const YapCard: React.FC<YapCardProps> = ({
           </button>
           <button
             onClick={handleOpenLikers}
-            className="hover:underline hover:text-rose-600 transition-colors"
+            className="hover:underline hover:text-rose-600 transition-colors py-1 pr-1 font-semibold"
             title="View people who liked this post"
           >
-            {formatCompactNumber(likeCount)} Likes
+            <span>{formatCompactNumber(likeCount)}</span>
+            <span className="hidden sm:inline ml-1 font-normal">Likes</span>
           </button>
         </div>
 
         {/* Reyap / Share */}
         <button
           onClick={handleReyap}
-          className={`flex items-center gap-1.5 transition-colors ${
+          className={`flex items-center gap-1 sm:gap-1.5 transition-colors py-1 px-1 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/50 ${
             isReyapped ? 'text-emerald-600 font-semibold' : 'hover:text-emerald-600'
           }`}
+          title="Share"
         >
-          <Repeat className="w-4 h-4" />
-          <span>{formatCompactNumber(reyapCount)} Share</span>
+          <Repeat className="w-4 h-4 flex-shrink-0" />
+          <span className="font-semibold">{formatCompactNumber(reyapCount)}</span>
+          <span className="hidden sm:inline">Share</span>
         </button>
 
         {/* Saved / Bookmark */}
         <button
           onClick={handleBookmark}
-          className={`flex items-center gap-1.5 transition-colors ${
+          className={`flex items-center gap-1 sm:gap-1.5 transition-colors py-1 px-1 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/50 ${
             isBookmarked ? 'text-blue-600 dark:text-blue-400 font-semibold' : 'hover:text-blue-600 dark:hover:text-blue-400'
           }`}
+          title={isBookmarked ? 'Saved' : 'Save'}
         >
-          <Bookmark className={`w-4 h-4 ${isBookmarked ? 'fill-blue-600 text-blue-600 dark:fill-blue-400 dark:text-blue-400' : ''}`} />
+          <Bookmark className={`w-4 h-4 flex-shrink-0 ${isBookmarked ? 'fill-blue-600 text-blue-600 dark:fill-blue-400 dark:text-blue-400' : ''}`} />
           <span>{isBookmarked ? 'Saved' : 'Save'}</span>
         </button>
       </div>

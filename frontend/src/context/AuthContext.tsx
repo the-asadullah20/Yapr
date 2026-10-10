@@ -25,7 +25,19 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<UserProfile | null>(() => {
     const saved = localStorage.getItem('yapr_user');
-    return saved ? JSON.parse(saved) : null;
+    let u: UserProfile | null = saved ? JSON.parse(saved) : null;
+    const t = localStorage.getItem('yapr_token');
+    if (u && !u.email && t) {
+      try {
+        const payload = JSON.parse(atob(t.split('.')[1]));
+        if (payload?.email) {
+          u = { ...u, email: payload.email };
+        }
+      } catch {
+        // ignore
+      }
+    }
+    return u;
   });
 
   const [token, setToken] = useState<string | null>(() => {
@@ -80,6 +92,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
           const userProfile: UserProfile = {
             id: payload.sub,
+            email,
             username,
             display_name: rawName,
             avatar_url:

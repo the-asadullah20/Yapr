@@ -137,6 +137,14 @@ export const api = {
     return await res.json();
   },
 
+  async getBookmarks(): Promise<{ yaps: Yap[] }> {
+    const res = await fetch(`${API_BASE}/social/bookmarks`, {
+      headers: getAuthHeaders(),
+    });
+    if (!res.ok) throw new Error('Failed to fetch bookmarks');
+    return await res.json();
+  },
+
   async blockUser(userId: string): Promise<{ success: boolean }> {
     const res = await fetch(`${API_BASE}/social/block/${userId}`, {
       method: 'POST',

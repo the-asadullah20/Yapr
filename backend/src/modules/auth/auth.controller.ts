@@ -1,5 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
+import jwt from 'jsonwebtoken';
 import { authService } from './auth.service.js';
+import { env } from '../../config/env.js';
 
 export class AuthController {
   async requestOtp(req: Request, res: Response, next: NextFunction) {
@@ -62,7 +64,17 @@ export class AuthController {
 
   async forgotPassword(req: Request, res: Response, next: NextFunction) {
     try {
-      const { email } = req.body;
+      let email = req.body?.email;
+      if (!email && req.headers.authorization?.startsWith('Bearer ')) {
+        try {
+          const token = req.headers.authorization.split(' ')[1];
+          const decoded: any = jwt.verify(token, env.SUPABASE_JWT_SECRET);
+          if (decoded?.email) email = decoded.email;
+        } catch {
+          // ignore
+        }
+      }
+
       if (!email || !email.includes('@')) {
         return res.status(400).json({ error: 'Valid email address is required' });
       }
@@ -75,7 +87,17 @@ export class AuthController {
 
   async resetPassword(req: Request, res: Response, next: NextFunction) {
     try {
-      const { email, code, newPassword } = req.body;
+      let { email, code, newPassword } = req.body;
+      if (!email && req.headers.authorization?.startsWith('Bearer ')) {
+        try {
+          const token = req.headers.authorization.split(' ')[1];
+          const decoded: any = jwt.verify(token, env.SUPABASE_JWT_SECRET);
+          if (decoded?.email) email = decoded.email;
+        } catch {
+          // ignore
+        }
+      }
+
       if (!email || !code || !newPassword) {
         return res.status(400).json({ error: 'Email, reset code, and new password are required' });
       }

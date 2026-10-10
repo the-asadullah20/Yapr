@@ -56,7 +56,7 @@ export const FeedPage: React.FC<FeedPageProps> = ({
   };
 
   return (
-    <div className="max-w-2xl mx-auto py-4 px-4 sm:px-6">
+    <div className="max-w-2xl mx-auto py-3 px-3 sm:px-6">
       {/* Feed Tabs with Stage 1 indicator */}
       <FeedTabs
         currentTab={feedMode}
