@@ -162,6 +162,17 @@ export class SocialController {
       next(err);
     }
   }
+
+  async removeFollower(req: Request, res: Response, next: NextFunction) {
+    try {
+      if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+      const { followerId } = req.params;
+      const result = await socialService.removeFollower(req.user.id, followerId);
+      res.json(result);
+    } catch (err) {
+      next(err);
+    }
+  }
 }
 
 export const socialController = new SocialController();

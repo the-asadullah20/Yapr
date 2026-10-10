@@ -371,18 +371,18 @@ export const YapCard: React.FC<YapCardProps> = ({
                 setTargetLanguage(newLang);
                 handleTranslate(newLang);
               }}
-              className="flex-1 sm:flex-none min-w-0 bg-slate-50 dark:bg-slate-850 border border-slate-200/80 dark:border-slate-700 text-slate-800 dark:text-slate-200 rounded-lg px-2 py-1 text-xs outline-none focus:border-blue-500 font-medium cursor-pointer"
+              className="flex-1 sm:flex-none min-w-0 bg-slate-50 dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 text-slate-800 dark:text-slate-100 rounded-lg px-2 py-1 text-xs outline-none focus:border-blue-500 font-medium cursor-pointer"
             >
-              <option value="Urdu">Urdu (اردو)</option>
-              <option value="Roman Urdu">Roman Urdu</option>
-              <option value="English">English</option>
-              <option value="Hindi">Hindi (हिंदी)</option>
-              <option value="Arabic">Arabic (العربية)</option>
-              <option value="Spanish">Spanish (Español)</option>
-              <option value="French">French (Français)</option>
-              <option value="German">German (Deutsch)</option>
-              <option value="Chinese">Chinese (中文)</option>
-              <option value="Japanese">Japanese (日本語)</option>
+              <option value="Urdu" className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100">Urdu (اردو)</option>
+              <option value="Roman Urdu" className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100">Roman Urdu</option>
+              <option value="English" className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100">English</option>
+              <option value="Hindi" className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100">Hindi (हिंदी)</option>
+              <option value="Arabic" className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100">Arabic (العربية)</option>
+              <option value="Spanish" className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100">Spanish (Español)</option>
+              <option value="French" className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100">French (Français)</option>
+              <option value="German" className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100">German (Deutsch)</option>
+              <option value="Chinese" className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100">Chinese (中文)</option>
+              <option value="Japanese" className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100">Japanese (日本語)</option>
             </select>
             <button
               onClick={() => handleTranslate()}
@@ -396,14 +396,18 @@ export const YapCard: React.FC<YapCardProps> = ({
 
         {/* AI Summary Result Card */}
         {showSummary && (
-          <div className="mt-2.5 p-3 bg-blue-50/70 dark:bg-blue-950/40 rounded-xl border border-blue-100 dark:border-blue-900 text-xs text-slate-700 dark:text-slate-300 leading-relaxed animate-fadeIn">
+          <div className="mt-2.5 p-3.5 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200/80 dark:border-slate-700 text-xs text-slate-700 dark:text-slate-200 leading-relaxed animate-fadeIn shadow-sm">
+            <div className="flex items-center gap-1.5 font-bold text-[11px] text-blue-600 dark:text-blue-400 mb-1.5">
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>AI Summary</span>
+            </div>
             {loadingSummary ? (
               <span className="flex items-center gap-2 text-slate-500 dark:text-slate-400">
-                <Sparkles className="w-3.5 h-3.5 animate-spin text-blue-600" />
+                <Sparkles className="w-3.5 h-3.5 animate-spin text-blue-600 dark:text-blue-400" />
                 Generating AI Summary...
               </span>
             ) : (
-              <p className="text-slate-800 dark:text-slate-200 whitespace-pre-wrap">
+              <p className="text-slate-800 dark:text-slate-200 whitespace-pre-wrap leading-relaxed">
                 {summaryText.replace(/^TL;DR\s*:?\s*/i, '').replace(/\*{1,4}/g, '').trim()}
               </p>
             )}

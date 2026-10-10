@@ -76,26 +76,32 @@ export class YapsService {
         });
       }
 
-      // If replying to a parent Yap, increment parent's reply_count and notify parent author
+      // If replying to a parent Yap, recalculate exact parent reply_count and notify parent author
       if (parentId) {
+        const { count } = await supabaseAdmin
+          .from('yaps')
+          .select('id', { count: 'exact', head: true })
+          .eq('parent_id', parentId)
+          .is('deleted_at', null);
+
+        const realReplyCount = count ?? 1;
+        await supabaseAdmin
+          .from('yaps')
+          .update({ reply_count: realReplyCount })
+          .eq('id', parentId);
+
         const { data: parent } = await supabaseAdmin
           .from('yaps')
-          .select('reply_count, author_id')
+          .select('author_id')
           .eq('id', parentId)
-          .single();
-        if (parent) {
-          await supabaseAdmin
-            .from('yaps')
-            .update({ reply_count: (parent.reply_count || 0) + 1 })
-            .eq('id', parentId);
+          .maybeSingle();
 
-          if (parent.author_id && parent.author_id !== authorId) {
-            await queueService.publish(env.AMQP_QUEUE_NOTIFICATIONS || 'yapr.notifications', {
-              id: `notif_reply_${authorId}_${yapId}`,
-              name: 'reply_notification',
-              payload: { recipientId: parent.author_id, actorId: authorId, yapId, type: 'reply' },
-            });
-          }
+        if (parent?.author_id && parent.author_id !== authorId) {
+          await queueService.publish(env.AMQP_QUEUE_NOTIFICATIONS || 'yapr.notifications', {
+            id: `notif_reply_${authorId}_${yapId}`,
+            name: 'reply_notification',
+            payload: { recipientId: parent.author_id, actorId: authorId, yapId, type: 'reply' },
+          });
         }
       }
     } else {
@@ -202,6 +208,14 @@ export class YapsService {
   async softDeleteYap(yapId: string, authorId: string): Promise<boolean> {
     if (isSupabaseConfigured) {
       try {
+        const { data: targetYap } = await supabaseAdmin
+          .from('yaps')
+          .select('parent_id')
+          .eq('id', yapId)
+          .maybeSingle();
+
+        const parentId = targetYap?.parent_id;
+
         // 1. Delete notifications referencing this yap
         await supabaseAdmin.from('notifications').delete().eq('yap_id', yapId);
         // 2. Delete likes referencing this yap
@@ -223,6 +237,19 @@ export class YapsService {
           .delete()
           .eq('id', yapId)
           .eq('author_id', authorId);
+
+        if (parentId) {
+          const { count } = await supabaseAdmin
+            .from('yaps')
+            .select('id', { count: 'exact', head: true })
+            .eq('parent_id', parentId)
+            .is('deleted_at', null);
+
+          await supabaseAdmin
+            .from('yaps')
+            .update({ reply_count: count ?? 0 })
+            .eq('id', parentId);
+        }
 
         return true;
       } catch (err) {

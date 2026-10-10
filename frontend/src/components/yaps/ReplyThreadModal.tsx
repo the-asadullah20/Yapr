@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Send, CheckCircle2, HelpCircle, FileText, AlertCircle, Image, Loader2, Smile, MessageSquare, ChevronDown, ChevronUp } from 'lucide-react';
+import { X, Send, Image, Loader2, Smile, MessageSquare, ChevronDown, ChevronUp } from 'lucide-react';
 import { Yap } from '../../types';
 import { api } from '../../api/apiClient';
 import { formatTimeAgo } from '../../utils/formatters';
@@ -31,7 +31,6 @@ export const ReplyThreadModal: React.FC<ReplyThreadModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [replyText, setReplyText] = useState('');
   const [mediaUrls, setMediaUrls] = useState<string[]>([]);
-  const [taggedLabel, setTaggedLabel] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [showEmojiBar, setShowEmojiBar] = useState(false);
@@ -47,19 +46,13 @@ export const ReplyThreadModal: React.FC<ReplyThreadModalProps> = ({
       setLoading(true);
       api.getReplies(yap.id).then((data) => {
         setReplies(data);
+        yap.reply_count = data.length;
         setLoading(false);
       });
     }
   }, [yap]);
 
   if (!yap) return null;
-
-  const tagOptions = [
-    { label: 'Agree', icon: CheckCircle2, color: 'text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-800' },
-    { label: 'Disagree', icon: AlertCircle, color: 'text-rose-600 bg-rose-50 dark:bg-rose-950/40 border-rose-300 dark:border-rose-800' },
-    { label: 'Question', icon: HelpCircle, color: 'text-amber-600 bg-amber-50 dark:bg-amber-950/40 border-amber-300 dark:border-amber-800' },
-    { label: 'Source', icon: FileText, color: 'text-blue-600 bg-blue-50 dark:bg-blue-950/40 border-blue-300 dark:border-blue-800' },
-  ];
 
   const openLightbox = (images: string[], index: number = 0) => {
     setLightboxImages(images);
@@ -99,7 +92,6 @@ export const ReplyThreadModal: React.FC<ReplyThreadModalProps> = ({
 
     const currentText = replyText.trim();
     const currentMedia = [...mediaUrls];
-    const currentLabel = taggedLabel;
     const tempId = `temp-${Date.now()}`;
 
     // 0ms Optimistic UI update
@@ -109,7 +101,6 @@ export const ReplyThreadModal: React.FC<ReplyThreadModalProps> = ({
       parent_id: yap.id,
       body: currentText,
       media: currentMedia,
-      tagged_label: currentLabel,
       like_count: 0,
       reply_count: 0,
       reyap_count: 0,
@@ -128,7 +119,6 @@ export const ReplyThreadModal: React.FC<ReplyThreadModalProps> = ({
     yap.reply_count = (yap.reply_count || 0) + 1;
     setReplyText('');
     setMediaUrls([]);
-    setTaggedLabel(null);
     setShowEmojiBar(false);
     setIsSubmitting(true);
 
@@ -136,7 +126,7 @@ export const ReplyThreadModal: React.FC<ReplyThreadModalProps> = ({
       const newReply = await api.createYap(
         currentText,
         currentMedia,
-        currentLabel || undefined,
+        undefined,
         yap.author?.country_code || 'PK',
         yap.id
       );
@@ -333,13 +323,6 @@ export const ReplyThreadModal: React.FC<ReplyThreadModalProps> = ({
                             </span>
                           </div>
                         </div>
-
-                        {/* Tagged reply label badge */}
-                        {r.tagged_label && (
-                          <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-50 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
-                            {r.tagged_label}
-                          </span>
-                        )}
                       </div>
 
                       <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-wrap">
@@ -366,7 +349,7 @@ export const ReplyThreadModal: React.FC<ReplyThreadModalProps> = ({
                       )}
 
                       {/* Reply button on comment to thread */}
-                      <div className="mt-2.5 pt-2 border-t border-slate-50 dark:border-slate-750 flex items-center justify-between text-[11px]">
+                      <div className="mt-2.5 pt-2 border-t border-slate-50 dark:border-slate-700 flex items-center justify-between text-[11px]">
                         <button
                           type="button"
                           onClick={() => handleReplyToUser(rAuthorUsername)}
@@ -409,29 +392,6 @@ export const ReplyThreadModal: React.FC<ReplyThreadModalProps> = ({
             onSubmit={handlePostReply}
             className="p-3 sm:p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/50 space-y-2.5"
           >
-            {/* Tagged Reply Selector */}
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 mr-1">Tag reply:</span>
-              {tagOptions.map((opt) => {
-                const Icon = opt.icon;
-                const isSelected = taggedLabel === opt.label;
-                return (
-                  <button
-                    key={opt.label}
-                    type="button"
-                    onClick={() => setTaggedLabel(isSelected ? null : opt.label)}
-                    className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium border transition-colors ${
-                      isSelected
-                        ? opt.color
-                        : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-750'
-                    }`}
-                  >
-                    <Icon className="w-3 h-3" />
-                    <span>{opt.label}</span>
-                  </button>
-                );
-              })}
-            </div>
 
             {/* Quick Emoji bar */}
             {showEmojiBar && (

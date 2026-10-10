@@ -20,5 +20,6 @@ router.get('/reports', requireAuth, (req, res, next) => socialController.getUser
 router.get('/follow-requests', requireAuth, (req, res, next) => socialController.getFollowRequests(req, res, next));
 router.post('/follow-requests/:requesterId/accept', requireAuth, (req, res, next) => socialController.acceptFollowRequest(req, res, next));
 router.post('/follow-requests/:requesterId/reject', requireAuth, (req, res, next) => socialController.rejectFollowRequest(req, res, next));
+router.delete('/followers/:followerId', requireAuth, (req, res, next) => socialController.removeFollower(req, res, next));
 
 export const socialRoutes = router;
