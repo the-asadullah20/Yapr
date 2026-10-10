@@ -137,6 +137,19 @@ export class AuthController {
       next(err);
     }
   }
+
+  async oauthSync(req: Request, res: Response, next: NextFunction) {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: 'Not authenticated' });
+      }
+      const metadata = req.body?.metadata || {};
+      const user = await authService.syncOAuthUser(req.user.id, req.user.email || '', metadata);
+      res.json({ user });
+    } catch (err) {
+      next(err);
+    }
+  }
 }
 
 export const authController = new AuthController();

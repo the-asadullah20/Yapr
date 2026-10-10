@@ -60,6 +60,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [token]);
 
+  // Sync profile on mount if token exists
+  useEffect(() => {
+    const fetchLatestProfile = async () => {
+      const storedToken = localStorage.getItem('yapr_token');
+      if (storedToken) {
+        try {
+          const res = await api.getMe();
+          if (res?.user) {
+            setUser((prev) => ({ ...(prev || {}), ...res.user }));
+          }
+        } catch {
+          // ignore error if token expired or offline
+        }
+      }
+    };
+    fetchLatestProfile();
+  }, []);
+
   // Handle OAuth callback (Google & Facebook redirect return)
   useEffect(() => {
     const handleOAuthCallback = async () => {
@@ -80,6 +98,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           );
           const payload = JSON.parse(jsonPayload);
           const email = payload.email || '';
+
+          // Clean URL immediately
+          window.history.replaceState(null, '', window.location.pathname);
+
+          // Save token
+          setToken(accessToken);
+          localStorage.setItem('yapr_token', accessToken);
+
+          // Sync with backend to preserve user's REAL existing profile (PFP, username, display_name)
+          try {
+            const syncRes = await api.syncOAuthUser(accessToken, payload.user_metadata);
+            if (syncRes?.user) {
+              setUser(syncRes.user);
+              return;
+            }
+          } catch (syncErr) {
+            console.warn('OAuth backend sync failed, using fallback:', syncErr);
+          }
+
+          // Fallback only if backend is unreachable
           const rawName =
             payload.user_metadata?.full_name ||
             payload.user_metadata?.name ||
@@ -90,7 +128,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             email.split('@')[0]?.replace(/[^a-zA-Z0-9_]/g, '') ||
             `user_${payload.sub?.slice(0, 6)}`;
 
-          const userProfile: UserProfile = {
+          const fallbackProfile: UserProfile = {
             id: payload.sub,
             email,
             username,
@@ -104,9 +142,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             following_count: 0,
           };
 
-          setToken(accessToken);
-          setUser(userProfile);
-          window.history.replaceState(null, '', window.location.pathname);
+          setUser(fallbackProfile);
         } catch (e) {
           console.error('Failed to parse OAuth session:', e);
         }

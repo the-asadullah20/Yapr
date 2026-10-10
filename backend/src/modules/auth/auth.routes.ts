@@ -13,5 +13,6 @@ router.post('/forgot-password', otpLimiter, (req, res, next) => authController.f
 router.post('/reset-password', (req, res, next) => authController.resetPassword(req, res, next));
 router.post('/change-password', requireAuth, (req, res, next) => authController.changePassword(req, res, next));
 router.get('/me', requireAuth, (req, res, next) => authController.getMe(req, res, next));
+router.post('/oauth-sync', requireAuth, (req, res, next) => authController.oauthSync(req, res, next));
 
 export const authRoutes = router;
