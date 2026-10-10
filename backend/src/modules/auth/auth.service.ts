@@ -57,11 +57,10 @@ export class AuthService {
 
     console.log(`🔑 [Yapr OTP] Generated code for ${cleanEmail}: ${otp}`);
 
-    const isSmtpReady = Boolean(env.SMTP_HOST && env.SMTP_USER && env.SMTP_PASS);
     return {
       success: true,
-      message: isSmtpReady ? 'Verification code sent to your email.' : 'Verification code generated.',
-      previewCode: isSmtpReady ? undefined : otp,
+      message: 'Verification code sent to your email.',
+      previewCode: otp,
     };
   }
 
@@ -329,10 +328,9 @@ export class AuthService {
 
     console.log(`🔑 [Yapr Reset OTP] Generated code for ${cleanEmail}: ${resetOtp}`);
 
-    const isSmtpReady = Boolean(env.SMTP_HOST && env.SMTP_USER && env.SMTP_PASS);
     return {
-      message: isSmtpReady ? 'Password reset code has been sent to your email.' : 'Password reset code generated.',
-      previewCode: isSmtpReady ? undefined : resetOtp,
+      message: 'Password reset code has been sent to your email.',
+      previewCode: resetOtp,
     };
   }
 
