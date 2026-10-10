@@ -121,8 +121,36 @@ export const api = {
     return await res.json();
   },
 
-  async toggleFollow(userId: string): Promise<{ following: boolean }> {
+  async toggleFollow(userId: string): Promise<{ following: boolean; requested?: boolean }> {
     const res = await fetch(`${API_BASE}/social/follow/${userId}`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+    });
+    return await res.json();
+  },
+
+  async getFollowRequests(): Promise<{ requests: UserProfile[] }> {
+    try {
+      const res = await fetch(`${API_BASE}/social/follow-requests`, {
+        headers: getAuthHeaders(),
+      });
+      if (!res.ok) return { requests: [] };
+      return await res.json();
+    } catch {
+      return { requests: [] };
+    }
+  },
+
+  async acceptFollowRequest(requesterId: string): Promise<{ success: boolean; accepted: boolean }> {
+    const res = await fetch(`${API_BASE}/social/follow-requests/${requesterId}/accept`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+    });
+    return await res.json();
+  },
+
+  async rejectFollowRequest(requesterId: string): Promise<{ success: boolean; rejected: boolean }> {
+    const res = await fetch(`${API_BASE}/social/follow-requests/${requesterId}/reject`, {
       method: 'POST',
       headers: getAuthHeaders(),
     });

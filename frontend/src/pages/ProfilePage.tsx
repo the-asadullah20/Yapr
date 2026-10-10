@@ -19,6 +19,7 @@ import {
   Flag,
   X,
   Users,
+  Clock,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../api/apiClient';
@@ -62,9 +63,15 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
   const [otherProfile, setOtherProfile] = useState<UserProfile | null>(null);
   const [loadingOther, setLoadingOther] = useState(isViewingOther);
   const [isFollowing, setIsFollowing] = useState(false);
+  const [isRequested, setIsRequested] = useState(false);
   const [followerCount, setFollowerCount] = useState(0);
   const [isBlocked, setIsBlocked] = useState(false);
   const [isBlocking, setIsBlocking] = useState(false);
+
+  // Follow requests state for private account owners
+  const [showFollowRequestsModal, setShowFollowRequestsModal] = useState(false);
+  const [pendingFollowRequests, setPendingFollowRequests] = useState<UserProfile[]>([]);
+  const [loadingFollowRequests, setLoadingFollowRequests] = useState(false);
 
   // User's Yaps (Posts) state
   const [userYaps, setUserYaps] = useState<Yap[]>([]);
@@ -152,6 +159,39 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
     }
   };
 
+  const fetchFollowRequests = async () => {
+    setLoadingFollowRequests(true);
+    try {
+      const res = await api.getFollowRequests();
+      setPendingFollowRequests(res.requests || []);
+    } catch {
+      setPendingFollowRequests([]);
+    } finally {
+      setLoadingFollowRequests(false);
+    }
+  };
+
+  const handleAcceptRequestModal = async (requesterId: string) => {
+    try {
+      await api.acceptFollowRequest(requesterId);
+      setPendingFollowRequests((prev) => prev.filter((r) => r.id !== requesterId));
+      if (user) {
+        updateUser({ follower_count: (user.follower_count || 0) + 1 });
+      }
+    } catch {
+      alert('Failed to accept follow request');
+    }
+  };
+
+  const handleRejectRequestModal = async (requesterId: string) => {
+    try {
+      await api.rejectFollowRequest(requesterId);
+      setPendingFollowRequests((prev) => prev.filter((r) => r.id !== requesterId));
+    } catch {
+      alert('Failed to decline follow request');
+    }
+  };
+
   // Sync own user fields and load lists
   useEffect(() => {
     if (user && !isViewingOther) {
@@ -163,6 +203,9 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
       setIsPrivateAccount(!!user.is_private);
       fetchBlockedUsers();
       fetchUserReports();
+      if (user.is_private) {
+        fetchFollowRequests();
+      }
     }
   }, [user, isViewingOther]);
 
@@ -175,6 +218,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
         .then((p) => {
           setOtherProfile(p);
           setIsFollowing(!!(p as any).is_following);
+          setIsRequested(!!(p as any).is_requested);
           setFollowerCount(p.follower_count || 0);
           setLoadingOther(false);
           if (p?.id) {
@@ -254,15 +298,45 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
     }
     if (!otherProfile) return;
 
-    const next = !isFollowing;
-    setIsFollowing(next);
-    setFollowerCount((prev) => prev + (next ? 1 : -1));
+    if (isFollowing) {
+      // Unfollow
+      setIsFollowing(false);
+      setFollowerCount((prev) => Math.max(0, prev - 1));
+      try {
+        const res = await api.toggleFollow(otherProfile.id);
+        setIsFollowing(res.following);
+        setIsRequested(!!res.requested);
+      } catch {
+        setIsFollowing(true);
+        setFollowerCount((prev) => prev + 1);
+      }
+      return;
+    }
+
+    if (otherProfile.is_private) {
+      // Follow request for private account
+      const prevReq = isRequested;
+      setIsRequested(!prevReq);
+      try {
+        const res = await api.toggleFollow(otherProfile.id);
+        setIsFollowing(res.following);
+        setIsRequested(!!res.requested);
+      } catch {
+        setIsRequested(prevReq);
+      }
+      return;
+    }
+
+    // Follow public account
+    setIsFollowing(true);
+    setFollowerCount((prev) => prev + 1);
     try {
       const res = await api.toggleFollow(otherProfile.id);
       setIsFollowing(res.following);
+      setIsRequested(!!res.requested);
     } catch {
-      setIsFollowing(!next);
-      setFollowerCount((prev) => prev + (!next ? 1 : -1));
+      setIsFollowing(false);
+      setFollowerCount((prev) => Math.max(0, prev - 1));
     }
   };
 
@@ -516,7 +590,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
               />
 
               <div className="flex items-center gap-2">
-                {/* Follow / Unfollow Button */}
+                {/* Follow / Unfollow / Requested Button */}
                 <button
                   onClick={handleToggleFollow}
                   disabled={isBlocked}
@@ -525,13 +599,21 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                       ? 'opacity-40 cursor-not-allowed bg-slate-100 dark:bg-slate-800 text-slate-400'
                       : isFollowing
                       ? 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 hover:bg-rose-50 hover:text-rose-600'
+                      : isRequested
+                      ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 border border-amber-300 dark:border-amber-800 hover:bg-rose-50 hover:text-rose-600'
                       : 'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/20'
                   }`}
+                  title={isRequested ? 'Click to cancel follow request' : undefined}
                 >
                   {isFollowing ? (
                     <>
                       <UserCheck className="w-3.5 h-3.5 text-blue-600" />
                       <span>Following</span>
+                    </>
+                  ) : isRequested ? (
+                    <>
+                      <Clock className="w-3.5 h-3.5 text-amber-500" />
+                      <span>Requested</span>
                     </>
                   ) : (
                     <>
@@ -627,7 +709,9 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
             </div>
             <h3 className="text-base font-bold text-slate-900 dark:text-white">This Account is Private</h3>
             <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto">
-              Follow @{otherProfile.username} to view their yaps, replies, and activities.
+              {isRequested
+                ? `Your request to follow @${otherProfile.username} is pending approval.`
+                : `Follow @${otherProfile.username} to view their yaps, replies, and activities.`}
             </p>
           </div>
         ) : (
@@ -784,16 +868,37 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
               />
             </div>
 
-            <button
-              onClick={() => {
-                setIsEditing(!isEditing);
-                setSaveError(null);
-              }}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-bold text-slate-700 dark:text-slate-200 transition-colors shadow-sm"
-            >
-              <Edit3 className="w-3.5 h-3.5" />
-              <span>{isEditing ? 'Cancel' : 'Edit Profile'}</span>
-            </button>
+            <div className="flex items-center gap-2">
+              {isPrivateAccount && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    fetchFollowRequests();
+                    setShowFollowRequestsModal(true);
+                  }}
+                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-900 hover:bg-blue-100 dark:hover:bg-blue-900/40 text-xs font-bold transition-colors shadow-sm"
+                >
+                  <Users className="w-3.5 h-3.5" />
+                  <span>Requests</span>
+                  {pendingFollowRequests.length > 0 && (
+                    <span className="ml-0.5 px-1.5 py-0.5 bg-blue-600 text-white rounded-full text-[10px] font-bold">
+                      {pendingFollowRequests.length}
+                    </span>
+                  )}
+                </button>
+              )}
+
+              <button
+                onClick={() => {
+                  setIsEditing(!isEditing);
+                  setSaveError(null);
+                }}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-bold text-slate-700 dark:text-slate-200 transition-colors shadow-sm"
+              >
+                <Edit3 className="w-3.5 h-3.5" />
+                <span>{isEditing ? 'Cancel' : 'Edit Profile'}</span>
+              </button>
+            </div>
           </div>
 
           {avatarError && <p className="text-xs text-rose-600 mb-2">{avatarError}</p>}
@@ -1412,6 +1517,89 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
           ))
         )}
       </div>
+
+      {/* Follow Requests Modal for Private Account Owner */}
+      {showFollowRequestsModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fadeIn"
+          onClick={() => setShowFollowRequestsModal(false)}
+        >
+          <div
+            className="bg-white dark:bg-slate-900 rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-2">
+                <Users className="w-4 h-4 text-blue-600" />
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                  Follow Requests ({pendingFollowRequests.length})
+                </h3>
+              </div>
+              <button
+                onClick={() => setShowFollowRequestsModal(false)}
+                className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-full"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="mt-4 max-h-80 overflow-y-auto space-y-3">
+              {loadingFollowRequests ? (
+                <div className="py-8 text-center text-xs text-slate-400">
+                  <Loader2 className="w-5 h-5 animate-spin mx-auto text-blue-600 mb-2" />
+                  Loading requests...
+                </div>
+              ) : pendingFollowRequests.length === 0 ? (
+                <div className="py-8 text-center text-xs text-slate-400">
+                  No pending follow requests.
+                </div>
+              ) : (
+                pendingFollowRequests.map((req) => (
+                  <div
+                    key={req.id}
+                    className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800"
+                  >
+                    <div
+                      className="flex items-center gap-2.5 min-w-0 cursor-pointer"
+                      onClick={() => {
+                        setShowFollowRequestsModal(false);
+                        onOpenProfile?.(req.username);
+                      }}
+                    >
+                      <img
+                        src={req.avatar_url || `https://api.dicebear.com/7.x/bottts/svg?seed=${req.username}`}
+                        alt={req.display_name}
+                        className="w-10 h-10 rounded-full object-cover ring-2 ring-white dark:ring-slate-700 flex-shrink-0"
+                      />
+                      <div className="min-w-0">
+                        <h4 className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                          {req.display_name}
+                        </h4>
+                        <p className="text-[11px] text-slate-400 truncate">@{req.username}</p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 flex-shrink-0">
+                      <button
+                        onClick={() => handleAcceptRequestModal(req.id)}
+                        className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl shadow-sm transition-colors"
+                      >
+                        Accept
+                      </button>
+                      <button
+                        onClick={() => handleRejectRequestModal(req.id)}
+                        className="px-3 py-1.5 bg-slate-200 dark:bg-slate-750 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40 dark:hover:text-rose-400 text-slate-700 dark:text-slate-300 text-xs font-semibold rounded-xl transition-colors"
+                      >
+                        Decline
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Followers / Following Modal */}
       {followListModal && (
