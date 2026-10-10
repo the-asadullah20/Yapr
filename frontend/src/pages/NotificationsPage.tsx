@@ -30,6 +30,28 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({ onOpenProf
     );
   };
 
+  const [actionStatus, setActionStatus] = useState<Record<string, 'accepted' | 'rejected'>>({});
+
+  const handleAcceptRequest = async (notifId: string, requesterId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      await api.acceptFollowRequest(requesterId);
+      setActionStatus((prev) => ({ ...prev, [notifId]: 'accepted' }));
+    } catch {
+      alert('Failed to accept follow request');
+    }
+  };
+
+  const handleRejectRequest = async (notifId: string, requesterId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      await api.rejectFollowRequest(requesterId);
+      setActionStatus((prev) => ({ ...prev, [notifId]: 'rejected' }));
+    } catch {
+      alert('Failed to decline follow request');
+    }
+  };
+
   const getIcon = (type: string) => {
     switch (type) {
       case 'like':
@@ -38,6 +60,10 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({ onOpenProf
         return <Repeat className="w-4 h-4 text-emerald-500" />;
       case 'follow':
         return <UserPlus className="w-4 h-4 text-blue-500" />;
+      case 'follow_request':
+        return <UserPlus className="w-4 h-4 text-amber-500" />;
+      case 'follow_accepted':
+        return <UserPlus className="w-4 h-4 text-emerald-500" />;
       default:
         return <Bell className="w-4 h-4 text-blue-600" />;
     }
@@ -115,7 +141,37 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({ onOpenProf
                     {n.formatted_text || `${n.type} notification`}
                   </span>
                 </div>
-                <div className="flex items-center gap-2">
+
+                {n.type === 'follow_request' && n.actors?.[0]?.id && (
+                  <div className="mt-2.5 flex items-center gap-2">
+                    {actionStatus[n.id] === 'accepted' ? (
+                      <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2.5 py-1 rounded-lg">
+                        ✓ Request accepted
+                      </span>
+                    ) : actionStatus[n.id] === 'rejected' ? (
+                      <span className="text-xs font-semibold text-slate-400 bg-slate-100 dark:bg-slate-800 px-2.5 py-1 rounded-lg">
+                        Request declined
+                      </span>
+                    ) : (
+                      <>
+                        <button
+                          onClick={(e) => handleAcceptRequest(n.id, n.actors![0].id, e)}
+                          className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg shadow-sm transition-colors"
+                        >
+                          Accept
+                        </button>
+                        <button
+                          onClick={(e) => handleRejectRequest(n.id, n.actors![0].id, e)}
+                          className="px-3 py-1 bg-slate-100 dark:bg-slate-800 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/30 dark:hover:text-rose-400 text-slate-700 dark:text-slate-300 text-xs font-semibold rounded-lg border border-slate-200 dark:border-slate-700 transition-colors"
+                        >
+                          Decline
+                        </button>
+                      </>
+                    )}
+                  </div>
+                )}
+
+                <div className="flex items-center gap-2 mt-1">
                   <span className="text-[11px] text-slate-400 dark:text-slate-500">
                     {formatTimeAgo(n.created_at)}
                   </span>

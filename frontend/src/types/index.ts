@@ -11,6 +11,8 @@ export interface UserProfile {
   following_count: number;
   is_verified?: boolean;
   is_private?: boolean;
+  is_following?: boolean;
+  is_requested?: boolean;
 }
 
 export interface Yap {

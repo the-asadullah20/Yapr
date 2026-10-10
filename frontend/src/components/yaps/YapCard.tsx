@@ -214,8 +214,8 @@ export const YapCard: React.FC<YapCardProps> = ({
       )}
 
       {/* Header: Author + Timestamp + Options */}
-      <div className="flex items-start justify-between gap-2 sm:gap-3">
-        <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+      <div className="flex items-start justify-between gap-2 sm:gap-3 w-full min-w-0">
+        <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1 overflow-hidden">
           <img
             src={
               yap.author?.avatar_url ||
@@ -228,18 +228,19 @@ export const YapCard: React.FC<YapCardProps> = ({
             }}
             className="w-10 h-10 rounded-full object-cover ring-2 ring-slate-100 dark:ring-slate-800 bg-slate-100 dark:bg-slate-800 cursor-pointer hover:ring-blue-500 transition-all flex-shrink-0"
           />
-          <div className="min-w-0">
-            <div className="flex items-center gap-1.5 flex-wrap sm:flex-nowrap">
+          <div className="min-w-0 flex-1 overflow-hidden">
+            <div className="flex items-center gap-1.5 min-w-0 flex-wrap sm:flex-nowrap">
               <h3
                 onClick={() => {
                   if (authorUsername) onOpenProfile?.(authorUsername);
                 }}
-                className="text-sm font-semibold text-slate-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 cursor-pointer transition-colors truncate max-w-[140px] sm:max-w-none"
+                title={yap.author?.display_name || (yap as any).display_name || 'Yapr User'}
+                className="text-sm font-semibold text-slate-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 cursor-pointer transition-colors truncate max-w-[150px] xs:max-w-[200px] sm:max-w-[260px] md:max-w-[340px]"
               >
                 {yap.author?.display_name || (yap as any).display_name || 'Yapr User'}
               </h3>
               {(yap.author?.is_verified || (yap as any).is_verified) && (
-                <span className="w-3.5 h-3.5 rounded-full bg-blue-600 text-white flex items-center justify-center text-[9px] font-bold flex-shrink-0">
+                <span className="w-3.5 h-3.5 rounded-full bg-blue-600 text-white flex items-center justify-center text-[9px] font-bold flex-shrink-0" title="Verified">
                   ✓
                 </span>
               )}
@@ -247,18 +248,19 @@ export const YapCard: React.FC<YapCardProps> = ({
                 onClick={() => {
                   if (authorUsername) onOpenProfile?.(authorUsername);
                 }}
-                className="text-xs text-slate-400 dark:text-slate-500 hover:text-blue-500 cursor-pointer truncate max-w-[110px] sm:max-w-none"
+                title={`@${authorUsername || 'yapr'}`}
+                className="text-xs text-slate-400 dark:text-slate-500 hover:text-blue-500 cursor-pointer truncate max-w-[110px] sm:max-w-[160px] flex-shrink-0"
               >
                 @{authorUsername || 'yapr'}
               </span>
             </div>
 
-            <div className="flex items-center gap-2 text-xs text-slate-400 dark:text-slate-500 mt-0.5">
-              <span>{formatTimeAgo(yap.created_at)}</span>
+            <div className="flex items-center gap-2 text-xs text-slate-400 dark:text-slate-500 mt-0.5 min-w-0">
+              <span className="whitespace-nowrap flex-shrink-0">{formatTimeAgo(yap.created_at)}</span>
               {yap.why_label && (
                 <>
                   <span>·</span>
-                  <span className="text-[11px] font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-2 py-0.5 rounded-md">
+                  <span className="text-[11px] font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-2 py-0.5 rounded-md truncate max-w-[140px]">
                     {yap.why_label}
                   </span>
                 </>
@@ -268,7 +270,7 @@ export const YapCard: React.FC<YapCardProps> = ({
         </div>
 
         {/* Options Menu Button */}
-        <div className="relative">
+        <div className="relative flex-shrink-0">
           <button
             onClick={() => setShowMenu(!showMenu)}
             className="p-1.5 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"

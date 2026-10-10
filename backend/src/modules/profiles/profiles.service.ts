@@ -2,10 +2,10 @@ import { supabaseAdmin, isSupabaseConfigured } from '../../config/supabase.js';
 import { usernameBloomFilter } from '../../utils/bloomFilter.js';
 import { COUNTRIES, getCountryByCode } from '../../utils/countries.js';
 import { mockYaps } from '../yaps/yaps.service.js';
-import { mockUserReyaps } from '../social/social.service.js';
+import { mockUserReyaps, socialService } from '../social/social.service.js';
 
 // In-memory mock profiles for dev/fallback
-const mockProfiles = new Map<string, any>([
+export const mockProfiles = new Map<string, any>([
   [
     'a1111111-1111-1111-1111-111111111111',
     {
@@ -114,6 +114,7 @@ export class ProfilesService {
       if (error) throw error;
       if (data) {
         let isFollowing = false;
+        let isRequested = false;
         if (viewerId && viewerId !== data.id) {
           const { data: follow } = await supabaseAdmin
             .from('follows')
@@ -122,10 +123,15 @@ export class ProfilesService {
             .eq('followee_id', data.id)
             .maybeSingle();
           isFollowing = !!follow;
+
+          if (!isFollowing && data.is_private) {
+            isRequested = await socialService.isFollowRequested(viewerId, data.id);
+          }
         }
         return {
           ...data,
           is_following: isFollowing,
+          is_requested: isRequested,
           country: getCountryByCode(data.country_code || 'PK'),
         };
       }
@@ -134,9 +140,13 @@ export class ProfilesService {
     // Fallback lookup
     for (const p of mockProfiles.values()) {
       if (p.id === identifier || p.username.toLowerCase() === identifier.toLowerCase()) {
+        const isRequested = viewerId && viewerId !== p.id && p.is_private
+          ? await socialService.isFollowRequested(viewerId, p.id)
+          : false;
         return {
           ...p,
           is_following: false,
+          is_requested: isRequested,
           country: getCountryByCode(p.country_code || 'PK'),
         };
       }

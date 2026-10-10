@@ -130,6 +130,38 @@ export class SocialController {
       next(err);
     }
   }
+
+  async getFollowRequests(req: Request, res: Response, next: NextFunction) {
+    try {
+      if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+      const requests = await socialService.getFollowRequests(req.user.id);
+      res.json({ requests });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  async acceptFollowRequest(req: Request, res: Response, next: NextFunction) {
+    try {
+      if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+      const { requesterId } = req.params;
+      const result = await socialService.acceptFollowRequest(req.user.id, requesterId);
+      res.json(result);
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  async rejectFollowRequest(req: Request, res: Response, next: NextFunction) {
+    try {
+      if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+      const { requesterId } = req.params;
+      const result = await socialService.rejectFollowRequest(req.user.id, requesterId);
+      res.json(result);
+    } catch (err) {
+      next(err);
+    }
+  }
 }
 
 export const socialController = new SocialController();

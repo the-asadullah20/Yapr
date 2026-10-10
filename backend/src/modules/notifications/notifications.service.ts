@@ -63,6 +63,10 @@ export class NotificationsService {
           return `${primaryName} shared your Yap`;
         case 'follow':
           return `${primaryName} started following you`;
+        case 'follow_request':
+          return `${primaryName} requested to follow you`;
+        case 'follow_accepted':
+          return `${primaryName} accepted your follow request`;
         case 'new_yap':
           return `${primaryName} posted a new Yap`;
         default:
@@ -80,6 +84,10 @@ export class NotificationsService {
         return `${primaryName} and ${othersLabel} shared your Yap`;
       case 'follow':
         return `${primaryName} and ${othersLabel} started following you`;
+      case 'follow_request':
+        return `${primaryName} and ${othersLabel} requested to follow you`;
+      case 'follow_accepted':
+        return `${primaryName} and ${othersLabel} accepted your follow request`;
       default:
         return `${primaryName} and ${othersLabel} interacted with you`;
     }

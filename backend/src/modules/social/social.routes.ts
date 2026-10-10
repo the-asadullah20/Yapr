@@ -17,4 +17,8 @@ router.get('/is-blocked/:userId', requireAuth, (req, res, next) => socialControl
 router.post('/report', requireAuth, (req, res, next) => socialController.report(req, res, next));
 router.get('/reports', requireAuth, (req, res, next) => socialController.getUserReports(req, res, next));
 
+router.get('/follow-requests', requireAuth, (req, res, next) => socialController.getFollowRequests(req, res, next));
+router.post('/follow-requests/:requesterId/accept', requireAuth, (req, res, next) => socialController.acceptFollowRequest(req, res, next));
+router.post('/follow-requests/:requesterId/reject', requireAuth, (req, res, next) => socialController.rejectFollowRequest(req, res, next));
+
 export const socialRoutes = router;
