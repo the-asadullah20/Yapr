@@ -3,6 +3,7 @@ import { queueService } from '../../config/queue.js';
 import { cacheClient } from '../../config/redis.js';
 import { env } from '../../config/env.js';
 import { mockYaps } from '../yaps/yaps.service.js';
+import { notificationsService } from '../notifications/notifications.service.js';
 
 export const mockUserReyaps = new Map<string, Set<string>>();
 export const mockFollowRequests = new Map<string, Set<string>>();
@@ -64,13 +65,22 @@ export class SocialService {
         await supabaseAdmin.from('likes').insert({ user_id: userId, yap_id: yapId });
         const { data: yap } = await supabaseAdmin.from('yaps').select('like_count, author_id').eq('id', yapId).single();
 
-        // Enqueue notification job
+        // Direct guaranteed notification creation
         if (yap?.author_id && yap.author_id !== userId) {
-          await queueService.publish(env.AMQP_QUEUE_NOTIFICATIONS || 'yapr.notifications', {
-            id: `notif_like_${userId}_${yapId}`,
-            name: 'like_notification',
-            payload: { recipientId: yap.author_id, actorId: userId, yapId, type: 'like' },
-          });
+          await notificationsService.createNotification({
+            userId: yap.author_id,
+            type: 'like',
+            actorId: userId,
+            yapId,
+          }).catch((err) => console.error('Error creating like notification:', err));
+
+          try {
+            await queueService.publish(env.AMQP_QUEUE_NOTIFICATIONS || 'yapr.notifications', {
+              id: `notif_like_${userId}_${yapId}`,
+              name: 'like_notification',
+              payload: { recipientId: yap.author_id, actorId: userId, yapId, type: 'like' },
+            });
+          } catch {}
         }
         return { liked: true, likeCount: yap?.like_count || 1 };
       }
@@ -101,23 +111,22 @@ export class SocialService {
         await supabaseAdmin.from('reyaps').insert({ user_id: userId, yap_id: yapId, quote_body: quoteBody || null });
         const { data: yap } = await supabaseAdmin.from('yaps').select('reyap_count, author_id').eq('id', yapId).single();
 
-        // Twitter/X privacy rule: If actor is private, do NOT notify the original author!
-        let isActorPrivate = false;
-        try {
-          const { data: actorProfile } = await supabaseAdmin
-            .from('profiles')
-            .select('is_private')
-            .eq('id', userId)
-            .maybeSingle();
-          isActorPrivate = !!actorProfile?.is_private;
-        } catch {}
+        // Direct guaranteed notification creation
+        if (yap?.author_id && yap.author_id !== userId) {
+          await notificationsService.createNotification({
+            userId: yap.author_id,
+            type: 'reyap',
+            actorId: userId,
+            yapId,
+          }).catch((err) => console.error('Error creating reyap notification:', err));
 
-        if (yap?.author_id && yap.author_id !== userId && !isActorPrivate) {
-          await queueService.publish(env.AMQP_QUEUE_NOTIFICATIONS || 'yapr.notifications', {
-            id: `notif_reyap_${userId}_${yapId}`,
-            name: 'reyap_notification',
-            payload: { recipientId: yap.author_id, actorId: userId, yapId, type: 'reyap' },
-          });
+          try {
+            await queueService.publish(env.AMQP_QUEUE_NOTIFICATIONS || 'yapr.notifications', {
+              id: `notif_reyap_${userId}_${yapId}`,
+              name: 'reyap_notification',
+              payload: { recipientId: yap.author_id, actorId: userId, yapId, type: 'reyap' },
+            });
+          } catch {}
         }
         return { reyapped: true, reyapCount: yap?.reyap_count || 1 };
       }
@@ -220,7 +229,13 @@ export class SocialService {
           // Always sync to Redis so it works with 100% reliability
           await addRedisFollowRequest(followeeId, followerId);
 
-          // Notify target user of follow request
+          // Notify target user of follow request directly & via queue
+          await notificationsService.createNotification({
+            userId: followeeId,
+            type: 'follow_request',
+            actorId: followerId,
+          }).catch((err) => console.error('Error creating follow_request notification:', err));
+
           try {
             await queueService.publish(env.AMQP_QUEUE_NOTIFICATIONS || 'yapr.notifications', {
               id: `notif_follow_req_${followerId}_${followeeId}`,
@@ -235,11 +250,21 @@ export class SocialService {
 
       // Public account: Follow immediately
       await supabaseAdmin.from('follows').insert({ follower_id: followerId, followee_id: followeeId });
-      await queueService.publish(env.AMQP_QUEUE_NOTIFICATIONS || 'yapr.notifications', {
-        id: `notif_follow_${followerId}_${followeeId}`,
-        name: 'follow_notification',
-        payload: { recipientId: followeeId, actorId: followerId, type: 'follow' },
-      });
+
+      // Direct guaranteed notification creation
+      await notificationsService.createNotification({
+        userId: followeeId,
+        type: 'follow',
+        actorId: followerId,
+      }).catch((err) => console.error('Error creating follow notification:', err));
+
+      try {
+        await queueService.publish(env.AMQP_QUEUE_NOTIFICATIONS || 'yapr.notifications', {
+          id: `notif_follow_${followerId}_${followeeId}`,
+          name: 'follow_notification',
+          payload: { recipientId: followeeId, actorId: followerId, type: 'follow' },
+        });
+      } catch {}
       return { following: true, requested: false };
     }
 
@@ -358,11 +383,20 @@ export class SocialService {
           await supabaseAdmin.from('profiles').update({ following_count: followingCount }).eq('id', requesterId);
         }
 
-        await queueService.publish(env.AMQP_QUEUE_NOTIFICATIONS || 'yapr.notifications', {
-          id: `notif_follow_accepted_${targetId}_${requesterId}`,
-          name: 'follow_accepted_notification',
-          payload: { recipientId: requesterId, actorId: targetId, type: 'follow_accepted' },
-        });
+        // Direct guaranteed notification creation
+        await notificationsService.createNotification({
+          userId: requesterId,
+          type: 'follow_accepted',
+          actorId: targetId,
+        }).catch((err) => console.error('Error creating follow_accepted notification:', err));
+
+        try {
+          await queueService.publish(env.AMQP_QUEUE_NOTIFICATIONS || 'yapr.notifications', {
+            id: `notif_follow_accepted_${targetId}_${requesterId}`,
+            name: 'follow_accepted_notification',
+            payload: { recipientId: requesterId, actorId: targetId, type: 'follow_accepted' },
+          });
+        } catch {}
       } catch (err: any) {
         console.error('Error accepting follow request:', err);
       }
