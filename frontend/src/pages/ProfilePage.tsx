@@ -111,7 +111,6 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
   const [isSubmittingReset, setIsSubmittingReset] = useState(false);
   const [resetSuccess, setResetSuccess] = useState<string | null>(null);
   const [resetError, setResetError] = useState<string | null>(null);
-  const [previewResetCode, setPreviewResetCode] = useState<string | null>(null);
 
   useEffect(() => {
     if (user?.email && !resetEmail) {
@@ -354,10 +353,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
     setResetError(null);
     setResetSuccess(null);
     try {
-      const res = await api.forgotPassword(targetEmail);
-      if (res.previewCode) {
-        setPreviewResetCode(res.previewCode);
-      }
+      await api.forgotPassword(targetEmail);
       setResetSuccess(`A 6-digit reset code has been sent to ${targetEmail || 'your registered email'}`);
       setResetStep(true);
     } catch (err: any) {
@@ -390,7 +386,6 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
       setResetSuccess(res.message || 'Password updated successfully!');
       setNewPassword('');
       setResetOtp('');
-      setPreviewResetCode(null);
       setTimeout(() => {
         setResetStep(false);
         setActivePasswordTab('change');
@@ -1188,18 +1183,6 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
               </form>
             ) : (
               <form onSubmit={handleCompleteReset} className="space-y-3">
-                {previewResetCode && (
-                  <div className="p-3 bg-blue-50 dark:bg-blue-950/40 rounded-xl border border-blue-200 dark:border-blue-800 text-xs text-blue-900 dark:text-blue-300 flex items-center justify-between">
-                    <span className="font-medium">Quick code (testing/demo):</span>
-                    <button
-                      type="button"
-                      onClick={() => setResetOtp(previewResetCode)}
-                      className="font-mono font-bold px-2.5 py-1 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors cursor-pointer"
-                    >
-                      {previewResetCode} (Fill)
-                    </button>
-                  </div>
-                )}
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                     6-Digit Verification Code

@@ -38,6 +38,7 @@ export const env = {
   // Email (HTTP Providers & SMTP)
   RESEND_API_KEY: process.env.RESEND_API_KEY || '',
   BREVO_API_KEY: process.env.BREVO_API_KEY || '',
+  BREVO_SENDER_EMAIL: process.env.BREVO_SENDER_EMAIL || '',
   SMTP_HOST: process.env.SMTP_HOST || 'smtp.mailtrap.io',
   SMTP_PORT: parseInt(process.env.SMTP_PORT || '587', 10),
   SMTP_USER: process.env.SMTP_USER || '',

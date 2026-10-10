@@ -83,14 +83,24 @@ async function sendViaResend(to: string, code: string): Promise<boolean> {
   }
 }
 
+function extractEmail(str: string): string {
+  const match = str.match(/<([^>]+)>/);
+  return match ? match[1].trim() : str.trim();
+}
+
 async function sendViaBrevo(to: string, code: string): Promise<boolean> {
   try {
-    const fromEmail = env.SMTP_USER || 'no-reply@theyapr.vercel.app';
+    const rawSender = env.BREVO_SENDER_EMAIL || env.SMTP_FROM || env.SMTP_USER || 'asadullahhmad5@gmail.com';
+    const fromEmail = extractEmail(rawSender);
+
+    console.log(`📡 [Email Worker:Brevo] Sending OTP to ${to} via Brevo HTTP API from ${fromEmail}...`);
+
     const res = await fetch('https://api.brevo.com/v3/smtp/email', {
       method: 'POST',
       headers: {
-        'api-key': env.BREVO_API_KEY,
+        'api-key': env.BREVO_API_KEY.trim(),
         'Content-Type': 'application/json',
+        Accept: 'application/json',
       },
       body: JSON.stringify({
         sender: { name: 'Yapr', email: fromEmail },
@@ -106,12 +116,13 @@ async function sendViaBrevo(to: string, code: string): Promise<boolean> {
         `,
       }),
     });
+
     if (res.ok) {
-      console.log(`✅ [Email Worker:Brevo] Email delivered to ${to}`);
+      console.log(`✅ [Email Worker:Brevo] Email delivered successfully to ${to}`);
       return true;
     }
-    const errData = await res.json().catch(() => ({}));
-    console.error(`❌ [Email Worker:Brevo] Delivery failed:`, errData);
+    const errText = await res.text();
+    console.error(`❌ [Email Worker:Brevo] Delivery failed (${res.status}): ${errText}`);
     return false;
   } catch (err: any) {
     console.error(`❌ [Email Worker:Brevo] Request failed:`, err.message || err);

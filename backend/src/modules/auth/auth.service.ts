@@ -35,7 +35,7 @@ export class AuthService {
   /**
    * Request OTP for email signup / login
    */
-  async requestEmailOtp(email: string): Promise<{ success: boolean; message: string; previewCode?: string }> {
+  async requestEmailOtp(email: string): Promise<{ success: boolean; message: string }> {
     const cleanEmail = email.toLowerCase().trim();
     // Generate secure 6-digit numeric OTP
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
@@ -60,7 +60,6 @@ export class AuthService {
     return {
       success: true,
       message: 'Verification code sent to your email.',
-      previewCode: otp,
     };
   }
 
@@ -304,7 +303,7 @@ export class AuthService {
   /**
    * Request password reset code
    */
-  async requestPasswordReset(email: string): Promise<{ message: string; previewCode?: string }> {
+  async requestPasswordReset(email: string): Promise<{ message: string }> {
     const cleanEmail = email.toLowerCase().trim();
     if (!cleanEmail || !cleanEmail.includes('@')) {
       throw new Error('Valid email address is required');
@@ -330,7 +329,6 @@ export class AuthService {
 
     return {
       message: 'Password reset code has been sent to your email.',
-      previewCode: resetOtp,
     };
   }
 

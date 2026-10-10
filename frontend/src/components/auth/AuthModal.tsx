@@ -50,7 +50,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [otpCode, setOtpCode] = useState('');
-  const [previewCode, setPreviewCode] = useState<string | null>(null);
 
   // Forgot password specific states
   const [newPassword, setNewPassword] = useState('');
@@ -117,7 +116,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     setSuccessMessage(null);
     setLoading(false);
     setOtpCode('');
-    setPreviewCode(null);
     setUsernameStatus(null);
     setNewPassword('');
     setConfirmPassword('');
@@ -131,8 +129,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     setLoading(true);
 
     try {
-      const res = await api.forgotPassword(email);
-      setPreviewCode(res.previewCode || '123456');
+      await api.forgotPassword(email);
       setForgotStep(2);
     } catch (err: any) {
       setError(err.message || 'Failed to send reset code');
@@ -185,7 +182,6 @@ function checkPasswordRequirements(pw: string): string | null {
       setNewPassword('');
       setConfirmPassword('');
       setOtpCode('');
-      setPreviewCode(null);
     } catch (err: any) {
       setError(err.message || 'Failed to reset password');
     } finally {
@@ -202,8 +198,7 @@ function checkPasswordRequirements(pw: string): string | null {
     try {
       if (useOtpLogin) {
         // Request OTP
-        const res = await api.requestOtp(email);
-        setPreviewCode(res.previewCode || '123456');
+        await api.requestOtp(email);
         setSignupStep(2);
       } else {
         await loginWithPassword(email, password);
@@ -229,8 +224,7 @@ function checkPasswordRequirements(pw: string): string | null {
 
     try {
       // Send verification code to email
-      const res = await api.requestOtp(email);
-      setPreviewCode(res.previewCode || '123456');
+      await api.requestOtp(email);
       setSignupStep(2);
     } catch (err: any) {
       setError(err.message || 'Failed to send verification code.');
@@ -584,18 +578,6 @@ function checkPasswordRequirements(pw: string): string | null {
                 We sent a 6-digit reset code to:
                 <p className="font-semibold text-blue-950 dark:text-white mt-0.5">{email}</p>
                 <p className="text-[11px] text-blue-600 dark:text-blue-400 mt-1">Please check your inbox to reset your password.</p>
-                {previewCode && (
-                  <div className="mt-2.5 pt-2 border-t border-blue-200/80 dark:border-blue-800/80 flex items-center justify-between text-[11px]">
-                    <span className="text-blue-700 dark:text-blue-300 font-medium">Quick code (demo/testing):</span>
-                    <button
-                      type="button"
-                      onClick={() => setOtpCode(previewCode)}
-                      className="font-mono font-bold px-2 py-0.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors cursor-pointer"
-                    >
-                      {previewCode} (Fill)
-                    </button>
-                  </div>
-                )}
               </div>
 
               <div>
@@ -814,18 +796,6 @@ function checkPasswordRequirements(pw: string): string | null {
                 We sent a 6-digit confirmation code to:
                 <p className="font-semibold text-blue-950 dark:text-white mt-0.5">{email}</p>
                 <p className="text-[11px] text-blue-600 dark:text-blue-400 mt-1">Please check your inbox to verify your account.</p>
-                {previewCode && (
-                  <div className="mt-2.5 pt-2 border-t border-blue-200/80 dark:border-blue-800/80 flex items-center justify-between text-[11px]">
-                    <span className="text-blue-700 dark:text-blue-300 font-medium">Quick code (demo/testing):</span>
-                    <button
-                      type="button"
-                      onClick={() => setOtpCode(previewCode)}
-                      className="font-mono font-bold px-2 py-0.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors cursor-pointer"
-                    >
-                      {previewCode} (Fill)
-                    </button>
-                  </div>
-                )}
               </div>
 
               <div>
