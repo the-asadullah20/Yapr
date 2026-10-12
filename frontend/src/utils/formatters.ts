@@ -33,3 +33,20 @@ export function extractHashtags(text: string): string[] {
   const matches = text.match(/#([a-zA-Z0-9_]+)/g);
   return matches ? matches.map((m) => m.slice(1)) : [];
 }
+
+export function isVideoUrl(url?: string | null): boolean {
+  if (!url) return false;
+  const clean = url.split('?')[0].toLowerCase();
+  return (
+    clean.endsWith('.mp4') ||
+    clean.endsWith('.webm') ||
+    clean.endsWith('.mov') ||
+    clean.endsWith('.ogg') ||
+    clean.endsWith('.m4v') ||
+    clean.endsWith('.mkv') ||
+    clean.includes('/video/') ||
+    clean.includes('video%2f') ||
+    clean.includes('_video')
+  );
+}
+

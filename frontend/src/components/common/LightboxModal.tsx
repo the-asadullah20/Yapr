@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { X, ChevronLeft, ChevronRight, ExternalLink } from 'lucide-react';
+import { isVideoUrl } from '../../utils/formatters';
 
 interface LightboxModalProps {
   images: string[];
@@ -97,16 +98,26 @@ export const LightboxModal: React.FC<LightboxModalProps> = ({
         </button>
       )}
 
-      {/* Main Image container - uncropped full natural length */}
+      {/* Main Image/Video container - uncropped full natural length */}
       <div
         className="max-w-[95vw] max-h-[90vh] flex items-center justify-center"
         onClick={(e) => e.stopPropagation()}
       >
-        <img
-          src={currentImage}
-          alt={`Full length image ${currentIndex + 1}`}
-          className="max-w-full max-h-[88vh] w-auto h-auto object-contain rounded-lg shadow-2xl transition-transform"
-        />
+        {isVideoUrl(currentImage) ? (
+          <video
+            src={currentImage}
+            controls
+            autoPlay
+            playsInline
+            className="max-w-full max-h-[88vh] w-auto h-auto rounded-lg shadow-2xl bg-black"
+          />
+        ) : (
+          <img
+            src={currentImage}
+            alt={`Full length image ${currentIndex + 1}`}
+            className="max-w-full max-h-[88vh] w-auto h-auto object-contain rounded-lg shadow-2xl transition-transform"
+          />
+        )}
       </div>
 
       {/* Next button */}

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { X, Send, Image, Loader2, Smile, MessageSquare, ChevronDown, ChevronUp } from 'lucide-react';
 import { Yap } from '../../types';
 import { api } from '../../api/apiClient';
-import { formatTimeAgo } from '../../utils/formatters';
+import { formatTimeAgo, isVideoUrl } from '../../utils/formatters';
 import { useAuth } from '../../context/AuthContext';
 import { LightboxModal } from '../common/LightboxModal';
 
@@ -256,14 +256,27 @@ export const ReplyThreadModal: React.FC<ReplyThreadModalProps> = ({
                   {yap.media.map((url, i) => (
                     <div
                       key={i}
-                      onClick={() => openLightbox(yap.media || [], i)}
+                      onClick={(e) => {
+                        if (!isVideoUrl(url)) openLightbox(yap.media || [], i);
+                      }}
                       className="rounded-2xl overflow-hidden border border-slate-200/80 dark:border-slate-700 bg-black/5 dark:bg-black/30 flex items-center justify-center cursor-pointer group max-h-[380px]"
                     >
-                      <img
-                        src={url}
-                        alt="Attached media"
-                        className="w-full max-h-[380px] object-contain group-hover:opacity-95 transition-all"
-                      />
+                      {isVideoUrl(url) ? (
+                        <video
+                          src={url}
+                          controls
+                          playsInline
+                          preload="metadata"
+                          onClick={(e) => e.stopPropagation()}
+                          className="w-full max-h-[380px] rounded-2xl bg-black"
+                        />
+                      ) : (
+                        <img
+                          src={url}
+                          alt="Attached media"
+                          className="w-full max-h-[380px] object-contain group-hover:opacity-95 transition-all"
+                        />
+                      )}
                     </div>
                   ))}
                 </div>
@@ -335,14 +348,27 @@ export const ReplyThreadModal: React.FC<ReplyThreadModalProps> = ({
                           {r.media.map((url, mi) => (
                             <div
                               key={mi}
-                              onClick={() => openLightbox(r.media || [], mi)}
-                              className="cursor-pointer group rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 max-h-32 bg-black/5"
+                              onClick={(e) => {
+                                if (!isVideoUrl(url)) openLightbox(r.media || [], mi);
+                              }}
+                              className="cursor-pointer group rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 max-h-32 bg-black/5 relative flex items-center justify-center"
                             >
-                              <img
-                                src={url}
-                                alt="Reply photo"
-                                className="w-24 h-24 object-cover group-hover:scale-105 transition-transform"
-                              />
+                              {isVideoUrl(url) ? (
+                                <video
+                                  src={url}
+                                  controls
+                                  playsInline
+                                  preload="metadata"
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="w-40 h-28 object-cover rounded-xl bg-black"
+                                />
+                              ) : (
+                                <img
+                                  src={url}
+                                  alt="Reply photo"
+                                  className="w-24 h-24 object-cover group-hover:scale-105 transition-transform"
+                                />
+                              )}
                             </div>
                           ))}
                         </div>
@@ -425,8 +451,12 @@ export const ReplyThreadModal: React.FC<ReplyThreadModalProps> = ({
             {mediaUrls.length > 0 && (
               <div className="flex gap-2 py-1">
                 {mediaUrls.map((url, i) => (
-                  <div key={i} className="relative w-14 h-14 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700">
-                    <img src={url} alt="" className="w-full h-full object-cover" />
+                  <div key={i} className="relative w-14 h-14 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700 bg-black flex items-center justify-center">
+                    {isVideoUrl(url) ? (
+                      <video src={url} className="w-full h-full object-cover" muted />
+                    ) : (
+                      <img src={url} alt="" className="w-full h-full object-cover" />
+                    )}
                     <button
                       type="button"
                       onClick={() => setMediaUrls(mediaUrls.filter((_, idx) => idx !== i))}
@@ -464,12 +494,12 @@ export const ReplyThreadModal: React.FC<ReplyThreadModalProps> = ({
                 <Smile className="w-4 h-4" />
               </button>
 
-              {/* Photo upload button */}
+              {/* Photo/Video upload button */}
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={isUploading}
-                title="Attach Photo"
+                title="Attach Photo or Video"
                 className="p-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 transition-colors shadow-sm"
               >
                 {isUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Image className="w-4 h-4" />}
@@ -477,7 +507,7 @@ export const ReplyThreadModal: React.FC<ReplyThreadModalProps> = ({
               <input
                 ref={fileInputRef}
                 type="file"
-                accept="image/*"
+                accept="image/*,video/*"
                 className="hidden"
                 onChange={handleImageUpload}
               />

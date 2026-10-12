@@ -15,9 +15,20 @@ export class YapsService {
    * Extract hashtags from text (e.g. #Tech, #Karachi)
    */
   private extractHashtags(text: string): string[] {
+    if (!text) return [];
     const matches = text.match(/#([a-zA-Z0-9_]+)/g);
     if (!matches) return [];
     return Array.from(new Set(matches.map((m) => m.slice(1))));
+  }
+
+  /**
+   * Extract user mentions from text (e.g. @bhola_zee)
+   */
+  private extractMentions(text: string): string[] {
+    if (!text) return [];
+    const matches = text.match(/@([a-zA-Z0-9_]{3,30})/g);
+    if (!matches) return [];
+    return Array.from(new Set(matches.map((m) => m.slice(1).toLowerCase())));
   }
 
   /**
@@ -31,16 +42,20 @@ export class YapsService {
     taggedLabel?: string;
     countryCode?: string;
   }): Promise<any> {
-    const { authorId, body, parentId, media = [], taggedLabel, countryCode = 'PK' } = params;
+    const { authorId, body = '', parentId, media = [], taggedLabel, countryCode = 'PK' } = params;
 
-    if (!body || body.trim().length === 0) {
-      throw new Error('Yap content cannot be empty');
+    const cleanBody = (body || '').trim();
+    const hasMedia = media && media.length > 0;
+
+    if (!cleanBody && !hasMedia) {
+      throw new Error('Yap content cannot be empty unless media is attached');
     }
-    if (body.length > 500) {
+    if (cleanBody.length > 500) {
       throw new Error('Yap exceeds 500 character limit');
     }
 
-    const hashtags = this.extractHashtags(body);
+    const hashtags = this.extractHashtags(cleanBody);
+    const mentions = this.extractMentions(cleanBody);
     const yapId = crypto.randomUUID();
     const now = new Date().toISOString();
 
@@ -53,7 +68,7 @@ export class YapsService {
           id: yapId,
           author_id: authorId,
           parent_id: parentId || null,
-          body,
+          body: cleanBody,
           media,
           tagged_label: taggedLabel || null,
           created_at: now,
@@ -78,6 +93,7 @@ export class YapsService {
       }
 
       // If replying to a parent Yap, recalculate exact parent reply_count and notify parent author
+      let parentAuthorId: string | null = null;
       if (parentId) {
         const { count } = await supabaseAdmin
           .from('yaps')
@@ -97,10 +113,12 @@ export class YapsService {
           .eq('id', parentId)
           .maybeSingle();
 
-        if (parent?.author_id && parent.author_id !== authorId) {
+        parentAuthorId = parent?.author_id || null;
+
+        if (parentAuthorId && parentAuthorId !== authorId) {
           // Guaranteed real-time delivery: write to DB + send WebSocket event immediately!
           await notificationsService.createNotification({
-            userId: parent.author_id,
+            userId: parentAuthorId,
             type: 'reply',
             actorId: authorId,
             yapId,
@@ -110,9 +128,42 @@ export class YapsService {
             await queueService.publish(env.AMQP_QUEUE_NOTIFICATIONS || 'yapr.notifications', {
               id: `notif_reply_${authorId}_${yapId}`,
               name: 'reply_notification',
-              payload: { recipientId: parent.author_id, actorId: authorId, yapId, type: 'reply' },
+              payload: { recipientId: parentAuthorId, actorId: authorId, yapId, type: 'reply' },
             });
           } catch {}
+        }
+      }
+
+      // Notify mentioned users (excluding self and parent author who is already notified)
+      if (mentions.length > 0) {
+        try {
+          const { data: mentionedUsers } = await supabaseAdmin
+            .from('profiles')
+            .select('id, username')
+            .in('username', mentions);
+
+          if (mentionedUsers && mentionedUsers.length > 0) {
+            for (const u of mentionedUsers) {
+              if (u.id !== authorId && (!parentAuthorId || u.id !== parentAuthorId)) {
+                await notificationsService.createNotification({
+                  userId: u.id,
+                  type: 'mention',
+                  actorId: authorId,
+                  yapId,
+                }).catch((err) => console.error('Error creating mention notification:', err));
+
+                try {
+                  await queueService.publish(env.AMQP_QUEUE_NOTIFICATIONS || 'yapr.notifications', {
+                    id: `notif_mention_${authorId}_${u.id}_${yapId}`,
+                    name: 'mention_notification',
+                    payload: { recipientId: u.id, actorId: authorId, yapId, type: 'mention' },
+                  });
+                } catch {}
+              }
+            }
+          }
+        } catch (err) {
+          console.error('Error sending mention notifications:', err);
         }
       }
     } else {
@@ -125,7 +176,7 @@ export class YapsService {
         id: yapId,
         author_id: authorId,
         parent_id: parentId || null,
-        body,
+        body: cleanBody,
         media,
         like_count: 0,
         reply_count: 0,

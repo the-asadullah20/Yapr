@@ -396,12 +396,23 @@ export class SocialService {
           await supabaseAdmin.from('profiles').update({ following_count: followingCount }).eq('id', requesterId);
         }
 
-        // Direct guaranteed notification creation
+        // Direct guaranteed notification creation for requester
         await notificationsService.createNotification({
           userId: requesterId,
           type: 'follow_accepted',
           actorId: targetId,
         }).catch((err) => console.error('Error creating follow_accepted notification:', err));
+
+        // Update target's own notification so it changes from "X requested to follow you" to "You accepted X's follow request"
+        await supabaseAdmin
+          .from('notifications')
+          .update({
+            type: 'follow_request_accepted',
+            read_at: new Date().toISOString(),
+          })
+          .eq('user_id', targetId)
+          .eq('type', 'follow_request')
+          .contains('actor_ids', [requesterId]);
 
         try {
           await queueService.publish(env.AMQP_QUEUE_NOTIFICATIONS || 'yapr.notifications', {
@@ -427,6 +438,17 @@ export class SocialService {
           .delete()
           .eq('target_id', targetId)
           .eq('requester_id', requesterId);
+
+        // Update target's own notification so it changes to "You declined X's follow request"
+        await supabaseAdmin
+          .from('notifications')
+          .update({
+            type: 'follow_request_declined',
+            read_at: new Date().toISOString(),
+          })
+          .eq('user_id', targetId)
+          .eq('type', 'follow_request')
+          .contains('actor_ids', [requesterId]);
       } catch (err: any) {
         console.error('Error rejecting follow request:', err);
       }

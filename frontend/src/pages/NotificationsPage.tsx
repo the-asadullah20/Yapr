@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Bell, Heart, Repeat, UserPlus, CheckCheck, MessageSquare } from 'lucide-react';
+import { Bell, Heart, Repeat, UserPlus, CheckCheck, MessageSquare, AtSign } from 'lucide-react';
 import { api } from '../api/apiClient';
 import { NotificationItem } from '../types';
 import { useSocket } from '../context/SocketContext';
@@ -60,12 +60,17 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({ onOpenProf
         return <Repeat className="w-4 h-4 text-emerald-500" />;
       case 'reply':
         return <MessageSquare className="w-4 h-4 text-blue-500" />;
+      case 'mention':
+        return <AtSign className="w-4 h-4 text-sky-500" />;
       case 'follow':
         return <UserPlus className="w-4 h-4 text-blue-500" />;
       case 'follow_request':
         return <UserPlus className="w-4 h-4 text-amber-500" />;
       case 'follow_accepted':
+      case 'follow_request_accepted':
         return <UserPlus className="w-4 h-4 text-emerald-500" />;
+      case 'follow_request_declined':
+        return <UserPlus className="w-4 h-4 text-slate-400" />;
       default:
         return <Bell className="w-4 h-4 text-blue-600" />;
     }
@@ -148,11 +153,11 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({ onOpenProf
                   <div className="mt-2.5 flex items-center gap-2">
                     {actionStatus[n.id] === 'accepted' ? (
                       <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2.5 py-1 rounded-lg">
-                        ✓ Request accepted
+                        ✓ You accepted this follow request
                       </span>
                     ) : actionStatus[n.id] === 'rejected' ? (
                       <span className="text-xs font-semibold text-slate-400 bg-slate-100 dark:bg-slate-800 px-2.5 py-1 rounded-lg">
-                        Request declined
+                        You declined this follow request
                       </span>
                     ) : (
                       <>
@@ -170,6 +175,22 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({ onOpenProf
                         </button>
                       </>
                     )}
+                  </div>
+                )}
+
+                {n.type === 'follow_request_accepted' && (
+                  <div className="mt-2 flex items-center">
+                    <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2.5 py-1 rounded-lg">
+                      ✓ Request accepted
+                    </span>
+                  </div>
+                )}
+
+                {n.type === 'follow_request_declined' && (
+                  <div className="mt-2 flex items-center">
+                    <span className="text-xs font-semibold text-slate-400 bg-slate-100 dark:bg-slate-800 px-2.5 py-1 rounded-lg">
+                      Request declined
+                    </span>
                   </div>
                 )}
 
