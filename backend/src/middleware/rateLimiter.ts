@@ -67,3 +67,10 @@ export const yapPostLimiter = createRateLimiter({
   keyPrefix: 'rl:yap',
   errorMessage: 'You are yapping too fast! Please wait a moment.',
 });
+
+export const authLimiter = createRateLimiter({
+  windowMs: 60 * 1000,
+  maxRequests: 10,
+  keyPrefix: 'rl:auth',
+  errorMessage: 'Too many authentication attempts. Please wait a minute before retrying.',
+});

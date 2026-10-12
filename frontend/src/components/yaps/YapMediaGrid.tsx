@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Play } from 'lucide-react';
 import { LightboxModal } from '../common/LightboxModal';
+import { AutoPauseVideo } from '../common/AutoPauseVideo';
 import { isVideoUrl } from '../../utils/formatters';
 
 interface YapMediaGridProps {
@@ -65,7 +66,7 @@ export const YapMediaGrid: React.FC<YapMediaGridProps> = ({ media }) => {
       {media.length === 1 && (
         <div className="mt-3 rounded-2xl overflow-hidden border border-slate-200/80 dark:border-slate-800 bg-black/5 dark:bg-black/40 flex items-center justify-center relative">
           {isVideoUrl(media[0]) ? (
-            <video
+            <AutoPauseVideo
               src={media[0]}
               controls
               playsInline

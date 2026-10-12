@@ -26,10 +26,22 @@ import { mediaRoutes } from './modules/media/media.routes.js';
 const app = express();
 const server = http.createServer(app);
 
+// Disable fingerprinting header
+app.disable('x-powered-by');
+
 // Initialize Socket.io
 const io = setupSocketIO(server);
 
-// Middleware
+// Defensive Security Headers Middleware
+app.use((_req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  next();
+});
+
+// Middleware & Hardened CORS
 app.use(cors({
   origin: (origin, callback) => {
     if (!origin) return callback(null, true);
@@ -40,6 +52,9 @@ app.use(cors({
       origin.includes('127.0.0.1')
     ) {
       return callback(null, true);
+    }
+    if (env.NODE_ENV === 'production') {
+      return callback(new Error('CORS request blocked by security policy'));
     }
     return callback(null, true);
   },

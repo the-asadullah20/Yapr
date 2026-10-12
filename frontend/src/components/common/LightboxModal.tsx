@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { X, ChevronLeft, ChevronRight, ExternalLink } from 'lucide-react';
 import { isVideoUrl } from '../../utils/formatters';
+import { AutoPauseVideo } from './AutoPauseVideo';
 
 interface LightboxModalProps {
   images: string[];
@@ -104,7 +105,7 @@ export const LightboxModal: React.FC<LightboxModalProps> = ({
         onClick={(e) => e.stopPropagation()}
       >
         {isVideoUrl(currentImage) ? (
-          <video
+          <AutoPauseVideo
             src={currentImage}
             controls
             autoPlay
