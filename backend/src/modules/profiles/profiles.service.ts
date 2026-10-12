@@ -480,6 +480,12 @@ export class ProfilesService {
       .replace(/^@/, '')
       .replace(/[,()"'%\\]/g, '');
 
+    const cacheKey = `yapr:mentions:${userId}:${cleanQ}`;
+    try {
+      const cached = await cacheClient.get(cacheKey);
+      if (cached) return JSON.parse(cached);
+    } catch {}
+
     if (isSupabaseConfigured) {
       // 1. Fetch potential candidates
       let queryBuilder = supabaseAdmin
@@ -566,7 +572,11 @@ export class ProfilesService {
         return a.username.localeCompare(b.username);
       });
 
-      return filtered.slice(0, 10);
+      const finalCandidates = filtered.slice(0, 10);
+      try {
+        await cacheClient.set(cacheKey, JSON.stringify(finalCandidates), 30);
+      } catch {}
+      return finalCandidates;
     }
 
     // In-memory fallback
