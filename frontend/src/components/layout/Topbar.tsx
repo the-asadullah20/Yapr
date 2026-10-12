@@ -160,7 +160,7 @@ export const Topbar: React.FC<TopbarProps> = ({
         <button
           onClick={onOpenSliders}
           className="p-2 rounded-xl text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-          title="Tune Stage 1 Algorithm Weights"
+          title="Tune Algorithm Weights"
         >
           <Sliders className="w-4 h-4" />
         </button>

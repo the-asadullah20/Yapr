@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Sliders, RotateCcw, Check, Info } from 'lucide-react';
+import { X, Sliders, RotateCcw, Check } from 'lucide-react';
 import { FeedSliderSettings } from '../../types';
 
 interface FeedSlidersModalProps {
@@ -47,7 +47,7 @@ export const FeedSlidersModal: React.FC<FeedSlidersModalProps> = ({
             </div>
             <div>
               <h3 className="font-bold text-sm text-slate-900 dark:text-white">Feed Algorithm Sliders</h3>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400">Fine-tune your Stage 1 ranking formula</p>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">Customize your feed algorithm</p>
             </div>
           </div>
           <button
@@ -60,16 +60,6 @@ export const FeedSlidersModal: React.FC<FeedSlidersModalProps> = ({
 
         {/* Sliders Body */}
         <div className="p-5 space-y-6">
-          {/* Formula preview box */}
-          <div className="p-3 bg-blue-50/70 dark:bg-blue-950/40 border border-blue-100 dark:border-blue-900/60 rounded-2xl flex items-start gap-2.5">
-            <Info className="w-4 h-4 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
-            <div className="text-xs text-blue-900 dark:text-blue-200">
-              <p className="font-semibold mb-1">Stage 1 Ranking Formula:</p>
-              <code className="text-[10px] font-mono bg-white/80 dark:bg-slate-800 px-2 py-1 rounded block text-blue-800 dark:text-blue-300">
-                score = (likes×1 + replies×3 + reyaps×2) × decay + (following × {localSettings.followingWeight})
-              </code>
-            </div>
-          </div>
 
           {/* Slider 1: Following Weight */}
           <div className="space-y-2">

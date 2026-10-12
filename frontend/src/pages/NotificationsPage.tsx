@@ -143,7 +143,7 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({ onOpenProf
                     </div>
                   )}
                   <span
-                    className="text-xs font-bold text-slate-900 dark:text-slate-100 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                    className="text-xs font-bold text-slate-900 dark:text-slate-100 hover:text-blue-600 dark:hover:text-blue-400 transition-colors break-words break-all"
                   >
                     {n.formatted_text || `${n.type} notification`}
                   </span>
