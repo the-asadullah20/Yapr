@@ -7,7 +7,15 @@ import { env } from '../config/env.js';
 export function registerNotificationWorker(): void {
   // Worker 1: Yap Created -> Fan-out to followers
   queueService.subscribe(env.AMQP_QUEUE_YAP_CREATED || 'yapr.yap.created', async (job: QueueJob) => {
-    const { yapId, authorId, body } = job.payload;
+    const { yapId, authorId, parentId, body } = job.payload;
+
+    // Comments / replies must NOT send 'new_yap' notifications to all followers!
+    // They are targeted replies to the parent author & mentioned users only.
+    if (parentId) {
+      console.log(`💬 [Notification Worker] Skipping new_yap fan-out for comment/reply ${yapId}`);
+      return;
+    }
+
     console.log(`📢 [Notification Worker] Processing yap.created fan-out for Yap ${yapId}`);
 
     // Broadcast feed update to all connected viewers
