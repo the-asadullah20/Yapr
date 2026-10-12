@@ -3,6 +3,7 @@ import { usernameBloomFilter } from '../../utils/bloomFilter.js';
 import { COUNTRIES, getCountryByCode } from '../../utils/countries.js';
 import { mockYaps } from '../yaps/yaps.service.js';
 import { mockUserReyaps, socialService } from '../social/social.service.js';
+import { cacheClient } from '../../config/redis.js';
 
 // In-memory mock profiles for dev/fallback
 export const mockProfiles = new Map<string, any>([
@@ -103,6 +104,32 @@ export class ProfilesService {
 
   }
 
+  /**
+   * Retrieve privacy settings for a user (persisted in Redis with DB fallback)
+   */
+  async getPrivacySettings(
+    userId: string,
+    isPrivate = false
+  ): Promise<{ who_can_see_dp: 'everyone' | 'followers'; who_can_tag: 'everyone' | 'followers' | 'none' }> {
+    try {
+      const raw = await cacheClient.get(`yapr:privacy:${userId}`);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === 'object') {
+          return {
+            who_can_see_dp: parsed.who_can_see_dp || 'everyone',
+            who_can_tag: parsed.who_can_tag || (isPrivate ? 'followers' : 'everyone'),
+          };
+        }
+      }
+    } catch {}
+
+    return {
+      who_can_see_dp: 'everyone',
+      who_can_tag: isPrivate ? 'followers' : 'everyone',
+    };
+  }
+
   async getProfile(identifier: string, viewerId?: string): Promise<any> {
     if (isSupabaseConfigured) {
       const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(identifier);
@@ -142,8 +169,29 @@ export class ProfilesService {
             isRequested = await socialService.isFollowRequested(viewerId, data.id);
           }
         }
+
+        const privacy = await this.getPrivacySettings(data.id, data.is_private);
+        const whoCanSeeDp = privacy.who_can_see_dp;
+        const whoCanTag = privacy.who_can_tag;
+
+        let avatarUrl = data.avatar_url;
+        let avatarHidden = false;
+        if (whoCanSeeDp === 'followers' && viewerId !== data.id) {
+          if (!isFollowing) {
+            avatarHidden = true;
+            avatarUrl = `https://api.dicebear.com/7.x/bottts/svg?seed=private_${data.username}`;
+          }
+        } else if (!viewerId && whoCanSeeDp === 'followers') {
+          avatarHidden = true;
+          avatarUrl = `https://api.dicebear.com/7.x/bottts/svg?seed=private_${data.username}`;
+        }
+
         return {
           ...data,
+          avatar_url: avatarUrl,
+          avatar_hidden: avatarHidden,
+          who_can_see_dp: whoCanSeeDp,
+          who_can_tag: whoCanTag,
           is_following: isFollowing,
           is_requested: isRequested,
           country: getCountryByCode(data.country_code || 'PK'),
@@ -163,8 +211,20 @@ export class ProfilesService {
         const isRequested = viewerId && viewerId !== p.id && p.is_private
           ? await socialService.isFollowRequested(viewerId, p.id)
           : false;
+        const privacy = await this.getPrivacySettings(p.id, p.is_private);
+        let avatarUrl = p.avatar_url;
+        let avatarHidden = false;
+        if (privacy.who_can_see_dp === 'followers' && viewerId !== p.id) {
+          avatarHidden = true;
+          avatarUrl = `https://api.dicebear.com/7.x/bottts/svg?seed=private_${p.username}`;
+        }
+
         return {
           ...p,
+          avatar_url: avatarUrl,
+          avatar_hidden: avatarHidden,
+          who_can_see_dp: privacy.who_can_see_dp,
+          who_can_tag: privacy.who_can_tag,
           is_following: false,
           is_requested: isRequested,
           country: getCountryByCode(p.country_code || 'PK'),
@@ -176,7 +236,7 @@ export class ProfilesService {
   }
 
   async updateProfile(userId: string, updates: any): Promise<any> {
-    const allowed = ['display_name', 'bio', 'avatar_url', 'banner_url', 'country_code', 'username', 'is_private'];
+    const allowed = ['display_name', 'bio', 'avatar_url', 'banner_url', 'country_code', 'username', 'is_private', 'who_can_see_dp', 'who_can_tag'];
     const sanitized: any = {};
     for (const key of allowed) {
       if (updates[key] !== undefined) sanitized[key] = updates[key];
@@ -201,20 +261,39 @@ export class ProfilesService {
       await usernameBloomFilter.add(sanitized.username);
     }
 
+    // Persist privacy settings to Redis
+    const currentPrivacy = await this.getPrivacySettings(userId, sanitized.is_private);
+    const updatedPrivacy = {
+      who_can_see_dp: sanitized.who_can_see_dp || currentPrivacy.who_can_see_dp,
+      who_can_tag: sanitized.who_can_tag || currentPrivacy.who_can_tag,
+    };
+    if (sanitized.who_can_see_dp !== undefined || sanitized.who_can_tag !== undefined) {
+      await cacheClient.set(`yapr:privacy:${userId}`, JSON.stringify(updatedPrivacy)).catch(() => {});
+    }
+
     if (isSupabaseConfigured) {
+      const dbPayload: any = { updated_at: new Date().toISOString() };
+      for (const k of ['display_name', 'bio', 'avatar_url', 'banner_url', 'country_code', 'username', 'is_private']) {
+        if (sanitized[k] !== undefined) dbPayload[k] = sanitized[k];
+      }
+
       const { data, error } = await supabaseAdmin
         .from('profiles')
-        .update({ ...sanitized, updated_at: new Date().toISOString() })
+        .update(dbPayload)
         .eq('id', userId)
         .select()
         .single();
 
       if (error) throw error;
-      return data;
+      return {
+        ...data,
+        who_can_see_dp: updatedPrivacy.who_can_see_dp,
+        who_can_tag: updatedPrivacy.who_can_tag,
+      };
     }
 
     const existing = mockProfiles.get(userId) || { id: userId, follower_count: 0, following_count: 0 };
-    const updated = { ...existing, ...sanitized };
+    const updated = { ...existing, ...sanitized, ...updatedPrivacy };
     mockProfiles.set(userId, updated);
     return updated;
   }
@@ -388,6 +467,118 @@ export class ProfilesService {
     }
 
     return [];
+  }
+
+  /**
+   * Get candidates for @mentions autocomplete:
+   * Returns public accounts and followers matching query, respecting privacy & block settings
+   */
+  async getMentionSuggestions(userId: string, query: string): Promise<any[]> {
+    const cleanQ = (query || '').toLowerCase().trim().replace(/^@/, '');
+
+    if (isSupabaseConfigured) {
+      // 1. Fetch potential candidates
+      let queryBuilder = supabaseAdmin
+        .from('profiles')
+        .select('id, username, display_name, avatar_url, is_verified, is_private')
+        .neq('id', userId)
+        .limit(30);
+
+      if (cleanQ) {
+        queryBuilder = queryBuilder.or(`username.ilike.%${cleanQ}%,display_name.ilike.%${cleanQ}%`);
+      }
+
+      const { data: candidates, error } = await queryBuilder;
+      if (error || !candidates || candidates.length === 0) return [];
+
+      const candidateIds = candidates.map((c) => c.id);
+
+      // 2. Fetch blocks involving caller and candidates
+      const { data: blockedRows } = await supabaseAdmin
+        .from('blocks')
+        .select('blocker_id, blocked_id')
+        .or(`and(blocker_id.eq.${userId},blocked_id.in.(${candidateIds.join(',')})),and(blocked_id.eq.${userId},blocker_id.in.(${candidateIds.join(',')}))`);
+
+      const blockedSet = new Set<string>();
+      if (blockedRows) {
+        for (const b of blockedRows) {
+          blockedSet.add(b.blocker_id === userId ? b.blocked_id : b.blocker_id);
+        }
+      }
+
+      // 3. Fetch follow relations
+      // Users the caller follows
+      const { data: iFollowRows } = await supabaseAdmin
+        .from('follows')
+        .select('followee_id')
+        .eq('follower_id', userId)
+        .in('followee_id', candidateIds);
+      const iFollowSet = new Set((iFollowRows || []).map((f: any) => f.followee_id));
+
+      // Users who follow the caller ("my followers")
+      const { data: followMeRows } = await supabaseAdmin
+        .from('follows')
+        .select('follower_id')
+        .eq('followee_id', userId)
+        .in('follower_id', candidateIds);
+      const followMeSet = new Set((followMeRows || []).map((f: any) => f.follower_id));
+
+      // 4. Filter according to tag & privacy permissions
+      const filtered: any[] = [];
+      for (const candidate of candidates) {
+        if (blockedSet.has(candidate.id)) continue;
+
+        const privacy = await this.getPrivacySettings(candidate.id, candidate.is_private);
+        if (privacy.who_can_tag === 'none') continue;
+
+        const isFollower = iFollowSet.has(candidate.id);
+        const isFollowedBy = followMeSet.has(candidate.id);
+
+        if (privacy.who_can_tag === 'followers' && !isFollower) continue;
+
+        // Private profile: caller must be a follower or they follow caller
+        if (candidate.is_private && !isFollower && !isFollowedBy) continue;
+
+        // DP privacy check: mask avatar if viewer is not a follower
+        let avatarUrl = candidate.avatar_url;
+        if (privacy.who_can_see_dp === 'followers' && !isFollower) {
+          avatarUrl = `https://api.dicebear.com/7.x/bottts/svg?seed=private_${candidate.username}`;
+        }
+
+        filtered.push({
+          id: candidate.id,
+          username: candidate.username,
+          display_name: candidate.display_name,
+          avatar_url: avatarUrl,
+          is_verified: candidate.is_verified,
+          is_connected: isFollower || isFollowedBy,
+        });
+      }
+
+      // Sort: followers / connected accounts first, then alphabetically
+      filtered.sort((a, b) => {
+        if (a.is_connected && !b.is_connected) return -1;
+        if (!a.is_connected && b.is_connected) return 1;
+        return a.username.localeCompare(b.username);
+      });
+
+      return filtered.slice(0, 10);
+    }
+
+    // In-memory fallback
+    const result: any[] = [];
+    for (const p of mockProfiles.values()) {
+      if (p.id === userId) continue;
+      if (cleanQ && !p.username.toLowerCase().includes(cleanQ) && !p.display_name?.toLowerCase().includes(cleanQ)) continue;
+      result.push({
+        id: p.id,
+        username: p.username,
+        display_name: p.display_name,
+        avatar_url: p.avatar_url,
+        is_verified: p.is_verified,
+      });
+    }
+    return result.slice(0, 10);
   }
 
   getCountries() {

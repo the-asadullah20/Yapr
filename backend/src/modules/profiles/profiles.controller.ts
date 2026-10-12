@@ -22,6 +22,19 @@ export class ProfilesController {
     }
   }
 
+  async getMentionSuggestions(req: Request, res: Response, next: NextFunction) {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
+      const q = String(req.query.q || '');
+      const candidates = await profilesService.getMentionSuggestions(req.user.id, q);
+      res.json({ candidates });
+    } catch (err) {
+      next(err);
+    }
+  }
+
   async updateProfile(req: Request, res: Response, next: NextFunction) {
     try {
       if (!req.user) {

@@ -4,6 +4,8 @@ import { useAuth } from '../../context/AuthContext';
 import { api } from '../../api/apiClient';
 import { Yap } from '../../types';
 import { isVideoUrl } from '../../utils/formatters';
+import { useMentionAutocomplete } from '../../hooks/useMentionAutocomplete';
+import { MentionSuggestionsDropdown } from '../common/MentionSuggestionsDropdown';
 
 interface YapComposerProps {
   onYapCreated: (yap: Yap) => void;
@@ -13,6 +15,7 @@ interface YapComposerProps {
 export const YapComposer: React.FC<YapComposerProps> = ({ onYapCreated, defaultHashtag }) => {
   const { user } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [body, setBody] = useState(defaultHashtag ? `#${defaultHashtag} ` : '');
   const [mediaUrls, setMediaUrls] = useState<string[]>([]);
   const [imageUrlInput, setImageUrlInput] = useState('');
@@ -21,6 +24,8 @@ export const YapComposer: React.FC<YapComposerProps> = ({ onYapCreated, defaultH
   const [isPolishing, setIsPolishing] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const mention = useMentionAutocomplete(body, setBody, textareaRef);
 
   const handlePolishAi = async () => {
     if (!body.trim()) return;
@@ -103,14 +108,39 @@ export const YapComposer: React.FC<YapComposerProps> = ({ onYapCreated, defaultH
             className="w-10 h-10 rounded-full object-cover ring-2 ring-slate-100 dark:ring-slate-800 flex-shrink-0"
           />
 
-          <div className="flex-1">
+          <div className="flex-1 relative">
             <textarea
+              ref={textareaRef}
               value={body}
-              onChange={(e) => setBody(e.target.value)}
+              onChange={(e) => {
+                setBody(e.target.value);
+                mention.checkMention(e.target.value, e.target.selectionStart || 0);
+              }}
+              onKeyUp={(e) => {
+                mention.checkMention(body, (e.target as HTMLTextAreaElement).selectionStart || 0);
+              }}
+              onClick={(e) => {
+                mention.checkMention(body, (e.target as HTMLTextAreaElement).selectionStart || 0);
+              }}
+              onKeyDown={(e) => {
+                if (mention.isOpen) {
+                  const handled = mention.handleKeyDown(e);
+                  if (handled) return;
+                }
+              }}
               placeholder="What's happening? Yap your thoughts..."
               rows={3}
               maxLength={500}
               className="w-full text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 bg-transparent resize-none outline-none leading-relaxed"
+            />
+
+            {/* Mention suggestions dropdown */}
+            <MentionSuggestionsDropdown
+              candidates={mention.candidates}
+              isOpen={mention.isOpen}
+              onSelect={mention.applyCandidate}
+              activeIndex={mention.activeIndex}
+              className="top-24 left-0 mt-1"
             />
 
             {/* Media preview chips */}

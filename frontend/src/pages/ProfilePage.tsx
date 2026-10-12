@@ -101,6 +101,10 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
   // Account Privacy state
   const [isPrivateAccount, setIsPrivateAccount] = useState(user?.is_private || false);
   const [isUpdatingPrivacy, setIsUpdatingPrivacy] = useState(false);
+  const [whoCanSeeDp, setWhoCanSeeDp] = useState<'everyone' | 'followers'>(user?.who_can_see_dp || 'everyone');
+  const [whoCanTag, setWhoCanTag] = useState<'everyone' | 'followers' | 'none'>(
+    user?.who_can_tag || (user?.is_private ? 'followers' : 'everyone')
+  );
 
   // Followers & Following Modal state
   const [followListModal, setFollowListModal] = useState<'followers' | 'following' | null>(null);
@@ -222,6 +226,8 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
       setCountryCode(user.country_code || 'PK');
       setResetEmail(user.email || '');
       setIsPrivateAccount(!!user.is_private);
+      setWhoCanSeeDp(user.who_can_see_dp || 'everyone');
+      setWhoCanTag(user.who_can_tag || (user.is_private ? 'followers' : 'everyone'));
       fetchBlockedUsers();
       fetchUserReports();
       fetchFollowRequests();
@@ -299,10 +305,12 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
   const handleTogglePrivacy = async () => {
     setIsUpdatingPrivacy(true);
     const next = !isPrivateAccount;
+    const nextTag = next ? 'followers' : 'everyone';
     try {
-      await api.updateProfile({ is_private: next });
+      await api.updateProfile({ is_private: next, who_can_tag: nextTag });
       setIsPrivateAccount(next);
-      updateUser({ is_private: next });
+      setWhoCanTag(nextTag);
+      updateUser({ is_private: next, who_can_tag: nextTag });
     } catch (err: any) {
       alert(err.message || 'Failed to update account privacy');
     } finally {
@@ -531,6 +539,9 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
         display_name: displayName.trim() || cleanUsername,
         bio: bio.trim(),
         country_code: countryCode,
+        is_private: isPrivateAccount,
+        who_can_see_dp: whoCanSeeDp,
+        who_can_tag: whoCanTag,
       });
 
       updateUser({
@@ -538,6 +549,9 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
         display_name: displayName.trim() || cleanUsername,
         bio: bio.trim(),
         country_code: countryCode,
+        is_private: isPrivateAccount,
+        who_can_see_dp: whoCanSeeDp,
+        who_can_tag: whoCanTag,
       });
 
       setIsEditing(false);
@@ -602,13 +616,17 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
             <div className="flex items-end justify-between -mt-10 sm:-mt-12 mb-3 sm:mb-4 gap-2 sm:gap-4">
               <div
                 className="relative flex-shrink-0 w-20 h-20 sm:w-24 sm:h-24 aspect-square cursor-pointer group"
-                onClick={() =>
+                onClick={() => {
+                  if (otherProfile.avatar_hidden) {
+                    alert('This user has restricted profile photo visibility to approved followers only.');
+                    return;
+                  }
                   setPreviewAvatarUrl(
                     otherProfile.avatar_url ||
                     `https://api.dicebear.com/7.x/bottts/svg?seed=${otherProfile.username}`
-                  )
-                }
-                title="Click to view full photo"
+                  );
+                }}
+                title={otherProfile.avatar_hidden ? 'Profile photo is private (followers only)' : 'Click to view full photo'}
               >
                 <img
                   src={
@@ -618,6 +636,11 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                   alt={otherProfile.display_name}
                   className="w-20 h-20 sm:w-24 sm:h-24 aspect-square rounded-full object-cover ring-4 ring-white dark:ring-slate-900 shadow-lg bg-slate-100 dark:bg-slate-800 flex-shrink-0 group-hover:opacity-90 transition-opacity"
                 />
+                {otherProfile.avatar_hidden && (
+                  <div className="absolute inset-0 rounded-full bg-slate-900/40 backdrop-blur-[2px] flex items-center justify-center text-white" title="Private profile photo">
+                    <Lock className="w-5 h-5 text-white/90" />
+                  </div>
+                )}
               </div>
 
               <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
@@ -933,6 +956,15 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
               <button
                 type="button"
                 onClick={() => {
+                  if (isEditing) {
+                    setUsername(user?.username || '');
+                    setDisplayName(user?.display_name || '');
+                    setBio(user?.bio || '');
+                    setCountryCode(user?.country_code || 'PK');
+                    setIsPrivateAccount(user?.is_private || false);
+                    setWhoCanSeeDp(user?.who_can_see_dp || 'everyone');
+                    setWhoCanTag(user?.who_can_tag || (user?.is_private ? 'followers' : 'everyone'));
+                  }
                   setIsEditing(!isEditing);
                   setSaveError(null);
                 }}
@@ -1042,6 +1074,91 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                     'Public'
                   )}
                 </button>
+              </div>
+
+              {/* Profile Photo (DP) Visibility */}
+              <div className="p-3.5 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-2">
+                <div>
+                  <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200">Who can see my profile photo (DP)?</h4>
+                  <p className="text-[11px] text-slate-400">
+                    {whoCanSeeDp === 'followers'
+                      ? 'Only approved followers can see your profile photo. Non-followers see a locked placeholder.'
+                      : 'Anyone visiting your profile can see your avatar photo.'}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setWhoCanSeeDp('everyone')}
+                    className={`flex-1 py-1.5 px-3 rounded-xl text-xs font-bold transition-all border ${
+                      whoCanSeeDp === 'everyone'
+                        ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                        : 'bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-600 hover:border-blue-400'
+                    }`}
+                  >
+                    Everyone
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setWhoCanSeeDp('followers')}
+                    className={`flex-1 py-1.5 px-3 rounded-xl text-xs font-bold transition-all border ${
+                      whoCanSeeDp === 'followers'
+                        ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                        : 'bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-600 hover:border-blue-400'
+                    }`}
+                  >
+                    Followers only
+                  </button>
+                </div>
+              </div>
+
+              {/* Tag / Mention Permission */}
+              <div className="p-3.5 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-2">
+                <div>
+                  <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200">Who can tag / mention me with @?</h4>
+                  <p className="text-[11px] text-slate-400">
+                    {whoCanTag === 'none'
+                      ? 'No one can tag or mention your username in yaps or comments.'
+                      : whoCanTag === 'followers'
+                      ? 'Only your followers can tag or mention your username.'
+                      : 'Anyone on Yapr can tag or mention your username.'}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setWhoCanTag('everyone')}
+                    className={`flex-1 py-1.5 px-2 rounded-xl text-xs font-bold transition-all border ${
+                      whoCanTag === 'everyone'
+                        ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                        : 'bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-600 hover:border-blue-400'
+                    }`}
+                  >
+                    Everyone
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setWhoCanTag('followers')}
+                    className={`flex-1 py-1.5 px-2 rounded-xl text-xs font-bold transition-all border ${
+                      whoCanTag === 'followers'
+                        ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                        : 'bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-600 hover:border-blue-400'
+                    }`}
+                  >
+                    Followers only
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setWhoCanTag('none')}
+                    className={`flex-1 py-1.5 px-2 rounded-xl text-xs font-bold transition-all border ${
+                      whoCanTag === 'none'
+                        ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                        : 'bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-600 hover:border-blue-400'
+                    }`}
+                  >
+                    No one
+                  </button>
+                </div>
               </div>
 
               <button

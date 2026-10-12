@@ -5,6 +5,7 @@ export interface UserProfile {
   display_name: string;
   bio?: string;
   avatar_url?: string;
+  avatar_hidden?: boolean;
   banner_url?: string;
   country_code: string;
   follower_count: number;
@@ -13,6 +14,17 @@ export interface UserProfile {
   is_private?: boolean;
   is_following?: boolean;
   is_requested?: boolean;
+  who_can_see_dp?: 'everyone' | 'followers';
+  who_can_tag?: 'everyone' | 'followers' | 'none';
+}
+
+export interface MentionCandidate {
+  id: string;
+  username: string;
+  display_name: string;
+  avatar_url?: string;
+  is_verified?: boolean;
+  is_connected?: boolean;
 }
 
 export interface Yap {
