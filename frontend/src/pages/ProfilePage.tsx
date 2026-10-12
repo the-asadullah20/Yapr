@@ -810,20 +810,20 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                         setFollowListModal(null);
                         onOpenProfile?.(u.username);
                       }}
-                      className="flex items-center justify-between p-2 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/60 cursor-pointer transition-colors"
+                      className="flex items-center justify-between p-2 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/60 cursor-pointer transition-colors min-w-0"
                     >
-                      <div className="flex items-center gap-2.5">
+                      <div className="flex items-center gap-2.5 min-w-0 flex-1 overflow-hidden">
                         <img
                           src={u.avatar_url || `https://api.dicebear.com/7.x/bottts/svg?seed=${u.username}`}
                           alt=""
-                          className="w-8 h-8 rounded-full object-cover ring-1 ring-slate-100 dark:ring-slate-700"
+                          className="w-8 h-8 rounded-full object-cover ring-1 ring-slate-100 dark:ring-slate-700 flex-shrink-0"
                         />
-                        <div>
-                          <h4 className="text-xs font-bold text-slate-900 dark:text-white hover:text-blue-600 flex items-center gap-1">
-                            {u.display_name}
-                            {u.is_verified && <span className="text-[10px] text-blue-600">✓</span>}
+                        <div className="min-w-0 flex-1 overflow-hidden">
+                          <h4 className="text-xs font-bold text-slate-900 dark:text-white hover:text-blue-600 flex items-center gap-1 truncate">
+                            <span className="truncate">{u.display_name}</span>
+                            {u.is_verified && <span className="text-[10px] text-blue-600 flex-shrink-0">✓</span>}
                           </h4>
-                          <p className="text-[10px] text-slate-400">@{u.username}</p>
+                          <p className="text-[10px] text-slate-400 truncate">@{u.username}</p>
                         </div>
                       </div>
                     </div>
@@ -1421,15 +1421,15 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
             {blockedUsers.map((bUser) => (
               <div
                 key={bUser.id}
-                className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/60 dark:border-slate-800 transition-colors"
+                className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/60 dark:border-slate-800 transition-colors min-w-0"
               >
-                <div className="flex items-center gap-3 min-w-0">
+                <div className="flex items-center gap-3 min-w-0 flex-1 overflow-hidden mr-2">
                   <img
                     src={bUser.avatar_url || `https://api.dicebear.com/7.x/bottts/svg?seed=${bUser.username}`}
                     alt={bUser.display_name}
                     className="w-9 h-9 rounded-full object-cover bg-slate-200 dark:bg-slate-700 flex-shrink-0"
                   />
-                  <div className="min-w-0">
+                  <div className="min-w-0 flex-1 overflow-hidden">
                     <p className="text-xs font-bold text-slate-900 dark:text-white truncate">
                       {bUser.display_name}
                     </p>
@@ -1600,10 +1600,10 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                 pendingFollowRequests.map((req) => (
                   <div
                     key={req.id}
-                    className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800"
+                    className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 min-w-0"
                   >
                     <div
-                      className="flex items-center gap-2.5 min-w-0 cursor-pointer"
+                      className="flex items-center gap-2.5 min-w-0 flex-1 overflow-hidden mr-2 cursor-pointer"
                       onClick={() => {
                         setShowFollowRequestsModal(false);
                         onOpenProfile?.(req.username);
@@ -1614,7 +1614,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                         alt={req.display_name}
                         className="w-10 h-10 rounded-full object-cover ring-2 ring-white dark:ring-slate-700 flex-shrink-0"
                       />
-                      <div className="min-w-0">
+                      <div className="min-w-0 flex-1 overflow-hidden">
                         <h4 className="text-xs font-bold text-slate-900 dark:text-white truncate">
                           {req.display_name}
                         </h4>
@@ -1682,20 +1682,20 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                       setFollowListModal(null);
                       onOpenProfile?.(u.username);
                     }}
-                    className="flex items-center justify-between p-2 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/60 cursor-pointer transition-colors"
+                    className="flex items-center justify-between p-2 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/60 cursor-pointer transition-colors min-w-0"
                   >
-                    <div className="flex items-center gap-2.5">
+                    <div className="flex items-center gap-2.5 min-w-0 flex-1 overflow-hidden">
                       <img
                         src={u.avatar_url || `https://api.dicebear.com/7.x/bottts/svg?seed=${u.username}`}
                         alt=""
-                        className="w-8 h-8 rounded-full object-cover ring-1 ring-slate-100 dark:ring-slate-700"
+                        className="w-8 h-8 rounded-full object-cover ring-1 ring-slate-100 dark:ring-slate-700 flex-shrink-0"
                       />
-                      <div>
-                        <h4 className="text-xs font-bold text-slate-900 dark:text-white hover:text-blue-600 flex items-center gap-1">
-                          {u.display_name}
-                          {u.is_verified && <span className="text-[10px] text-blue-600">✓</span>}
+                      <div className="min-w-0 flex-1 overflow-hidden">
+                        <h4 className="text-xs font-bold text-slate-900 dark:text-white hover:text-blue-600 flex items-center gap-1 truncate">
+                          <span className="truncate">{u.display_name}</span>
+                          {u.is_verified && <span className="text-[10px] text-blue-600 flex-shrink-0">✓</span>}
                         </h4>
-                        <p className="text-[10px] text-slate-400">@{u.username}</p>
+                        <p className="text-[10px] text-slate-400 truncate">@{u.username}</p>
                       </div>
                     </div>
 
@@ -1708,7 +1708,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                           handleRemoveFollower(u.id);
                         }}
                         disabled={removingFollowerId === u.id}
-                        className="px-2.5 py-1 text-xs font-semibold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/60 rounded-lg border border-rose-200 dark:border-rose-900 transition-colors"
+                        className="px-2.5 py-1 text-xs font-semibold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/60 rounded-lg border border-rose-200 dark:border-rose-900 transition-colors flex-shrink-0 ml-2"
                       >
                         {removingFollowerId === u.id ? 'Removing...' : 'Remove'}
                       </button>

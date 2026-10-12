@@ -216,7 +216,7 @@ export const YapCard: React.FC<YapCardProps> = ({
   const authorUsername = yap.author?.username || (yap as any).username;
 
   return (
-    <article className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-3.5 sm:p-5 shadow-sm hover:shadow-hover transition-all duration-200 mb-4 relative">
+    <article className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-3.5 sm:p-5 shadow-sm hover:shadow-hover transition-all duration-200 mb-4 relative overflow-hidden">
       {/* Reyapped by banner (Twitter/X style) */}
       {(yap.is_reyap || (yap as any).reyapped_by) && (
         <div className="flex items-center gap-1.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400 mb-2.5 px-0.5">
@@ -258,7 +258,7 @@ export const YapCard: React.FC<YapCardProps> = ({
                   if (authorUsername) onOpenProfile?.(authorUsername);
                 }}
                 title={yap.author?.display_name || (yap as any).display_name || 'Yapr User'}
-                className="text-sm font-semibold text-slate-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 cursor-pointer transition-colors truncate max-w-[150px] xs:max-w-[200px] sm:max-w-[260px] md:max-w-[340px]"
+                className="text-sm font-semibold text-slate-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 cursor-pointer transition-colors truncate max-w-[120px] xs:max-w-[170px] sm:max-w-[240px] md:max-w-[320px]"
               >
                 {yap.author?.display_name || (yap as any).display_name || 'Yapr User'}
               </h3>
@@ -272,7 +272,7 @@ export const YapCard: React.FC<YapCardProps> = ({
                   if (authorUsername) onOpenProfile?.(authorUsername);
                 }}
                 title={`@${authorUsername || 'yapr'}`}
-                className="text-xs text-slate-400 dark:text-slate-500 hover:text-blue-500 cursor-pointer truncate max-w-[110px] sm:max-w-[160px] flex-shrink-0"
+                className="text-xs text-slate-400 dark:text-slate-500 hover:text-blue-500 cursor-pointer truncate max-w-[90px] xs:max-w-[120px] sm:max-w-[160px] flex-shrink-0"
               >
                 @{authorUsername || 'yapr'}
               </span>
@@ -358,7 +358,7 @@ export const YapCard: React.FC<YapCardProps> = ({
       {/* Yap Post Body */}
       <div className="mt-3 cursor-pointer" onClick={() => onOpenThread(yap)}>
         {yap.body && yap.body.trim().length > 0 && (
-          <p className="text-sm text-slate-800 dark:text-slate-100 leading-relaxed whitespace-pre-wrap">
+          <p className="text-sm text-slate-800 dark:text-slate-100 leading-relaxed whitespace-pre-wrap break-words break-all">
             {renderFormattedBody(yap.body)}
           </p>
         )}
@@ -432,7 +432,7 @@ export const YapCard: React.FC<YapCardProps> = ({
                 Generating AI Summary...
               </span>
             ) : (
-              <p className="text-slate-800 dark:text-slate-200 whitespace-pre-wrap leading-relaxed">
+              <p className="text-slate-800 dark:text-slate-200 whitespace-pre-wrap leading-relaxed break-words break-all">
                 {summaryText.replace(/^TL;DR\s*:?\s*/i, '').replace(/\*{1,4}/g, '').trim()}
               </p>
             )}
@@ -460,7 +460,7 @@ export const YapCard: React.FC<YapCardProps> = ({
                 Translating post into {targetLanguage}...
               </span>
             ) : (
-              <p className="whitespace-pre-wrap text-slate-900 dark:text-slate-100 font-medium">
+              <p className="whitespace-pre-wrap text-slate-900 dark:text-slate-100 font-medium break-words break-all">
                 {translationText.replace(/<\/?[^>]+(>|$)/g, '').replace(/\*{1,4}/g, '').trim()}
               </p>
             )}
