@@ -57,69 +57,83 @@ export class YapsService {
     const hashtags = this.extractHashtags(cleanBody);
     const mentions = this.extractMentions(cleanBody);
 
-    // Validate mentions: all tagged users must be real and permitted to be tagged
+    // 1. Private post comment rule:
+    // If replying to a post, verify if parent post author is private.
+    // If private, only approved followers can comment on it!
+    // Public posts: anyone can comment on them!
+    let parentAuthorId: string | null = null;
+    if (parentId && isSupabaseConfigured) {
+      const { data: parentPost } = await supabaseAdmin
+        .from('yaps')
+        .select('author_id, author:profiles!author_id(id, is_private)')
+        .eq('id', parentId)
+        .is('deleted_at', null)
+        .maybeSingle();
+
+      if (!parentPost) {
+        throw new Error('The post you are replying to does not exist or has been deleted');
+      }
+
+      parentAuthorId = parentPost.author_id;
+      const parentAuthor = (parentPost as any).author;
+      const isParentPrivate = !!parentAuthor?.is_private;
+
+      if (isParentPrivate && parentAuthorId !== authorId) {
+        const { data: followRecord } = await supabaseAdmin
+          .from('follows')
+          .select('follower_id')
+          .eq('follower_id', authorId)
+          .eq('followee_id', parentAuthorId)
+          .maybeSingle();
+
+        if (!followRecord) {
+          throw new Error('This account is private. Only approved followers can comment on their yaps.');
+        }
+      }
+    }
+
+    // 2. Mention validation & Public vs Private tagging rules:
+    // Public accounts: anyone can mention them!
+    // Private accounts: only approved followers can mention them!
     if (mentions.length > 0) {
-      for (const username of mentions) {
-        let targetUser: any = null;
-        if (isSupabaseConfigured) {
-          const { data } = await supabaseAdmin
-            .from('profiles')
-            .select('id, username, is_private')
-            .ilike('username', username)
-            .maybeSingle();
-          targetUser = data;
-        } else {
-          const reserved = ['asadahmad', 'panfengshui', 'clarakim', 'hamza_tech', 'zainab_writes', 'ali', 'admin', 'yapr'];
-          if (reserved.includes(username.toLowerCase())) {
-            targetUser = { id: username, username, is_private: false };
-          }
-        }
+      if (isSupabaseConfigured) {
+        // Fast batch lookup of mentioned usernames
+        const { data: matchedProfiles } = await supabaseAdmin
+          .from('profiles')
+          .select('id, username, is_private')
+          .in('username', mentions);
 
-        if (!targetUser) {
-          throw new Error(`Comment cannot be posted: User @${username} does not exist`);
-        }
+        const profileMap = new Map<string, any>();
+        (matchedProfiles || []).forEach((p) => profileMap.set(p.username.toLowerCase(), p));
 
-        // If tagging someone else, check privacy and tagging permissions
-        if (targetUser.id !== authorId && isSupabaseConfigured) {
-          // Check if blocked by either party
-          const { data: isBlocked } = await supabaseAdmin
-            .from('blocks')
-            .select('blocker_id')
-            .or(`and(blocker_id.eq.${authorId},blocked_id.eq.${targetUser.id}),and(blocked_id.eq.${authorId},blocker_id.eq.${targetUser.id})`)
-            .maybeSingle();
-          if (isBlocked) {
-            throw new Error(`Cannot tag @${username}: Interaction with this account is not allowed`);
+        for (const username of mentions) {
+          const targetUser = profileMap.get(username.toLowerCase());
+          if (!targetUser) {
+            throw new Error(`Comment cannot be posted: User @${username} does not exist`);
           }
 
-          // Check privacy settings from cache
-          let whoCanTag = targetUser.is_private ? 'followers' : 'everyone';
-          try {
-            const rawPriv = await cacheClient.get(`yapr:privacy:${targetUser.id}`);
-            if (rawPriv) {
-              const parsed = JSON.parse(rawPriv);
-              if (parsed?.who_can_tag) whoCanTag = parsed.who_can_tag;
+          if (targetUser.id !== authorId) {
+            // Private account rule: only approved followers can tag private accounts
+            if (targetUser.is_private) {
+              const { data: isFollower } = await supabaseAdmin
+                .from('follows')
+                .select('follower_id')
+                .eq('follower_id', authorId)
+                .eq('followee_id', targetUser.id)
+                .maybeSingle();
+
+              if (!isFollower) {
+                throw new Error(`Cannot tag @${username}: Account is private and only approved followers can mention them`);
+              }
             }
-          } catch {}
-
-          if (whoCanTag === 'none') {
-            throw new Error(`Cannot tag @${username}: This user has disabled mentions`);
+            // Public accounts: allowed for anyone!
           }
-
-          // Check follow relations
-          const [{ data: authorFollowsTarget }, { data: targetFollowsAuthor }] = await Promise.all([
-            supabaseAdmin.from('follows').select('follower_id').eq('follower_id', authorId).eq('followee_id', targetUser.id).maybeSingle(),
-            supabaseAdmin.from('follows').select('follower_id').eq('follower_id', targetUser.id).eq('followee_id', authorId).maybeSingle(),
-          ]);
-
-          const isFollower = !!authorFollowsTarget;
-          const isFollowedBy = !!targetFollowsAuthor;
-
-          if (whoCanTag === 'followers' && !isFollower) {
-            throw new Error(`Cannot tag @${username}: Only their followers can tag them`);
-          }
-
-          if (targetUser.is_private && !isFollower && !isFollowedBy) {
-            throw new Error(`Cannot tag @${username}: Account is private and you do not follow each other`);
+        }
+      } else {
+        const reserved = ['asadahmad', 'panfengshui', 'clarakim', 'hamza_tech', 'zainab_writes', 'ali', 'admin', 'yapr'];
+        for (const username of mentions) {
+          if (!reserved.includes(username.toLowerCase())) {
+            throw new Error(`Comment cannot be posted: User @${username} does not exist`);
           }
         }
       }
@@ -148,77 +162,108 @@ export class YapsService {
       if (error) throw error;
       newYap = data;
 
-      // Insert hashtags
-      for (const tag of hashtags) {
-        await supabaseAdmin.from('hashtags').upsert(
-          { tag, total_count: 1 },
-          { onConflict: 'tag' }
-        );
-        await supabaseAdmin.from('yap_hashtags').insert({
-          tag,
-          yap_id: yapId,
-          country_code: countryCode,
-        });
-      }
-
-      // If replying to a parent Yap, recalculate exact parent reply_count and notify parent author
-      let parentAuthorId: string | null = null;
+      // Invalidate relevant Redis caches immediately
       if (parentId) {
-        const { count } = await supabaseAdmin
-          .from('yaps')
-          .select('id', { count: 'exact', head: true })
-          .eq('parent_id', parentId)
-          .is('deleted_at', null);
+        cacheClient.del(`yapr:replies:${parentId}`).catch(() => {});
+      }
+      cacheClient.del(`yapr:feed:recent`).catch(() => {});
 
-        const realReplyCount = count ?? 1;
-        await supabaseAdmin
-          .from('yaps')
-          .update({ reply_count: realReplyCount })
-          .eq('id', parentId);
+      // Parallel background tasks without blocking user response
+      const bgOps: Promise<any>[] = [];
 
-        const { data: parent } = await supabaseAdmin
-          .from('yaps')
-          .select('author_id')
-          .eq('id', parentId)
-          .maybeSingle();
-
-        parentAuthorId = parent?.author_id || null;
-
-        if (parentAuthorId && parentAuthorId !== authorId) {
-          // Direct real-time delivery: write to DB + send WebSocket event immediately!
-          await notificationsService.createNotification({
-            userId: parentAuthorId,
-            type: 'reply',
-            actorId: authorId,
-            yapId,
-          }).catch((err) => console.error('Error creating reply notification:', err));
+      // Hashtag handling
+      if (hashtags.length > 0) {
+        bgOps.push(
+          (async () => {
+            await Promise.all(
+              hashtags.map((tag) =>
+                supabaseAdmin.from('hashtags').upsert({ tag, total_count: 1 }, { onConflict: 'tag' })
+              )
+            );
+            await supabaseAdmin.from('yap_hashtags').insert(
+              hashtags.map((tag) => ({ tag, yap_id: yapId, country_code: countryCode }))
+            );
+          })().catch(() => {})
+        );
+        for (const tag of hashtags) {
+          bgOps.push(
+            cacheClient.zincrby(`trending:global:1h`, 1, tag).catch(() => 0),
+            cacheClient.zincrby(`trending:global:24h`, 1, tag).catch(() => 0),
+            cacheClient.zincrby(`trending:${countryCode}:24h`, 1, tag).catch(() => 0)
+          );
         }
       }
 
-      // Notify mentioned users (excluding self and parent author who is already notified)
-      if (mentions.length > 0) {
-        try {
-          const { data: mentionedUsers } = await supabaseAdmin
-            .from('profiles')
-            .select('id, username')
-            .in('username', mentions);
+      // Parent reply count update & notification
+      if (parentId && parentAuthorId) {
+        bgOps.push(
+          (async () => {
+            const { count } = await supabaseAdmin
+              .from('yaps')
+              .select('id', { count: 'exact', head: true })
+              .eq('parent_id', parentId)
+              .is('deleted_at', null);
+            await supabaseAdmin.from('yaps').update({ reply_count: count ?? 1 }).eq('id', parentId);
+          })()
+        );
 
-          if (mentionedUsers && mentionedUsers.length > 0) {
-            for (const u of mentionedUsers) {
-              if (u.id !== authorId && (!parentAuthorId || u.id !== parentAuthorId)) {
-                await notificationsService.createNotification({
-                  userId: u.id,
-                  type: 'mention',
-                  actorId: authorId,
-                  yapId,
-                }).catch((err) => console.error('Error creating mention notification:', err));
+        if (parentAuthorId !== authorId) {
+          bgOps.push(
+            notificationsService.createNotification({
+              userId: parentAuthorId,
+              type: 'reply',
+              actorId: authorId,
+              yapId,
+            }).catch(() => {})
+          );
+        }
+      }
+
+      // Mention notifications
+      if (mentions.length > 0) {
+        bgOps.push(
+          (async () => {
+            const { data: mentionedUsers } = await supabaseAdmin
+              .from('profiles')
+              .select('id, username')
+              .in('username', mentions);
+            if (mentionedUsers) {
+              for (const u of mentionedUsers) {
+                if (u.id !== authorId && (!parentAuthorId || u.id !== parentAuthorId)) {
+                  await notificationsService.createNotification({
+                    userId: u.id,
+                    type: 'mention',
+                    actorId: authorId,
+                    yapId,
+                  }).catch(() => {});
+                }
               }
             }
-          }
-        } catch (err) {
-          console.error('Error sending mention notifications:', err);
-        }
+          })().catch(() => {})
+        );
       }
+
+      // Queue publishing
+      bgOps.push(
+        queueService.publish(env.AMQP_QUEUE_YAP_CREATED || 'yapr.yap.created', {
+          id: `yap_created_${yapId}`,
+          name: 'yap_created',
+          payload: { yapId, authorId, parentId: parentId || null, body, hashtags, countryCode },
+        }).catch(() => {})
+      );
+
+      if (body.length > 200) {
+        bgOps.push(
+          queueService.publish(env.AMQP_QUEUE_AI_SUMMARY || 'yapr.ai.summary', {
+            id: `ai_summary_${yapId}`,
+            name: 'generate_summary',
+            payload: { yapId, body },
+          }).catch(() => {})
+        );
+      }
+
+      // Fire all background tasks concurrently
+      Promise.all(bgOps).catch((err) => console.error('Background yap tasks error:', err));
     } else {
       // In-memory mock yap creation
       if (parentId) {
@@ -252,41 +297,16 @@ export class YapsService {
       mockYaps.unshift(newYap);
     }
 
-    // Update Redis trending sorted sets (1h and 24h buckets)
-    const timestampScore = Date.now();
-    for (const tag of hashtags) {
-      await cacheClient.zincrby(`trending:global:1h`, 1, tag);
-      await cacheClient.zincrby(`trending:global:24h`, 1, tag);
-      await cacheClient.zincrby(`trending:${countryCode}:24h`, 1, tag);
-    }
-
-    // Publish to LavinMQ queue for async notification fan-out and AI summarizer
-    await queueService.publish(env.AMQP_QUEUE_YAP_CREATED || 'yapr.yap.created', {
-      id: `yap_created_${yapId}`,
-      name: 'yap_created',
-      payload: {
-        yapId,
-        authorId,
-        parentId: parentId || null,
-        body,
-        hashtags,
-        countryCode,
-      },
-    });
-
-    // If yap is longer than 200 characters, trigger background summary job
-    if (body.length > 200) {
-      await queueService.publish(env.AMQP_QUEUE_AI_SUMMARY || 'yapr.ai.summary', {
-        id: `ai_summary_${yapId}`,
-        name: 'generate_summary',
-        payload: { yapId, body },
-      });
-    }
-
     return newYap;
   }
 
   async getYapById(yapId: string, viewerId?: string): Promise<any> {
+    const cacheKey = `yapr:yap:${yapId}`;
+    try {
+      const cached = await cacheClient.get(cacheKey);
+      if (cached) return JSON.parse(cached);
+    } catch {}
+
     if (isSupabaseConfigured) {
       const { data, error } = await supabaseAdmin
         .from('yaps')
@@ -296,6 +316,9 @@ export class YapsService {
         .single();
 
       if (error) throw error;
+      try {
+        await cacheClient.set(cacheKey, JSON.stringify(data), 60);
+      } catch {}
       return data;
     }
 
@@ -305,6 +328,12 @@ export class YapsService {
   }
 
   async getThreadReplies(parentYapId: string): Promise<any[]> {
+    const cacheKey = `yapr:replies:${parentYapId}`;
+    try {
+      const cached = await cacheClient.get(cacheKey);
+      if (cached) return JSON.parse(cached);
+    } catch {}
+
     if (isSupabaseConfigured) {
       const { data, error } = await supabaseAdmin
         .from('yaps')
@@ -314,7 +343,11 @@ export class YapsService {
         .order('created_at', { ascending: true });
 
       if (error) throw error;
-      return data || [];
+      const result = data || [];
+      try {
+        await cacheClient.set(cacheKey, JSON.stringify(result), 60);
+      } catch {}
+      return result;
     }
 
     return mockYaps.filter((y) => y.parent_id === parentYapId);
@@ -365,6 +398,13 @@ export class YapsService {
             .update({ reply_count: count ?? 0 })
             .eq('id', parentId);
         }
+
+        // Invalidate Redis caches
+        cacheClient.del(`yapr:yap:${yapId}`).catch(() => {});
+        if (parentId) {
+          cacheClient.del(`yapr:replies:${parentId}`).catch(() => {});
+        }
+        cacheClient.del(`yapr:feed:recent`).catch(() => {});
 
         return true;
       } catch (err) {
@@ -423,6 +463,7 @@ export class YapsService {
         .single();
 
       if (error) throw error;
+      cacheClient.del(`yapr:yap:${yapId}`).catch(() => {});
       return updated;
     }
 
