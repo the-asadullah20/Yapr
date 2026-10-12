@@ -1,4 +1,4 @@
-import { Yap, UserProfile, NotificationItem, TrendingTopic, SearchResult, FeedSliderSettings } from '../types';
+import { Yap, UserProfile, NotificationItem, TrendingTopic, SearchResult, FeedSliderSettings, MentionCandidate } from '../types';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
@@ -545,5 +545,14 @@ export const api = {
       throw new Error(err.error || 'Failed to upload media');
     }
     return await res.json();
+  },
+
+  async getMentionSuggestions(query: string): Promise<MentionCandidate[]> {
+    const res = await fetch(`${API_BASE}/profiles/mention-suggestions?q=${encodeURIComponent(query)}`, {
+      headers: getAuthHeaders(),
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return data.candidates || [];
   },
 };

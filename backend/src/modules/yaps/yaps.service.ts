@@ -56,6 +56,75 @@ export class YapsService {
 
     const hashtags = this.extractHashtags(cleanBody);
     const mentions = this.extractMentions(cleanBody);
+
+    // Validate mentions: all tagged users must be real and permitted to be tagged
+    if (mentions.length > 0) {
+      for (const username of mentions) {
+        let targetUser: any = null;
+        if (isSupabaseConfigured) {
+          const { data } = await supabaseAdmin
+            .from('profiles')
+            .select('id, username, is_private')
+            .ilike('username', username)
+            .maybeSingle();
+          targetUser = data;
+        } else {
+          const reserved = ['asadahmad', 'panfengshui', 'clarakim', 'hamza_tech', 'zainab_writes', 'ali', 'admin', 'yapr'];
+          if (reserved.includes(username.toLowerCase())) {
+            targetUser = { id: username, username, is_private: false };
+          }
+        }
+
+        if (!targetUser) {
+          throw new Error(`Comment cannot be posted: User @${username} does not exist`);
+        }
+
+        // If tagging someone else, check privacy and tagging permissions
+        if (targetUser.id !== authorId && isSupabaseConfigured) {
+          // Check if blocked by either party
+          const { data: isBlocked } = await supabaseAdmin
+            .from('blocks')
+            .select('blocker_id')
+            .or(`and(blocker_id.eq.${authorId},blocked_id.eq.${targetUser.id}),and(blocked_id.eq.${authorId},blocker_id.eq.${targetUser.id})`)
+            .maybeSingle();
+          if (isBlocked) {
+            throw new Error(`Cannot tag @${username}: Interaction with this account is not allowed`);
+          }
+
+          // Check privacy settings from cache
+          let whoCanTag = targetUser.is_private ? 'followers' : 'everyone';
+          try {
+            const rawPriv = await cacheClient.get(`yapr:privacy:${targetUser.id}`);
+            if (rawPriv) {
+              const parsed = JSON.parse(rawPriv);
+              if (parsed?.who_can_tag) whoCanTag = parsed.who_can_tag;
+            }
+          } catch {}
+
+          if (whoCanTag === 'none') {
+            throw new Error(`Cannot tag @${username}: This user has disabled mentions`);
+          }
+
+          // Check follow relations
+          const [{ data: authorFollowsTarget }, { data: targetFollowsAuthor }] = await Promise.all([
+            supabaseAdmin.from('follows').select('follower_id').eq('follower_id', authorId).eq('followee_id', targetUser.id).maybeSingle(),
+            supabaseAdmin.from('follows').select('follower_id').eq('follower_id', targetUser.id).eq('followee_id', authorId).maybeSingle(),
+          ]);
+
+          const isFollower = !!authorFollowsTarget;
+          const isFollowedBy = !!targetFollowsAuthor;
+
+          if (whoCanTag === 'followers' && !isFollower) {
+            throw new Error(`Cannot tag @${username}: Only their followers can tag them`);
+          }
+
+          if (targetUser.is_private && !isFollower && !isFollowedBy) {
+            throw new Error(`Cannot tag @${username}: Account is private and you do not follow each other`);
+          }
+        }
+      }
+    }
+
     const yapId = crypto.randomUUID();
     const now = new Date().toISOString();
 

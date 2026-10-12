@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   MessageSquare,
   Heart,
@@ -23,6 +23,8 @@ import { YapMediaGrid } from './YapMediaGrid';
 import { formatTimeAgo, formatCompactNumber } from '../../utils/formatters';
 import { api } from '../../api/apiClient';
 import { useAuth } from '../../context/AuthContext';
+import { useMentionAutocomplete } from '../../hooks/useMentionAutocomplete';
+import { MentionSuggestionsDropdown } from '../common/MentionSuggestionsDropdown';
 
 interface YapCardProps {
   yap: Yap;
@@ -66,6 +68,8 @@ export const YapCard: React.FC<YapCardProps> = ({
   const [quickReplyText, setQuickReplyText] = useState('');
   const [showQuickEmoji, setShowQuickEmoji] = useState(false);
   const [isReplying, setIsReplying] = useState(false);
+  const quickReplyInputRef = useRef<HTMLInputElement>(null);
+  const mention = useMentionAutocomplete(quickReplyText, setQuickReplyText, quickReplyInputRef);
 
   const handleLike = async () => {
     const nextLiked = !isLiked;
@@ -560,7 +564,15 @@ export const YapCard: React.FC<YapCardProps> = ({
           </div>
         )}
 
-        <form onSubmit={handleQuickReplySubmit} className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center gap-2.5">
+        <form onSubmit={handleQuickReplySubmit} className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center gap-2.5 relative">
+          <MentionSuggestionsDropdown
+            candidates={mention.candidates}
+            isOpen={mention.isOpen}
+            onSelect={mention.applyCandidate}
+            activeIndex={mention.activeIndex}
+            className="bottom-full left-10 mb-2"
+          />
+
           <img
             src={
               user?.avatar_url ||
@@ -572,9 +584,25 @@ export const YapCard: React.FC<YapCardProps> = ({
 
           <div className="flex-1 min-w-0 flex items-center bg-slate-50 dark:bg-slate-800 rounded-xl px-3 py-1.5 border border-slate-200/80 dark:border-slate-700 focus-within:border-blue-500 focus-within:bg-white dark:focus-within:bg-slate-800 transition-all">
             <input
+              ref={quickReplyInputRef}
               type="text"
               value={quickReplyText}
-              onChange={(e) => setQuickReplyText(e.target.value)}
+              onChange={(e) => {
+                setQuickReplyText(e.target.value);
+                mention.checkMention(e.target.value, e.target.selectionStart || 0);
+              }}
+              onKeyUp={(e) => {
+                mention.checkMention(quickReplyText, (e.target as HTMLInputElement).selectionStart || 0);
+              }}
+              onClick={(e) => {
+                mention.checkMention(quickReplyText, (e.target as HTMLInputElement).selectionStart || 0);
+              }}
+              onKeyDown={(e) => {
+                if (mention.isOpen) {
+                  const handled = mention.handleKeyDown(e);
+                  if (handled) return;
+                }
+              }}
               placeholder="Write your comment..."
               className="flex-1 min-w-0 bg-transparent text-xs text-slate-800 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 outline-none"
             />

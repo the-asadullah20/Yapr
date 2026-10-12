@@ -5,6 +5,8 @@ import { api } from '../../api/apiClient';
 import { formatTimeAgo, isVideoUrl } from '../../utils/formatters';
 import { useAuth } from '../../context/AuthContext';
 import { LightboxModal } from '../common/LightboxModal';
+import { useMentionAutocomplete } from '../../hooks/useMentionAutocomplete';
+import { MentionSuggestionsDropdown } from '../common/MentionSuggestionsDropdown';
 
 interface ReplyThreadModalProps {
   yap: Yap | null;
@@ -40,6 +42,8 @@ export const ReplyThreadModal: React.FC<ReplyThreadModalProps> = ({
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const replyInputRef = useRef<HTMLInputElement>(null);
+
+  const mention = useMentionAutocomplete(replyText, setReplyText, replyInputRef);
 
   useEffect(() => {
     if (yap) {
@@ -470,15 +474,38 @@ export const ReplyThreadModal: React.FC<ReplyThreadModalProps> = ({
             )}
 
             {/* Reply Input Bar (clean placeholder: Write your comment or reply...) */}
-            <div className="flex items-center gap-2">
-              <input
-                ref={replyInputRef}
-                type="text"
-                value={replyText}
-                onChange={(e) => setReplyText(e.target.value)}
-                placeholder="Write your comment or reply..."
-                className="flex-1 min-w-0 px-3.5 py-2.5 text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:border-blue-500 text-slate-900 dark:text-slate-100 shadow-sm"
+            <div className="relative">
+              <MentionSuggestionsDropdown
+                candidates={mention.candidates}
+                isOpen={mention.isOpen}
+                onSelect={mention.applyCandidate}
+                activeIndex={mention.activeIndex}
+                className="bottom-full left-0 mb-2"
               />
+              <div className="flex items-center gap-2">
+                <input
+                  ref={replyInputRef}
+                  type="text"
+                  value={replyText}
+                  onChange={(e) => {
+                    setReplyText(e.target.value);
+                    mention.checkMention(e.target.value, e.target.selectionStart || 0);
+                  }}
+                  onKeyUp={(e) => {
+                    mention.checkMention(replyText, (e.target as HTMLInputElement).selectionStart || 0);
+                  }}
+                  onClick={(e) => {
+                    mention.checkMention(replyText, (e.target as HTMLInputElement).selectionStart || 0);
+                  }}
+                  onKeyDown={(e) => {
+                    if (mention.isOpen) {
+                      const handled = mention.handleKeyDown(e);
+                      if (handled) return;
+                    }
+                  }}
+                  placeholder="Write your comment or reply..."
+                  className="flex-1 min-w-0 px-3.5 py-2.5 text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:border-blue-500 text-slate-900 dark:text-slate-100 shadow-sm"
+                />
 
               {/* Emoji toggle button */}
               <button
@@ -512,15 +539,16 @@ export const ReplyThreadModal: React.FC<ReplyThreadModalProps> = ({
                 onChange={handleImageUpload}
               />
 
-              {/* Submit button */}
-              <button
-                type="submit"
-                disabled={(!replyText.trim() && mediaUrls.length === 0) || isSubmitting}
-                className="px-3.5 sm:px-4 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-sm transition-all transform active:scale-95 flex-shrink-0"
-              >
-                {isSubmitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
-                <span>Reply</span>
-              </button>
+                {/* Submit button */}
+                <button
+                  type="submit"
+                  disabled={(!replyText.trim() && mediaUrls.length === 0) || isSubmitting}
+                  className="px-3.5 sm:px-4 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-sm transition-all transform active:scale-95 flex-shrink-0"
+                >
+                  {isSubmitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                  <span>Reply</span>
+                </button>
+              </div>
             </div>
           </form>
         </div>
