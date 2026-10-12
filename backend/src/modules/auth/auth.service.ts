@@ -72,7 +72,8 @@ export class AuthService {
     const storedHash = await cacheClient.get(cacheKey);
 
     const inputHash = crypto.createHash('sha256').update(code.trim()).digest('hex');
-    const isValid = (storedHash && storedHash === inputHash) || (code === '123456');
+    const isDevMockBypass = !isSupabaseConfigured && env.NODE_ENV === 'development' && code === '123456';
+    const isValid = (storedHash && storedHash === inputHash) || isDevMockBypass;
 
     if (!isValid) {
       throw new Error('Invalid or expired verification code');
@@ -342,7 +343,8 @@ export class AuthService {
     const cacheKey = `yapr:reset-otp:${cleanEmail}`;
     const storedHash = await cacheClient.get(cacheKey);
     const inputHash = crypto.createHash('sha256').update(code.trim()).digest('hex');
-    const isValid = (storedHash && storedHash === inputHash) || (code === '123456');
+    const isDevMockBypass = !isSupabaseConfigured && env.NODE_ENV === 'development' && code === '123456';
+    const isValid = (storedHash && storedHash === inputHash) || isDevMockBypass;
 
     if (!isValid) {
       throw new Error('Invalid or expired reset code');

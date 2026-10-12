@@ -23,12 +23,23 @@ const storageAdmin: SupabaseClient = createClient(
   }
 );
 
+const ALLOWED_IMAGE_EXTS = ['.jpg', '.jpeg', '.png', '.gif', '.webp'];
+const ALLOWED_VIDEO_EXTS = ['.mp4', '.mov', '.webm'];
+
+function getSafeExtension(originalname: string, mimetype: string): string {
+  const ext = path.extname(originalname).toLowerCase();
+  if (mimetype.startsWith('video/')) {
+    return ALLOWED_VIDEO_EXTS.includes(ext) ? ext : '.mp4';
+  }
+  return ALLOWED_IMAGE_EXTS.includes(ext) ? ext : '.png';
+}
+
 export class MediaService {
   /**
    * Upload user profile avatar to Supabase S3 'avatars' bucket
    */
   async uploadAvatar(userId: string, file: Express.Multer.File): Promise<{ url: string }> {
-    const ext = path.extname(file.originalname).toLowerCase() || '.png';
+    const ext = getSafeExtension(file.originalname, file.mimetype);
     const filePath = `${userId}/${Date.now()}_avatar${ext}`;
 
     if (isSupabaseConfigured) {
@@ -67,7 +78,7 @@ export class MediaService {
    * Upload post/yap attachment to Supabase S3 'media' bucket
    */
   async uploadPostMedia(userId: string, file: Express.Multer.File): Promise<{ url: string; mimetype: string; size: number }> {
-    const ext = path.extname(file.originalname).toLowerCase() || '.png';
+    const ext = getSafeExtension(file.originalname, file.mimetype);
     const random = crypto.randomBytes(6).toString('hex');
     const filePath = `${userId}/${Date.now()}_${random}${ext}`;
 

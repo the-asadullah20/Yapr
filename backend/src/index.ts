@@ -47,9 +47,9 @@ app.use(cors({
     if (!origin) return callback(null, true);
     if (
       origin === env.FRONTEND_URL ||
-      origin.endsWith('.vercel.app') ||
       origin.includes('localhost') ||
-      origin.includes('127.0.0.1')
+      origin.includes('127.0.0.1') ||
+      /^https:\/\/([a-z0-9-]*yapr[a-z0-9-]*)\.vercel\.app$/i.test(origin)
     ) {
       return callback(null, true);
     }

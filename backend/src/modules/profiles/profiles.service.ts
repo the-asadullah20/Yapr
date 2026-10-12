@@ -186,8 +186,10 @@ export class ProfilesService {
           avatarUrl = `https://api.dicebear.com/7.x/bottts/svg?seed=private_${data.username}`;
         }
 
+        const { email, phone, password, token, ...publicData } = data;
+
         return {
-          ...data,
+          ...publicData,
           avatar_url: avatarUrl,
           avatar_hidden: avatarHidden,
           who_can_see_dp: whoCanSeeDp,
@@ -219,8 +221,10 @@ export class ProfilesService {
           avatarUrl = `https://api.dicebear.com/7.x/bottts/svg?seed=private_${p.username}`;
         }
 
+        const { email, phone, password, token, ...publicProfile } = p;
+
         return {
-          ...p,
+          ...publicProfile,
           avatar_url: avatarUrl,
           avatar_hidden: avatarHidden,
           who_can_see_dp: privacy.who_can_see_dp,
