@@ -280,23 +280,8 @@ export const api = {
       return await res.json();
     } catch {
       return {
-        unreadCount: 1,
-        notifications: [
-          {
-            id: 'n1',
-            user_id: 'me',
-            type: 'like',
-            actor_ids: ['b2'],
-            created_at: new Date(Date.now() - 900000).toISOString(),
-            formatted_text: 'Pan Feng Shui liked your Yap',
-            actors: [{
-              id: 'b2',
-              username: 'panfengshui',
-              display_name: 'Pan Feng Shui',
-              avatar_url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150',
-            }],
-          },
-        ],
+        unreadCount: 0,
+        notifications: [],
       };
     }
   },

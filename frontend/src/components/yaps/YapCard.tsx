@@ -160,9 +160,10 @@ export const YapCard: React.FC<YapCardProps> = ({
     }
   };
 
-  // Render body with clickable hashtag and URL highlights
+  // Render body with clickable hashtag, @mentions, and URL highlights
   const renderFormattedBody = (text: string) => {
-    const regex = /(https?:\/\/[^\s]+|#[a-zA-Z0-9_]+)/g;
+    if (!text) return null;
+    const regex = /(https?:\/\/[^\s]+|#[a-zA-Z0-9_]+|@[a-zA-Z0-9_]+)/g;
     const parts = text.split(regex);
     return parts.map((part, index) => {
       if (part.startsWith('http://') || part.startsWith('https://')) {
@@ -177,6 +178,21 @@ export const YapCard: React.FC<YapCardProps> = ({
           >
             {part}
           </a>
+        );
+      }
+      if (part.startsWith('@')) {
+        const username = part.slice(1);
+        return (
+          <span
+            key={index}
+            onClick={(e) => {
+              e.stopPropagation();
+              onOpenProfile?.(username);
+            }}
+            className="text-blue-600 dark:text-blue-400 font-semibold hover:underline cursor-pointer bg-blue-50/70 dark:bg-blue-900/30 px-1 py-0.5 rounded"
+          >
+            {part}
+          </span>
         );
       }
       if (part.startsWith('#')) {
@@ -341,9 +357,11 @@ export const YapCard: React.FC<YapCardProps> = ({
 
       {/* Yap Post Body */}
       <div className="mt-3 cursor-pointer" onClick={() => onOpenThread(yap)}>
-        <p className="text-sm text-slate-800 dark:text-slate-100 leading-relaxed whitespace-pre-wrap">
-          {renderFormattedBody(yap.body)}
-        </p>
+        {yap.body && yap.body.trim().length > 0 && (
+          <p className="text-sm text-slate-800 dark:text-slate-100 leading-relaxed whitespace-pre-wrap">
+            {renderFormattedBody(yap.body)}
+          </p>
+        )}
 
         {/* Media Grid */}
         {yap.media && yap.media.length > 0 && (

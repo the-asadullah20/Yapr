@@ -67,6 +67,12 @@ export class NotificationsService {
           return `${primaryName} requested to follow you`;
         case 'follow_accepted':
           return `${primaryName} accepted your follow request`;
+        case 'follow_request_accepted':
+          return `You accepted ${primaryName}'s follow request`;
+        case 'follow_request_declined':
+          return `You declined ${primaryName}'s follow request`;
+        case 'mention':
+          return `${primaryName} mentioned you in a Yap`;
         case 'new_yap':
           return `${primaryName} posted a new Yap`;
         default:
@@ -88,6 +94,12 @@ export class NotificationsService {
         return `${primaryName} and ${othersLabel} requested to follow you`;
       case 'follow_accepted':
         return `${primaryName} and ${othersLabel} accepted your follow request`;
+      case 'follow_request_accepted':
+        return `You accepted follow requests from ${primaryName} and ${othersLabel}`;
+      case 'follow_request_declined':
+        return `You declined follow requests from ${primaryName} and ${othersLabel}`;
+      case 'mention':
+        return `${primaryName} and ${othersLabel} mentioned you in a Yap`;
       default:
         return `${primaryName} and ${othersLabel} interacted with you`;
     }

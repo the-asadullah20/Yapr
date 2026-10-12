@@ -3,6 +3,7 @@ import { Image, Sparkles, Send, X, Loader2 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { api } from '../../api/apiClient';
 import { Yap } from '../../types';
+import { isVideoUrl } from '../../utils/formatters';
 
 interface YapComposerProps {
   onYapCreated: (yap: Yap) => void;
@@ -73,11 +74,11 @@ export const YapComposer: React.FC<YapComposerProps> = ({ onYapCreated, defaultH
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!body.trim() || isSubmitting) return;
+    if ((!body.trim() && mediaUrls.length === 0) || isSubmitting) return;
 
     setIsSubmitting(true);
     try {
-      const newYap = await api.createYap(body, mediaUrls, undefined, countryCode);
+      const newYap = await api.createYap(body.trim(), mediaUrls, undefined, countryCode);
       onYapCreated(newYap);
       setBody('');
       setMediaUrls([]);
@@ -116,8 +117,12 @@ export const YapComposer: React.FC<YapComposerProps> = ({ onYapCreated, defaultH
             {mediaUrls.length > 0 && (
               <div className="flex gap-2 mb-3 overflow-x-auto py-1">
                 {mediaUrls.map((url, i) => (
-                  <div key={i} className="relative w-16 h-16 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 flex-shrink-0 group">
-                    <img src={url} alt="" className="w-full h-full object-cover" />
+                  <div key={i} className="relative w-16 h-16 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 flex-shrink-0 group bg-black flex items-center justify-center">
+                    {isVideoUrl(url) ? (
+                      <video src={url} className="w-full h-full object-cover" muted />
+                    ) : (
+                      <img src={url} alt="" className="w-full h-full object-cover" />
+                    )}
                     <button
                       type="button"
                       onClick={() => handleRemoveMedia(i)}
@@ -170,7 +175,7 @@ export const YapComposer: React.FC<YapComposerProps> = ({ onYapCreated, defaultH
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept="image/png,image/jpeg,image/webp,image/gif,video/mp4"
+                  accept="image/*,video/*"
                   multiple
                   className="hidden"
                   onChange={handleFileSelect}
@@ -205,7 +210,7 @@ export const YapComposer: React.FC<YapComposerProps> = ({ onYapCreated, defaultH
 
                 <button
                   type="submit"
-                  disabled={!body.trim() || isSubmitting || isUploading}
+                  disabled={(!body.trim() && mediaUrls.length === 0) || isSubmitting || isUploading}
                   className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-semibold text-xs rounded-xl shadow-sm transition-all transform active:scale-95"
                 >
                   <Send className="w-3.5 h-3.5" />
