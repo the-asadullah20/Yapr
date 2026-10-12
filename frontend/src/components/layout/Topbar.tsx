@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, Bell, Sliders, X, Sun, Moon, LogOut, User } from 'lucide-react';
+import { Search, Bell, Sliders, X, Sun, Moon, LogOut, User, Bookmark } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useSocket } from '../../context/SocketContext';
 import { useTheme } from '../../context/ThemeContext';
@@ -12,6 +12,7 @@ interface TopbarProps {
   onOpenAiStudio?: () => void;
   onSelectSearchResult?: (result: SearchResult) => void;
   onOpenProfile?: () => void;
+  onOpenBookmarks?: () => void;
   onOpenAuth?: () => void;
 }
 
@@ -21,6 +22,7 @@ export const Topbar: React.FC<TopbarProps> = ({
   onOpenAiStudio,
   onSelectSearchResult,
   onOpenProfile,
+  onOpenBookmarks,
   onOpenAuth,
 }) => {
   const { user, logout } = useAuth();
@@ -222,6 +224,19 @@ export const Topbar: React.FC<TopbarProps> = ({
                     >
                       <User className="w-4 h-4 text-slate-400" />
                       <span>View Profile</span>
+                    </button>
+                  )}
+
+                  {onOpenBookmarks && (
+                    <button
+                      onClick={() => {
+                        setIsUserMenuOpen(false);
+                        onOpenBookmarks();
+                      }}
+                      className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors text-left"
+                    >
+                      <Bookmark className="w-4 h-4 text-slate-400" />
+                      <span>Bookmarks</span>
                     </button>
                   )}
 

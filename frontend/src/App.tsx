@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Home, Compass, Bell, Bookmark, Sparkles, User } from 'lucide-react';
+import { Home, Compass, Bell, Sparkles, User } from 'lucide-react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { SocketProvider, useSocket } from './context/SocketContext';
 import { ThemeProvider } from './context/ThemeContext';
@@ -127,6 +127,7 @@ export const AppContent: React.FC = () => {
               setViewingProfileUsername(null);
               setActiveTab('profile');
             }}
+            onOpenBookmarks={() => setActiveTab('bookmarks')}
             onOpenAuth={() => setIsAuthOpen(true)}
           />
 
@@ -186,13 +187,14 @@ export const AppContent: React.FC = () => {
         />
       </div>
 
-      {/* Mobile Bottom Navigation Bar (Scalable to all phone screens) */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200/80 dark:border-slate-800 px-3 py-2 flex items-center justify-around shadow-lg">
+      {/* Mobile Bottom Navigation Bar (Scalable to all phone screens - 5 Items with Center AI Button) */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200/80 dark:border-slate-800 px-4 py-2 flex items-center justify-around shadow-lg">
         <button
           onClick={() => setActiveTab('feed')}
           className={`p-2 rounded-xl transition-colors ${
             activeTab === 'feed' ? 'text-blue-600 dark:text-blue-400' : 'text-slate-500 dark:text-slate-400'
           }`}
+          title="Home Feed"
         >
           <Home className="w-5 h-5" />
         </button>
@@ -202,13 +204,16 @@ export const AppContent: React.FC = () => {
           className={`p-2 rounded-xl transition-colors ${
             activeTab === 'explore' ? 'text-blue-600 dark:text-blue-400' : 'text-slate-500 dark:text-slate-400'
           }`}
+          title="Explore"
         >
           <Compass className="w-5 h-5" />
         </button>
 
+        {/* AI Studio Hero Button - Exact Geometric Center */}
         <button
           onClick={() => setIsAiStudioOpen(true)}
-          className="p-2 rounded-xl bg-blue-600 text-white shadow-sm"
+          className="p-2.5 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-500 text-white shadow-lg shadow-blue-500/30 hover:scale-105 active:scale-95 transition-all -translate-y-1"
+          title="AI Studio"
         >
           <Sparkles className="w-5 h-5" />
         </button>
@@ -218,27 +223,12 @@ export const AppContent: React.FC = () => {
           className={`relative p-2 rounded-xl transition-colors ${
             activeTab === 'notifications' ? 'text-blue-600 dark:text-blue-400' : 'text-slate-500 dark:text-slate-400'
           }`}
+          title="Notifications"
         >
           <Bell className="w-5 h-5" />
           {unreadCount > 0 && (
             <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-blue-600" />
           )}
-        </button>
-
-        <button
-          onClick={() => {
-            if (user) {
-              setActiveTab('bookmarks');
-            } else {
-              setIsAuthOpen(true);
-            }
-          }}
-          className={`p-2 rounded-xl transition-colors ${
-            activeTab === 'bookmarks' ? 'text-blue-600 dark:text-blue-400' : 'text-slate-500 dark:text-slate-400'
-          }`}
-          title="Saved Posts"
-        >
-          <Bookmark className="w-5 h-5" />
         </button>
 
         <button
@@ -253,6 +243,7 @@ export const AppContent: React.FC = () => {
           className={`p-2 rounded-xl transition-colors ${
             activeTab === 'profile' ? 'text-blue-600 dark:text-blue-400' : 'text-slate-500 dark:text-slate-400'
           }`}
+          title="Profile"
         >
           <User className="w-5 h-5" />
         </button>
