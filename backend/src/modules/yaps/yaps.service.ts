@@ -358,11 +358,19 @@ export class YapsService {
       try {
         const { data: targetYap } = await supabaseAdmin
           .from('yaps')
-          .select('parent_id')
+          .select('author_id, parent_id')
           .eq('id', yapId)
           .maybeSingle();
 
-        const parentId = targetYap?.parent_id;
+        if (!targetYap) {
+          return false;
+        }
+
+        if (targetYap.author_id !== authorId) {
+          throw new Error('Forbidden: You can only delete your own posts');
+        }
+
+        const parentId = targetYap.parent_id;
 
         // 1. Delete notifications referencing this yap
         await supabaseAdmin.from('notifications').delete().eq('yap_id', yapId);

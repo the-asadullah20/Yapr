@@ -25,7 +25,7 @@ declare global {
  */
 async function verifyJwtToken(token: string): Promise<any> {
   try {
-    return jwt.verify(token, env.SUPABASE_JWT_SECRET) as any;
+    return jwt.verify(token, env.SUPABASE_JWT_SECRET, { algorithms: ['HS256'] }) as any;
   } catch (verifyErr) {
     // If token was directly issued by Supabase Auth service (OAuth/magic link session)
     if (isSupabaseConfigured) {
