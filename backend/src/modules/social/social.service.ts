@@ -73,14 +73,6 @@ export class SocialService {
             actorId: userId,
             yapId,
           }).catch((err) => console.error('Error creating like notification:', err));
-
-          try {
-            await queueService.publish(env.AMQP_QUEUE_NOTIFICATIONS || 'yapr.notifications', {
-              id: `notif_like_${userId}_${yapId}`,
-              name: 'like_notification',
-              payload: { recipientId: yap.author_id, actorId: userId, yapId, type: 'like' },
-            });
-          } catch {}
         }
         return { liked: true, likeCount: yap?.like_count || 1 };
       }
@@ -119,14 +111,6 @@ export class SocialService {
             actorId: userId,
             yapId,
           }).catch((err) => console.error('Error creating reyap notification:', err));
-
-          try {
-            await queueService.publish(env.AMQP_QUEUE_NOTIFICATIONS || 'yapr.notifications', {
-              id: `notif_reyap_${userId}_${yapId}`,
-              name: 'reyap_notification',
-              payload: { recipientId: yap.author_id, actorId: userId, yapId, type: 'reyap' },
-            });
-          } catch {}
         }
         return { reyapped: true, reyapCount: yap?.reyap_count || 1 };
       }
@@ -249,14 +233,6 @@ export class SocialService {
             actorId: followerId,
           }).catch((err) => console.error('Error creating follow_request notification:', err));
 
-          try {
-            await queueService.publish(env.AMQP_QUEUE_NOTIFICATIONS || 'yapr.notifications', {
-              id: `notif_follow_req_${followerId}_${targetFolloweeId}`,
-              name: 'follow_request_notification',
-              payload: { recipientId: targetFolloweeId, actorId: followerId, type: 'follow_request' },
-            });
-          } catch {}
-
           return { following: false, requested: true };
         }
       }
@@ -271,13 +247,6 @@ export class SocialService {
         actorId: followerId,
       }).catch((err) => console.error('Error creating follow notification:', err));
 
-      try {
-        await queueService.publish(env.AMQP_QUEUE_NOTIFICATIONS || 'yapr.notifications', {
-          id: `notif_follow_${followerId}_${targetFolloweeId}`,
-          name: 'follow_notification',
-          payload: { recipientId: targetFolloweeId, actorId: followerId, type: 'follow' },
-        });
-      } catch {}
       return { following: true, requested: false };
     }
 
@@ -413,14 +382,6 @@ export class SocialService {
           .eq('user_id', targetId)
           .eq('type', 'follow_request')
           .contains('actor_ids', [requesterId]);
-
-        try {
-          await queueService.publish(env.AMQP_QUEUE_NOTIFICATIONS || 'yapr.notifications', {
-            id: `notif_follow_accepted_${targetId}_${requesterId}`,
-            name: 'follow_accepted_notification',
-            payload: { recipientId: requesterId, actorId: targetId, type: 'follow_accepted' },
-          });
-        } catch {}
       } catch (err: any) {
         console.error('Error accepting follow request:', err);
       }

@@ -49,6 +49,13 @@ export const YapComposer: React.FC<YapComposerProps> = ({ onYapCreated, defaultH
       return;
     }
 
+    for (const file of Array.from(files)) {
+      if (file.size > 20 * 1024 * 1024) {
+        alert(`File "${file.name}" exceeds the 20MB maximum upload limit.`);
+        return;
+      }
+    }
+
     setIsUploading(true);
     try {
       const uploadPromises = Array.from(files).map((file) => api.uploadMedia(file));

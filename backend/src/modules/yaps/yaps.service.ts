@@ -185,21 +185,13 @@ export class YapsService {
         parentAuthorId = parent?.author_id || null;
 
         if (parentAuthorId && parentAuthorId !== authorId) {
-          // Guaranteed real-time delivery: write to DB + send WebSocket event immediately!
+          // Direct real-time delivery: write to DB + send WebSocket event immediately!
           await notificationsService.createNotification({
             userId: parentAuthorId,
             type: 'reply',
             actorId: authorId,
             yapId,
           }).catch((err) => console.error('Error creating reply notification:', err));
-
-          try {
-            await queueService.publish(env.AMQP_QUEUE_NOTIFICATIONS || 'yapr.notifications', {
-              id: `notif_reply_${authorId}_${yapId}`,
-              name: 'reply_notification',
-              payload: { recipientId: parentAuthorId, actorId: authorId, yapId, type: 'reply' },
-            });
-          } catch {}
         }
       }
 
@@ -220,14 +212,6 @@ export class YapsService {
                   actorId: authorId,
                   yapId,
                 }).catch((err) => console.error('Error creating mention notification:', err));
-
-                try {
-                  await queueService.publish(env.AMQP_QUEUE_NOTIFICATIONS || 'yapr.notifications', {
-                    id: `notif_mention_${authorId}_${u.id}_${yapId}`,
-                    name: 'mention_notification',
-                    payload: { recipientId: u.id, actorId: authorId, yapId, type: 'mention' },
-                  });
-                } catch {}
               }
             }
           }

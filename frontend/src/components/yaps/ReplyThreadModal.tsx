@@ -71,6 +71,10 @@ export const ReplyThreadModal: React.FC<ReplyThreadModalProps> = ({
       alert('You can attach up to 4 images');
       return;
     }
+    if (file.size > 20 * 1024 * 1024) {
+      alert('File exceeds the 20MB maximum upload limit.');
+      return;
+    }
     setIsUploading(true);
     try {
       const res = await api.uploadMedia(file);

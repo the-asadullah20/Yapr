@@ -1,5 +1,6 @@
 import { supabaseAdmin, isSupabaseConfigured } from '../../config/supabase.js';
 import { emitToUser } from '../../realtime/socket.js';
+import { cacheClient } from '../../config/redis.js';
 
 export interface NotificationItem {
   id: string;
@@ -194,6 +195,19 @@ export class NotificationsService {
   }): Promise<void> {
     const { userId, type, actorId, yapId } = params;
     if (userId === actorId) return; // don't notify self
+
+    // Strict deduplication lock (prevents identical notification within 10 seconds)
+    const dedupKey = `notif:dedup:${userId}:${type}:${actorId}:${yapId || 'none'}`;
+    try {
+      const alreadySent = await cacheClient.get(dedupKey);
+      if (alreadySent) {
+        console.log(`⚡ [Notification Service] Deduplicated duplicate notification: ${dedupKey}`);
+        return;
+      }
+      await cacheClient.set(dedupKey, '1', 10);
+    } catch {
+      // Proceed if cache error
+    }
 
     let actorProfile: any = null;
     if (isSupabaseConfigured) {
