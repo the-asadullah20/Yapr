@@ -474,7 +474,11 @@ export class ProfilesService {
    * Returns public accounts and followers matching query, respecting privacy & block settings
    */
   async getMentionSuggestions(userId: string, query: string): Promise<any[]> {
-    const cleanQ = (query || '').toLowerCase().trim().replace(/^@/, '');
+    const cleanQ = (query || '')
+      .toLowerCase()
+      .trim()
+      .replace(/^@/, '')
+      .replace(/[,()"'%\\]/g, '');
 
     if (isSupabaseConfigured) {
       // 1. Fetch potential candidates

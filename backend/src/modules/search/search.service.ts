@@ -20,7 +20,11 @@ export class SearchService {
     const cleanQuery = query.trim();
     if (!cleanQuery) return { results: [], expandedTerms: [] };
 
-    const expandedTerms = expandSearchTermsWithRomanUrdu(cleanQuery);
+    // Strip PostgREST filter delimiter characters to prevent filter manipulation
+    const sanitizedQuery = cleanQuery.replace(/[,()"'%\\]/g, '');
+    if (!sanitizedQuery) return { results: [], expandedTerms: [] };
+
+    const expandedTerms = expandSearchTermsWithRomanUrdu(sanitizedQuery);
 
     if (isSupabaseConfigured) {
       const dbResults: SearchResultItem[] = [];
@@ -30,7 +34,7 @@ export class SearchService {
         const { data: users } = await supabaseAdmin
           .from('profiles')
           .select('id, username, display_name, avatar_url, country_code')
-          .or(`username.ilike.%${cleanQuery.replace(/^@/, '')}%,display_name.ilike.%${cleanQuery}%`)
+          .or(`username.ilike.%${sanitizedQuery.replace(/^@/, '')}%,display_name.ilike.%${sanitizedQuery}%`)
           .limit(limit);
 
         if (users) {
@@ -53,7 +57,7 @@ export class SearchService {
         const { data: yaps } = await supabaseAdmin
           .from('yaps')
           .select('id, body, created_at, author:profiles!author_id(id, username, display_name, avatar_url, country_code)')
-          .ilike('body', `%${cleanQuery}%`)
+          .ilike('body', `%${sanitizedQuery}%`)
           .is('deleted_at', null)
           .limit(limit);
 

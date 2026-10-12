@@ -5,6 +5,7 @@ import { api } from '../../api/apiClient';
 import { formatTimeAgo, isVideoUrl } from '../../utils/formatters';
 import { useAuth } from '../../context/AuthContext';
 import { LightboxModal } from '../common/LightboxModal';
+import { AutoPauseVideo } from '../common/AutoPauseVideo';
 import { useMentionAutocomplete } from '../../hooks/useMentionAutocomplete';
 import { MentionSuggestionsDropdown } from '../common/MentionSuggestionsDropdown';
 
@@ -266,7 +267,7 @@ export const ReplyThreadModal: React.FC<ReplyThreadModalProps> = ({
                       className="rounded-2xl overflow-hidden border border-slate-200/80 dark:border-slate-700 bg-black/5 dark:bg-black/30 flex items-center justify-center cursor-pointer group max-h-[380px]"
                     >
                       {isVideoUrl(url) ? (
-                        <video
+                        <AutoPauseVideo
                           src={url}
                           controls
                           playsInline
@@ -358,7 +359,7 @@ export const ReplyThreadModal: React.FC<ReplyThreadModalProps> = ({
                               className="cursor-pointer group rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 max-h-32 bg-black/5 relative flex items-center justify-center flex-shrink-0"
                             >
                               {isVideoUrl(url) ? (
-                                <video
+                                <AutoPauseVideo
                                   src={url}
                                   controls
                                   playsInline

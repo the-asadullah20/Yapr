@@ -56,7 +56,7 @@ export const YapComposer: React.FC<YapComposerProps> = ({ onYapCreated, defaultH
       const newUrls = results.map((r) => r.url);
       setMediaUrls((prev) => [...prev, ...newUrls].slice(0, 4));
     } catch (err: any) {
-      alert(err.message || 'Failed to upload media to Supabase storage');
+      alert(err.message || 'Failed to upload media. Please try again.');
     } finally {
       setIsUploading(false);
       if (fileInputRef.current) {
@@ -196,7 +196,7 @@ export const YapComposer: React.FC<YapComposerProps> = ({ onYapCreated, defaultH
                   onClick={() => fileInputRef.current?.click()}
                   disabled={isUploading || mediaUrls.length >= 4}
                   className="p-2 text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-slate-800 rounded-xl transition-colors disabled:opacity-50"
-                  title="Upload Image/Media to Supabase S3"
+                  title="Attach Photo or Video"
                 >
                   {isUploading ? <Loader2 className="w-4 h-4 animate-spin text-blue-600" /> : <Image className="w-4 h-4" />}
                 </button>
