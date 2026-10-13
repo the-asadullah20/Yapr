@@ -293,6 +293,37 @@ export const api = {
     });
   },
 
+  // Web Push Notifications
+  async getVapidPublicKey(): Promise<string> {
+    try {
+      const res = await fetch(`${API_BASE}/notifications/vapid-public-key`);
+      if (!res.ok) return '';
+      const data = await res.json();
+      return data.publicKey || '';
+    } catch {
+      return '';
+    }
+  },
+
+  async subscribePush(subscription: any): Promise<void> {
+    const res = await fetch(`${API_BASE}/notifications/push-subscribe`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ subscription }),
+    });
+    if (!res.ok) throw new Error('Failed to save push subscription');
+  },
+
+  async unsubscribePush(endpoint?: string): Promise<void> {
+    try {
+      await fetch(`${API_BASE}/notifications/push-unsubscribe`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ endpoint }),
+      });
+    } catch {}
+  },
+
   // AI
   async summarizeYap(yapId: string, text: string, threadText?: string): Promise<{ summary: string; provider: string }> {
     const res = await fetch(`${API_BASE}/ai/summarize`, {

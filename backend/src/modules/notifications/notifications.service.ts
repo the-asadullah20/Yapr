@@ -1,6 +1,7 @@
 import { supabaseAdmin, isSupabaseConfigured } from '../../config/supabase.js';
 import { emitToUser } from '../../realtime/socket.js';
 import { cacheClient } from '../../config/redis.js';
+import { webPushService } from './webpush.service.js';
 
 export interface NotificationItem {
   id: string;
@@ -252,6 +253,17 @@ export class NotificationsService {
 
     // Push live over WebSocket!
     emitToUser(userId, 'notification:new', notifItem);
+
+    // Push background Web Push to user's phone/desktop OS notification center
+    webPushService
+      .sendPushNotification(userId, {
+        title: 'Yapr',
+        body: notifItem.formatted_text || 'You have a new notification on Yapr',
+        yapId: yapId,
+        url: yapId ? `/?yapId=${yapId}` : '/',
+        icon: fallbackActor?.avatar_url || '/logo.png',
+      })
+      .catch(() => {});
   }
 }
 

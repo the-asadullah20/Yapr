@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Bell, Heart, Repeat, UserPlus, CheckCheck, MessageSquare, AtSign } from 'lucide-react';
+import { Bell, Heart, Repeat, UserPlus, CheckCheck, MessageSquare, AtSign, BellRing, ShieldCheck } from 'lucide-react';
 import { api } from '../api/apiClient';
 import { NotificationItem } from '../types';
 import { useSocket } from '../context/SocketContext';
 import { formatTimeAgo } from '../utils/formatters';
+import { getPushPermissionState, subscribeToPush, unsubscribeFromPush, isPushSupported } from '../utils/pushNotifications';
 
 interface NotificationsPageProps {
   onOpenProfile?: (username: string) => void;
@@ -14,6 +15,8 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({ onOpenProf
   const { setUnreadCount } = useSocket();
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [pushPermission, setPushPermission] = useState<string>(() => getPushPermissionState());
+  const [pushLoading, setPushLoading] = useState(false);
 
   useEffect(() => {
     api.getNotifications().then((res: { notifications: NotificationItem[]; unreadCount: number }) => {
@@ -21,6 +24,27 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({ onOpenProf
       setLoading(false);
     });
   }, []);
+
+  const handleEnablePush = async () => {
+    setPushLoading(true);
+    const result = await subscribeToPush();
+    setPushLoading(false);
+    if (result.success) {
+      setPushPermission('granted');
+    } else {
+      setPushPermission(getPushPermissionState());
+      if (result.error && !result.error.includes('denied')) {
+        alert(result.error);
+      }
+    }
+  };
+
+  const handleDisablePush = async () => {
+    setPushLoading(true);
+    await unsubscribeFromPush();
+    setPushLoading(false);
+    setPushPermission('default');
+  };
 
   const handleMarkAllRead = async () => {
     await api.markNotificationsRead();
@@ -93,6 +117,47 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({ onOpenProf
           <span>Mark all as read</span>
         </button>
       </div>
+
+      {/* Device Push Notifications Banner */}
+      {isPushSupported() && pushPermission !== 'granted' && (
+        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl p-4 text-white shadow-md flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-start gap-3">
+            <div className="p-2 bg-white/20 rounded-xl backdrop-blur-sm mt-0.5">
+              <BellRing className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h3 className="text-xs font-bold">Never miss a Yap</h3>
+              <p className="text-[11px] text-blue-100 mt-0.5 leading-relaxed">
+                Receive instant alerts on your phone or laptop screen even when Yapr is closed.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={handleEnablePush}
+            disabled={pushLoading}
+            className="self-start sm:self-auto px-4 py-2 bg-white text-blue-600 hover:bg-blue-50 active:scale-95 text-xs font-bold rounded-xl shadow-sm transition-all whitespace-nowrap flex-shrink-0"
+          >
+            {pushLoading ? 'Enabling...' : 'Enable Notifications'}
+          </button>
+        </div>
+      )}
+
+      {/* Push Notifications Active Indicator */}
+      {isPushSupported() && pushPermission === 'granted' && (
+        <div className="bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200/80 dark:border-emerald-900/50 rounded-2xl px-4 py-2.5 flex items-center justify-between transition-colors">
+          <div className="flex items-center gap-2 text-xs font-medium text-emerald-800 dark:text-emerald-300">
+            <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+            <span>Device push notifications are active</span>
+          </div>
+          <button
+            onClick={handleDisablePush}
+            disabled={pushLoading}
+            className="text-[11px] font-semibold text-slate-500 hover:text-rose-600 dark:text-slate-400 dark:hover:text-rose-400 transition-colors"
+          >
+            Turn off
+          </button>
+        </div>
+      )}
 
       {/* Notifications List */}
       {loading ? (

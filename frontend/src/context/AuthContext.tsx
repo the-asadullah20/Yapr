@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { UserProfile } from '../types';
 import { api } from '../api/apiClient';
+import { syncPushIfGranted, unsubscribeFromPush } from '../utils/pushNotifications';
 
 interface AuthContextType {
   user: UserProfile | null;
@@ -69,6 +70,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const res = await api.getMe();
           if (res?.user) {
             setUser((prev) => ({ ...(prev || {}), ...res.user }));
+            syncPushIfGranted().catch(() => {});
           }
         } catch {
           // ignore error if token expired or offline
@@ -183,6 +185,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logout = () => {
+    unsubscribeFromPush().catch(() => {});
     setUser(null);
     setToken(null);
   };
