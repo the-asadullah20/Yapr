@@ -253,7 +253,7 @@ export class AuthService {
 
     return {
       token,
-      user: { id: userId, email: cleanEmail, ...profile },
+      user: { id: userId, email: cleanEmail, ...profile, is_new_user: true, onboarding_completed: false },
     };
   }
 
@@ -343,9 +343,11 @@ export class AuthService {
       { expiresIn: '7d' }
     );
 
+    const isOnboarded = !!profile?.onboarding_completed || !!(await cacheClient.get(`yapr:onboarded:${userId}`).catch(() => null));
+
     return {
       token,
-      user: { id: userId, email: cleanEmail, ...profile },
+      user: { id: userId, email: cleanEmail, ...profile, onboarding_completed: isOnboarded, is_new_user: !isOnboarded },
     };
   }
 
@@ -603,11 +605,13 @@ export class AuthService {
       }
 
       // Return profile - Note: We DO NOT overwrite p.avatar_url or p.display_name with Google/FB metadata!
+      const isOnboarded = !!p?.onboarding_completed || !!(await cacheClient.get(`yapr:onboarded:${userId}`).catch(() => null));
       return {
         ...p,
         email: cleanEmail,
         id: userId,
-        is_new_user: isNewUser || (p?.username && p.username.startsWith('user_')),
+        onboarding_completed: isOnboarded,
+        is_new_user: !isOnboarded || isNewUser || !p?.username || p.username.startsWith('user_'),
       };
     }
 
@@ -615,16 +619,18 @@ export class AuthService {
     const existing = registeredUsers.get(cleanEmail);
     if (existing) {
       const mockP = mockProfiles.get(userId);
+      const isOnboarded = !!mockP?.onboarding_completed || !!(await cacheClient.get(`yapr:onboarded:${userId}`).catch(() => null));
       return {
         id: userId,
         email: cleanEmail,
         username: existing.username,
-        display_name: existing.username,
+        display_name: mockP?.display_name || existing.username,
         avatar_url: mockP?.avatar_url || DEFAULT_AVATAR,
         country_code: 'PK',
         follower_count: 0,
         following_count: 0,
-        is_new_user: false,
+        onboarding_completed: isOnboarded,
+        is_new_user: !isOnboarded,
       };
     }
 
@@ -638,6 +644,7 @@ export class AuthService {
       country_code: 'PK',
       follower_count: 0,
       following_count: 0,
+      onboarding_completed: false,
       is_new_user: true,
     };
     mockProfiles.set(userId, mockCreated);

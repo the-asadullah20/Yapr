@@ -18,6 +18,7 @@ export interface UserProfile {
   who_can_tag?: 'everyone' | 'followers' | 'none';
   is_deactivated?: boolean;
   is_new_user?: boolean;
+  onboarding_completed?: boolean;
   social_links?: Array<{ platform: string; url: string }>;
 }
 

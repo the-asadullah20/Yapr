@@ -241,13 +241,20 @@ export class NotificationsService {
     };
 
     if (isSupabaseConfigured) {
-      await supabaseAdmin.from('notifications').insert({
-        id: notifItem.id,
-        user_id: userId,
-        type,
-        actor_ids: notifItem.actor_ids,
-        yap_id: yapId || null,
-      });
+      try {
+        const { error: insErr } = await supabaseAdmin.from('notifications').insert({
+          id: notifItem.id,
+          user_id: userId,
+          type,
+          actor_ids: notifItem.actor_ids,
+          yap_id: yapId || null,
+        });
+        if (insErr) {
+          console.warn('[Notification Service] DB insert warning:', insErr.message);
+        }
+      } catch (err: any) {
+        console.warn('[Notification Service] DB insert exception:', err?.message || err);
+      }
     } else {
       mockNotifications.unshift(notifItem);
     }

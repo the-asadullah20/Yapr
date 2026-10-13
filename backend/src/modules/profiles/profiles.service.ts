@@ -229,6 +229,7 @@ export class ProfilesService {
 
         const socialLinks = await this.getSocialLinks(data.id);
         const { email, phone, password, token, ...publicData } = data;
+        const isOnboarded = !!data.onboarding_completed || !!(await cacheClient.get(`yapr:onboarded:${data.id}`).catch(() => null));
 
         return {
           ...publicData,
@@ -239,6 +240,7 @@ export class ProfilesService {
           is_following: isFollowing,
           is_requested: isRequested,
           is_deactivated: isDeactivated,
+          onboarding_completed: isOnboarded,
           social_links: socialLinks,
           country: getCountryByCode(data.country_code || 'PK'),
         };
@@ -303,6 +305,7 @@ export class ProfilesService {
           is_following: false,
           is_requested: isRequested,
           is_deactivated: isDeactivated,
+          onboarding_completed: !!p.onboarding_completed,
           social_links: socialLinks,
           country: getCountryByCode(p.country_code || 'PK'),
         };
@@ -313,10 +316,17 @@ export class ProfilesService {
   }
 
   async updateProfile(userId: string, updates: any): Promise<any> {
-    const allowed = ['display_name', 'bio', 'avatar_url', 'banner_url', 'country_code', 'username', 'is_private', 'who_can_see_dp', 'who_can_tag', 'social_links'];
+    const allowed = ['display_name', 'bio', 'avatar_url', 'banner_url', 'country_code', 'username', 'is_private', 'who_can_see_dp', 'who_can_tag', 'social_links', 'onboarding_completed'];
     const sanitized: any = {};
     for (const key of allowed) {
       if (updates[key] !== undefined) sanitized[key] = updates[key];
+    }
+
+    if (sanitized.onboarding_completed !== undefined) {
+      await cacheClient.set(`yapr:onboarded:${userId}`, '1').catch(() => {});
+      if (isSupabaseConfigured) {
+        supabaseAdmin.auth.admin.updateUserById(userId, { user_metadata: { onboarding_completed: true } }).catch(() => {});
+      }
     }
 
     if (sanitized.username) {
@@ -367,7 +377,7 @@ export class ProfilesService {
 
     if (isSupabaseConfigured) {
       const dbPayload: any = { updated_at: new Date().toISOString() };
-      for (const k of ['display_name', 'bio', 'avatar_url', 'banner_url', 'country_code', 'username', 'is_private']) {
+      for (const k of ['display_name', 'bio', 'avatar_url', 'banner_url', 'country_code', 'username', 'is_private', 'onboarding_completed']) {
         if (sanitized[k] !== undefined) dbPayload[k] = sanitized[k];
       }
 

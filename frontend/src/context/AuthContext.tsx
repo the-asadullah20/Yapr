@@ -74,6 +74,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (res?.user) {
             setUser((prev) => ({ ...(prev || {}), ...res.user }));
             syncPushIfGranted().catch(() => {});
+            const isOnboarded = !!res.user.onboarding_completed || !!localStorage.getItem(`yapr_onboarded_${res.user.id}`);
+            if (!isOnboarded || res.user.is_new_user || !res.user.username || res.user.username.startsWith('user_')) {
+              setNeedsUsernameModal(true);
+            }
           }
         } catch {
           // ignore error if token expired or offline
@@ -116,7 +120,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const syncRes = await api.syncOAuthUser(accessToken, payload.user_metadata);
             if (syncRes?.user) {
               setUser(syncRes.user);
-              if (syncRes.user.is_new_user || !syncRes.user.username || syncRes.user.username.startsWith('user_')) {
+              const isOnboarded = !!syncRes.user.onboarding_completed || !!localStorage.getItem(`yapr_onboarded_${syncRes.user.id}`);
+              if (!isOnboarded || syncRes.user.is_new_user || !syncRes.user.username || syncRes.user.username.startsWith('user_')) {
                 setNeedsUsernameModal(true);
               }
               return;
@@ -148,10 +153,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             country_code: 'PK',
             follower_count: 0,
             following_count: 0,
+            onboarding_completed: false,
+            is_new_user: true,
           };
 
           setUser(fallbackProfile);
-          if (fallbackProfile.username.startsWith('user_')) {
+          const isFallbackOnboarded = !!localStorage.getItem(`yapr_onboarded_${fallbackProfile.id}`);
+          if (!isFallbackOnboarded || fallbackProfile.username.startsWith('user_')) {
             setNeedsUsernameModal(true);
           }
         } catch (e) {
@@ -172,7 +180,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const res = await api.verifyOtp(email, code);
     setToken(res.token);
     setUser(res.user);
-    const isNew = !!res.isNewUser || !res.user.username || res.user.username.startsWith('user_');
+    const isOnboarded = !!res.user.onboarding_completed || !!localStorage.getItem(`yapr_onboarded_${res.user.id}`);
+    const isNew = !!res.isNewUser || !isOnboarded || !res.user.username || res.user.username.startsWith('user_');
     if (isNew) {
       setNeedsUsernameModal(true);
     }
@@ -183,7 +192,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const res = await api.loginWithPassword(email, password);
     setToken(res.token);
     setUser(res.user);
-    if (!res.user.username || res.user.username.startsWith('user_')) {
+    const isOnboarded = !!res.user.onboarding_completed || !!localStorage.getItem(`yapr_onboarded_${res.user.id}`);
+    if (!isOnboarded || res.user.is_new_user || !res.user.username || res.user.username.startsWith('user_')) {
       setNeedsUsernameModal(true);
     }
   };
@@ -198,6 +208,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const res = await api.registerWithPassword(params);
     setToken(res.token);
     setUser(res.user);
+    setNeedsUsernameModal(true);
   };
 
   const logout = () => {
@@ -232,18 +243,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         <SelectUsernameModal
           isOpen={needsUsernameModal}
           initialUsername={user.username}
+          initialDisplayName={user.display_name}
           initialIsPrivate={!!user.is_private}
-          onComplete={(chosen, isPrivate, bannerUrl) => {
+          initialAvatarUrl={user.avatar_url}
+          onComplete={(chosen, chosenDisplayName, isPrivate, bannerUrl, avatarUrl) => {
             setUser((prev) =>
               prev
                 ? {
                     ...prev,
                     username: chosen,
+                    display_name: chosenDisplayName || prev.display_name,
                     is_private: isPrivate,
+                    onboarding_completed: true,
                     ...(bannerUrl ? { banner_url: bannerUrl } : {}),
+                    ...(avatarUrl ? { avatar_url: avatarUrl } : {}),
                   }
                 : null
             );
+            if (user?.id) {
+              localStorage.setItem(`yapr_onboarded_${user.id}`, 'true');
+            }
             setNeedsUsernameModal(false);
           }}
         />
