@@ -50,7 +50,7 @@ export const env = {
   RATE_LIMIT_MAX_REQUESTS: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '100', 10),
 
   // Web Push (VAPID)
-  VAPID_PUBLIC_KEY: process.env.VAPID_PUBLIC_KEY || 'BE0z8a3VoBvVa7AYqw0HJ48cdKZrpl7ixUdHTL6BttlUfMrnXpchN4rIJiQAD7LNbBHTW9xFjrlEEqhRK1sOOOQ',
-  VAPID_PRIVATE_KEY: process.env.VAPID_PRIVATE_KEY || 'mVKNaeWzIKzHCNQbdEwTWYFsfWTKm1VmSJH83yHVfxE',
+  VAPID_PUBLIC_KEY: process.env.VAPID_PUBLIC_KEY || '',
+  VAPID_PRIVATE_KEY: process.env.VAPID_PRIVATE_KEY || '',
   VAPID_SUBJECT: process.env.VAPID_SUBJECT || 'mailto:admin@yapr.app',
 };
