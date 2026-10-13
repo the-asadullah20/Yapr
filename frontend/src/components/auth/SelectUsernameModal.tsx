@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { AtSign, Check, AlertCircle, Loader2, Sparkles, Globe, Lock, Image as ImageIcon, X, Bell } from 'lucide-react';
+import { AtSign, Check, AlertCircle, Loader2, Sparkles, Globe, Lock, Image as ImageIcon, X, Bell, Camera, User } from 'lucide-react';
 import { api } from '../../api/apiClient';
 import { DEFAULT_AVATAR } from '../../utils/avatar';
 import { subscribeToPush } from '../../utils/pushNotifications';
@@ -7,26 +7,43 @@ import { subscribeToPush } from '../../utils/pushNotifications';
 interface SelectUsernameModalProps {
   isOpen: boolean;
   initialUsername?: string;
+  initialDisplayName?: string;
   initialIsPrivate?: boolean;
-  onComplete: (chosenUsername: string, isPrivate: boolean, bannerUrl?: string) => void;
+  initialAvatarUrl?: string;
+  onComplete: (
+    chosenUsername: string,
+    displayName: string,
+    isPrivate: boolean,
+    bannerUrl?: string,
+    avatarUrl?: string
+  ) => void;
 }
 
 export const SelectUsernameModal: React.FC<SelectUsernameModalProps> = ({
   isOpen,
   initialUsername = '',
+  initialDisplayName = '',
   initialIsPrivate = false,
+  initialAvatarUrl = '',
   onComplete,
 }) => {
   const [isPrivate, setIsPrivate] = useState(initialIsPrivate);
   const [username, setUsername] = useState(
     initialUsername.startsWith('user_') ? '' : initialUsername
   );
+  const [displayName, setDisplayName] = useState(initialDisplayName || '');
   const [status, setStatus] = useState<'idle' | 'checking' | 'available' | 'taken' | 'invalid'>('idle');
   const [statusMsg, setStatusMsg] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Notifications permission state
   const [allowNotifications, setAllowNotifications] = useState(true);
+
+  // Profile picture (DP) state
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(initialAvatarUrl || null);
+  const [isAvatarSkipped, setIsAvatarSkipped] = useState(false);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
 
   // Cover photo state
   const [coverFile, setCoverFile] = useState<File | null>(null);
@@ -41,6 +58,18 @@ export const SelectUsernameModal: React.FC<SelectUsernameModalProps> = ({
       setUsername(initialUsername);
     }
   }, [initialUsername]);
+
+  useEffect(() => {
+    if (initialDisplayName) {
+      setDisplayName(initialDisplayName);
+    }
+  }, [initialDisplayName]);
+
+  useEffect(() => {
+    if (initialAvatarUrl && !initialAvatarUrl.includes('dicebear')) {
+      setAvatarPreview(initialAvatarUrl);
+    }
+  }, [initialAvatarUrl]);
 
   const validateAndCheck = (val: string) => {
     const clean = val.toLowerCase().trim();
@@ -98,6 +127,32 @@ export const SelectUsernameModal: React.FC<SelectUsernameModalProps> = ({
     validateAndCheck(val);
   };
 
+  // DP Handlers
+  const handleAvatarSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setAvatarFile(file);
+      setIsAvatarSkipped(false);
+      const url = URL.createObjectURL(file);
+      setAvatarPreview(url);
+    }
+  };
+
+  const handleRemoveAvatar = () => {
+    setAvatarFile(null);
+    if (avatarPreview && avatarPreview.startsWith('blob:')) {
+      URL.revokeObjectURL(avatarPreview);
+    }
+    setAvatarPreview(null);
+    if (avatarInputRef.current) avatarInputRef.current.value = '';
+  };
+
+  const handleSkipAvatar = () => {
+    handleRemoveAvatar();
+    setIsAvatarSkipped(true);
+  };
+
+  // Cover Handlers
   const handleCoverSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -110,7 +165,7 @@ export const SelectUsernameModal: React.FC<SelectUsernameModalProps> = ({
 
   const handleRemoveCover = () => {
     setCoverFile(null);
-    if (coverPreview) {
+    if (coverPreview && coverPreview.startsWith('blob:')) {
       URL.revokeObjectURL(coverPreview);
     }
     setCoverPreview(null);
@@ -129,19 +184,36 @@ export const SelectUsernameModal: React.FC<SelectUsernameModalProps> = ({
 
     setIsSubmitting(true);
     try {
+      let uploadedAvatarUrl = '';
+      if (avatarFile && !isAvatarSkipped) {
+        try {
+          const uploadRes = await api.uploadMedia(avatarFile);
+          uploadedAvatarUrl = uploadRes.url || '';
+        } catch {
+          // Proceed if media upload fails
+        }
+      } else if (isAvatarSkipped) {
+        uploadedAvatarUrl = DEFAULT_AVATAR;
+      }
+
       let uploadedBannerUrl = '';
       if (coverFile && !isCoverSkipped) {
         try {
           const uploadRes = await api.uploadMedia(coverFile);
           uploadedBannerUrl = uploadRes.url || '';
         } catch {
-          // If media upload fails, proceed with username setup
+          // If media upload fails, proceed
         }
       }
 
+      const cleanDisplayName = displayName.trim() || clean;
+
       await api.updateProfile({
         username: clean,
+        display_name: cleanDisplayName,
         is_private: isPrivate,
+        onboarding_completed: true,
+        ...(uploadedAvatarUrl ? { avatar_url: uploadedAvatarUrl } : {}),
         ...(uploadedBannerUrl ? { banner_url: uploadedBannerUrl } : {}),
       });
 
@@ -153,10 +225,10 @@ export const SelectUsernameModal: React.FC<SelectUsernameModalProps> = ({
         }
       }
 
-      onComplete(clean, isPrivate, uploadedBannerUrl);
+      onComplete(clean, cleanDisplayName, isPrivate, uploadedBannerUrl, uploadedAvatarUrl);
     } catch (err: any) {
       setStatus('taken');
-      setStatusMsg(err.message || 'Failed to set username. Please try another.');
+      setStatusMsg(err.message || 'Failed to update profile. Please try another handle.');
     } finally {
       setIsSubmitting(false);
     }
@@ -164,17 +236,19 @@ export const SelectUsernameModal: React.FC<SelectUsernameModalProps> = ({
 
   if (!isOpen) return null;
 
+  const currentDisplayAvatar = isAvatarSkipped || !avatarPreview ? DEFAULT_AVATAR : avatarPreview;
+
   return (
-    <div className="fixed inset-0 z-[120] bg-black/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl w-full max-w-lg p-6 sm:p-7 shadow-2xl animate-in fade-in zoom-in-95 duration-200 my-auto">
+    <div className="fixed inset-0 z-[120] bg-black/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl w-full max-w-lg p-5 sm:p-7 shadow-2xl animate-in fade-in zoom-in-95 duration-200 my-auto max-h-[92vh] overflow-y-auto">
         <div className="flex items-center gap-3 mb-4">
-          <div className="w-11 h-11 rounded-xl bg-blue-500/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold text-lg">
+          <div className="w-10 h-10 rounded-xl bg-blue-500/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold text-lg">
             <Sparkles className="w-5 h-5" />
           </div>
           <div>
             <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white">Welcome to Yapr</h2>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              Set up your username, cover photo, and privacy preferences
+              Set up your username, display name, photo, and preferences
             </p>
           </div>
         </div>
@@ -225,7 +299,98 @@ export const SelectUsernameModal: React.FC<SelectUsernameModalProps> = ({
             </p>
           </div>
 
-          {/* Cover Picture & Profile Picture Section */}
+          {/* Display Name Input */}
+          <div>
+            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">
+              Display Name
+            </label>
+            <div className="relative">
+              <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 font-medium text-sm">
+                <User className="w-4 h-4" />
+              </span>
+              <input
+                type="text"
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
+                placeholder="e.g. Asad Ullah"
+                maxLength={50}
+                className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm"
+              />
+            </div>
+          </div>
+
+          {/* Profile Picture (DP) Section with Skip */}
+          <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+            <div className="flex items-center justify-between">
+              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                Profile Picture (DP)
+              </label>
+              {!isAvatarSkipped && (
+                <button
+                  type="button"
+                  onClick={handleSkipAvatar}
+                  className="text-xs text-blue-600 dark:text-blue-400 hover:underline font-semibold"
+                >
+                  Skip
+                </button>
+              )}
+            </div>
+
+            <div className="flex items-center gap-4 p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
+              <div className="relative w-16 h-16 rounded-full overflow-hidden border-2 border-white dark:border-slate-700 shadow-sm shrink-0 bg-slate-200 dark:bg-slate-700 flex items-center justify-center">
+                <img
+                  src={currentDisplayAvatar}
+                  alt="Profile Preview"
+                  className="w-full h-full object-cover"
+                />
+              </div>
+
+              <div className="flex-1 min-w-0">
+                {avatarFile && !isAvatarSkipped ? (
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => avatarInputRef.current?.click()}
+                      className="px-3 py-1.5 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-200 text-xs font-semibold rounded-lg transition-colors"
+                    >
+                      Change Photo
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleRemoveAvatar}
+                      className="px-3 py-1.5 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 text-rose-600 dark:text-rose-400 text-xs font-semibold rounded-lg transition-colors"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-1">
+                    <button
+                      type="button"
+                      onClick={() => avatarInputRef.current?.click()}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg transition-colors w-fit"
+                    >
+                      <Camera className="w-3.5 h-3.5" />
+                      Add Profile Photo
+                    </button>
+                    <p className="text-[11px] text-slate-400 dark:text-slate-500">
+                      {isAvatarSkipped ? 'Neutral WhatsApp-style DP active' : 'Click Add Photo or Skip to use default DP'}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <input
+              ref={avatarInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleAvatarSelect}
+            />
+          </div>
+
+          {/* Cover Picture Section with Skip */}
           <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800">
             <div className="flex items-center justify-between">
               <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
@@ -235,16 +400,16 @@ export const SelectUsernameModal: React.FC<SelectUsernameModalProps> = ({
                 <button
                   type="button"
                   onClick={handleSkipCover}
-                  className="text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 font-medium"
+                  className="text-xs text-blue-600 dark:text-blue-400 hover:underline font-semibold"
                 >
-                  Skip for now
+                  Skip
                 </button>
               )}
             </div>
 
             {/* Banner preview or upload prompt */}
-            <div className="relative rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 h-28 flex items-center justify-center group">
-              {coverPreview ? (
+            <div className="relative rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 h-24 flex items-center justify-center group">
+              {coverPreview && !isCoverSkipped ? (
                 <>
                   <img src={coverPreview} alt="Cover Preview" className="w-full h-full object-cover" />
                   <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
@@ -265,53 +430,21 @@ export const SelectUsernameModal: React.FC<SelectUsernameModalProps> = ({
                     </button>
                   </div>
                 </>
-              ) : isCoverSkipped ? (
-                <div className="text-center p-3">
-                  <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Cover photo skipped</p>
+              ) : (
+                <div className="flex flex-col items-center justify-center text-center p-3">
                   <button
                     type="button"
                     onClick={() => bannerInputRef.current?.click()}
-                    className="text-xs text-blue-600 dark:text-blue-400 hover:underline mt-1 font-semibold"
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-slate-700 hover:bg-slate-50 dark:hover:bg-slate-600 border border-slate-200 dark:border-slate-600 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-200 shadow-sm transition-all"
                   >
-                    Add one anyway
+                    <ImageIcon className="w-3.5 h-3.5 text-blue-500" />
+                    <span>Upload Cover Photo</span>
                   </button>
-                </div>
-              ) : (
-                <div className="text-center p-3">
-                  <ImageIcon className="w-6 h-6 mx-auto text-slate-400 mb-1" />
-                  <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-                    Add a personalized cover photo
+                  <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1">
+                    {isCoverSkipped ? 'Cover photo skipped (can add later)' : 'Optional banner photo'}
                   </p>
-                  <div className="flex items-center justify-center gap-2 mt-2">
-                    <button
-                      type="button"
-                      onClick={() => bannerInputRef.current?.click()}
-                      className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg shadow-sm transition-colors"
-                    >
-                      Upload Image
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleSkipCover}
-                      className="px-3 py-1 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 text-xs font-semibold rounded-lg transition-colors"
-                    >
-                      Skip
-                    </button>
-                  </div>
                 </div>
               )}
-
-              {/* WhatsApp-style Neutral Avatar Overlap Preview */}
-              <div className="absolute bottom-2 left-3 flex items-center gap-2 bg-white/90 dark:bg-slate-900/90 backdrop-blur-sm px-2 py-1 rounded-xl shadow-sm border border-slate-200/50 dark:border-slate-700/50">
-                <img
-                  src={DEFAULT_AVATAR}
-                  alt="Default WhatsApp Avatar"
-                  className="w-7 h-7 rounded-full object-cover ring-1 ring-slate-300 dark:ring-slate-600"
-                />
-                <span className="text-[10px] text-slate-600 dark:text-slate-300 font-medium">
-                  Neutral DP applied
-                </span>
-              </div>
             </div>
 
             <input
@@ -374,17 +507,17 @@ export const SelectUsernameModal: React.FC<SelectUsernameModalProps> = ({
           <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
             <div className="flex items-center justify-between p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50">
               <div className="flex items-center gap-2.5">
-                <div className="w-7 h-7 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center">
+                <div className="w-8 h-8 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
                   <Bell className="w-4 h-4" />
                 </div>
                 <div>
-                  <p className="text-xs font-bold text-slate-900 dark:text-white">Allow Notifications</p>
+                  <p className="text-xs font-bold text-slate-900 dark:text-white">Allow Push Notifications</p>
                   <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-snug">
-                    Get instant alerts when someone yaps, mentions or replies
+                    Receive instant alerts when someone likes, replies, or mentions you
                   </p>
                 </div>
               </div>
-              <label className="relative inline-flex items-center cursor-pointer shrink-0">
+              <label className="relative inline-flex items-center cursor-pointer shrink-0 ml-2">
                 <input
                   type="checkbox"
                   checked={allowNotifications}
@@ -405,7 +538,7 @@ export const SelectUsernameModal: React.FC<SelectUsernameModalProps> = ({
               status === 'invalid' ||
               status === 'checking'
             }
-            className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold rounded-xl shadow-lg shadow-blue-500/25 transition-all flex items-center justify-center gap-2 text-xs sm:text-sm mt-2"
+            className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold rounded-xl shadow-lg shadow-blue-500/25 transition-all flex items-center justify-center gap-2 text-xs sm:text-sm mt-3"
           >
             {isSubmitting ? (
               <>

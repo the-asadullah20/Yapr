@@ -84,6 +84,16 @@ export class SocialService {
     if (!yap) throw new Error('Yap not found');
     yap.is_liked = !yap.is_liked;
     yap.like_count = Math.max(0, yap.like_count + (yap.is_liked ? 1 : -1));
+
+    if (yap.is_liked && yap.author_id && yap.author_id !== userId) {
+      notificationsService.createNotification({
+        userId: yap.author_id,
+        type: 'like',
+        actorId: userId,
+        yapId,
+      }).catch((err) => console.error('Error creating mock like notification:', err));
+    }
+
     return { liked: yap.is_liked, likeCount: yap.like_count };
   }
 
@@ -135,6 +145,15 @@ export class SocialService {
       userSet.add(yapId);
       yap.is_reyapped = true;
       yap.reyap_count = (yap.reyap_count || 0) + 1;
+
+      if (yap.author_id && yap.author_id !== userId) {
+        notificationsService.createNotification({
+          userId: yap.author_id,
+          type: 'reyap',
+          actorId: userId,
+          yapId,
+        }).catch((err) => console.error('Error creating mock reyap notification:', err));
+      }
     }
     return { reyapped: !isCurrentlyReyapped, reyapCount: yap.reyap_count };
   }

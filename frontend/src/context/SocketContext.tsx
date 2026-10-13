@@ -55,6 +55,19 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       s.on('notification:new', (notif: NotificationItem) => {
         setLatestNotification(notif);
         setUnreadCount((prev) => prev + 1);
+
+        // If browser notification permission is granted, show OS notification popup
+        if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+          try {
+            new Notification('Yapr', {
+              body: notif.formatted_text || 'You have a new notification on Yapr',
+              icon: notif.actors?.[0]?.avatar_url || '/logo.png',
+              tag: notif.id,
+            });
+          } catch {
+            // Notification display error or blocked by OS
+          }
+        }
       });
 
       setSocket(s);

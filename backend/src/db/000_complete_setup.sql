@@ -23,13 +23,15 @@ CREATE TABLE IF NOT EXISTS public.profiles (
     is_verified BOOLEAN NOT NULL DEFAULT false,
     is_deactivated BOOLEAN NOT NULL DEFAULT false,
     deactivated_until TIMESTAMPTZ DEFAULT NULL,
+    onboarding_completed BOOLEAN NOT NULL DEFAULT false,
     created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc', now()),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc', now())
 );
 
--- Ensure is_deactivated and deactivated_until columns exist on existing tables (safe migration)
+-- Ensure is_deactivated, deactivated_until, and onboarding_completed columns exist on existing tables (safe migration)
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS is_deactivated BOOLEAN NOT NULL DEFAULT false;
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS deactivated_until TIMESTAMPTZ DEFAULT NULL;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS onboarding_completed BOOLEAN NOT NULL DEFAULT false;
 
 -- Unique index on case-insensitive username
 CREATE UNIQUE INDEX IF NOT EXISTS idx_profiles_lower_username ON public.profiles (lower(username));
