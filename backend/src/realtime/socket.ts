@@ -44,7 +44,7 @@ export function setupSocketIO(server: HttpServer): Server {
       userSocketMap.get(userId)!.add(socket.id);
       // Join private user room for targeted notifications
       socket.join(`user:${userId}`);
-      console.log(`🔌 [Socket.io] User connected: ${userId} (socket: ${socket.id})`);
+      console.log(`[Socket.io] User connected: ${userId} (socket: ${socket.id})`);
     }
 
     // Join public feed room

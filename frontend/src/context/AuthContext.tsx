@@ -3,6 +3,7 @@ import { UserProfile } from '../types';
 import { api } from '../api/apiClient';
 import { syncPushIfGranted, unsubscribeFromPush } from '../utils/pushNotifications';
 import { SelectUsernameModal } from '../components/auth/SelectUsernameModal';
+import { DEFAULT_AVATAR } from '../utils/avatar';
 
 interface AuthContextType {
   user: UserProfile | null;
@@ -143,7 +144,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             avatar_url:
               payload.user_metadata?.avatar_url ||
               payload.user_metadata?.picture ||
-              `https://api.dicebear.com/7.x/bottts/svg?seed=${username}`,
+              DEFAULT_AVATAR,
             country_code: 'PK',
             follower_count: 0,
             following_count: 0,
@@ -225,8 +226,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           isOpen={needsUsernameModal}
           initialUsername={user.username}
           initialIsPrivate={!!user.is_private}
-          onComplete={(chosen, isPrivate) => {
-            setUser((prev) => (prev ? { ...prev, username: chosen, is_private: isPrivate } : null));
+          onComplete={(chosen, isPrivate, bannerUrl) => {
+            setUser((prev) =>
+              prev
+                ? {
+                    ...prev,
+                    username: chosen,
+                    is_private: isPrivate,
+                    ...(bannerUrl ? { banner_url: bannerUrl } : {}),
+                  }
+                : null
+            );
             setNeedsUsernameModal(false);
           }}
         />

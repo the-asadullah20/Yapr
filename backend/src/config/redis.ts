@@ -140,9 +140,9 @@ if (env.UPSTASH_REDIS_REST_URL && env.UPSTASH_REDIS_REST_TOKEN) {
       token: env.UPSTASH_REDIS_REST_TOKEN,
     });
     cacheClient = new UpstashWrapper(upstash);
-    console.log('✅ Connected to Upstash Redis (REST)');
+    console.log('[Redis] Connected to Upstash Redis (REST)');
   } catch (err) {
-    console.warn('⚠️ Upstash init failed, falling back to Memory cache:', err);
+    console.warn('[Redis] Upstash init failed, falling back to Memory cache:', err);
     cacheClient = new MemoryCacheClient();
   }
 } else if (env.REDIS_URL && !env.REDIS_URL.includes('localhost')) {
@@ -173,12 +173,12 @@ if (env.UPSTASH_REDIS_REST_URL && env.UPSTASH_REDIS_REST_TOKEN) {
         return list;
       },
     };
-    console.log('✅ Connected to standard Redis');
+    console.log('[Redis] Connected to standard Redis');
   } catch {
     cacheClient = new MemoryCacheClient();
   }
 } else {
-  console.log('ℹ️ Redis not configured or using local in-memory cache.');
+  console.log('[Redis] Redis not configured or using local in-memory cache.');
   cacheClient = new MemoryCacheClient();
 }
 

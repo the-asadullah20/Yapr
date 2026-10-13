@@ -31,27 +31,27 @@ class QueueService {
       this.connection = (await Promise.race([connectPromise, timeoutPromise])) as any;
       
       this.connection.on('error', (err: any) => {
-        console.warn('⚠️ LavinMQ connection error:', err?.message || err);
+        console.warn('[LavinMQ] Connection error:', err?.message || err);
         this.isConnected = false;
       });
 
       this.connection.on('close', () => {
-        console.warn('⚠️ LavinMQ connection closed, fallback active.');
+        console.warn('[LavinMQ] Connection closed, fallback active.');
         this.isConnected = false;
       });
 
       this.channel = await this.connection.createChannel();
 
       this.channel.on('error', (err: any) => {
-        console.warn('⚠️ LavinMQ channel error:', err?.message || err);
+        console.warn('[LavinMQ] Channel error:', err?.message || err);
       });
 
       this.channel.on('close', () => {
-        console.warn('⚠️ LavinMQ channel closed.');
+        console.warn('[LavinMQ] Channel closed.');
       });
 
       this.isConnected = true;
-      console.log('✅ Connected to LavinMQ / AMQP');
+      console.log('[LavinMQ] Connected to LavinMQ / AMQP');
 
       // Setup Dead-Letter Exchange (DLX)
       await this.channel.assertExchange('yapr.dlx', 'direct', { durable: true });
@@ -60,7 +60,7 @@ class QueueService {
 
       return true;
     } catch (err) {
-      console.warn('⚠️ LavinMQ connection failed, operating with in-memory background worker runner:', (err as any).message);
+      console.warn('[LavinMQ] Connection failed, operating with in-memory background worker runner:', (err as any).message);
       this.isConnected = false;
       return false;
     }

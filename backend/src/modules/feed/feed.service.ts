@@ -1,6 +1,7 @@
 import { supabaseAdmin, isSupabaseConfigured } from '../../config/supabase.js';
 import { cacheClient } from '../../config/redis.js';
 import { mockYaps } from '../yaps/yaps.service.js';
+import { DEFAULT_AVATAR } from '../../utils/avatar.js';
 
 export interface FeedSliderOptions {
   followingWeight?: number; // e.g. 1.0 - 5.0 (Default 1.5)
@@ -67,7 +68,7 @@ export class FeedService {
             id: row.author_id,
             username: row.username || 'yapr',
             display_name: row.display_name || row.username || 'Yapr User',
-            avatar_url: row.avatar_url || `https://api.dicebear.com/7.x/bottts/svg?seed=${row.username || row.author_id || 'yapr'}`,
+            avatar_url: row.avatar_url || DEFAULT_AVATAR,
             country_code: row.author_country || 'PK',
             is_verified: row.is_verified || false,
           },

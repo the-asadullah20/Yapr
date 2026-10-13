@@ -14,6 +14,7 @@ import {
   LogIn,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { getAvatarUrl } from '../../utils/avatar';
 import { useSocket } from '../../context/SocketContext';
 import { useTheme } from '../../context/ThemeContext';
 
@@ -86,7 +87,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               onClick={() => setActiveTab('profile')}
             >
               <img
-                src={user.avatar_url || `https://api.dicebear.com/7.x/bottts/svg?seed=${user.username}`}
+                src={getAvatarUrl(user.avatar_url)}
                 alt={user.display_name}
                 className="w-9 h-9 rounded-full object-cover ring-2 ring-blue-500/20 flex-shrink-0"
               />

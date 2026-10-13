@@ -4,6 +4,7 @@ import { cacheClient } from '../../config/redis.js';
 import { env } from '../../config/env.js';
 import { mockYaps } from '../yaps/yaps.service.js';
 import { notificationsService } from '../notifications/notifications.service.js';
+import { DEFAULT_AVATAR } from '../../utils/avatar.js';
 
 export const mockUserReyaps = new Map<string, Set<string>>();
 export const mockFollowRequests = new Map<string, Set<string>>();
@@ -293,9 +294,7 @@ export class SocialService {
               ...(item.requester || {}),
               request_id: item.id,
               requested_at: item.created_at,
-              avatar_url:
-                item.requester?.avatar_url ||
-                `https://api.dicebear.com/7.x/bottts/svg?seed=${item.requester?.username || item.requester_id}`,
+              avatar_url: item.requester?.avatar_url || DEFAULT_AVATAR,
             }))
             .filter((p: any) => !!p.id);
         }
@@ -315,8 +314,7 @@ export class SocialService {
               ...p,
               request_id: `req_${p.id}`,
               requested_at: new Date().toISOString(),
-              avatar_url:
-                p.avatar_url || `https://api.dicebear.com/7.x/bottts/svg?seed=${p.username || p.id}`,
+              avatar_url: p.avatar_url || DEFAULT_AVATAR,
             }));
           }
         } catch {}
@@ -328,7 +326,7 @@ export class SocialService {
       id: requesterId,
       username: requesterId,
       display_name: requesterId,
-      avatar_url: `https://api.dicebear.com/7.x/bottts/svg?seed=${requesterId}`,
+      avatar_url: DEFAULT_AVATAR,
       country_code: 'PK',
     }));
   }
@@ -535,9 +533,7 @@ export class SocialService {
           .map((d: any) => ({
             ...d.profile,
             blocked_at: d.created_at,
-            avatar_url:
-              d.profile?.avatar_url ||
-              `https://api.dicebear.com/7.x/bottts/svg?seed=${d.profile?.username || d.blocked_id}`,
+            avatar_url: d.profile?.avatar_url || DEFAULT_AVATAR,
           }))
           .filter((p: any) => !!p.id);
       }
@@ -597,7 +593,7 @@ export class SocialService {
         return data.map((d: any) => ({
           ...d.profile,
           liked_at: d.created_at,
-          avatar_url: d.profile?.avatar_url || `https://api.dicebear.com/7.x/bottts/svg?seed=${d.profile?.username || d.user_id}`,
+          avatar_url: d.profile?.avatar_url || DEFAULT_AVATAR,
         })).filter((p: any) => !!p.id);
       }
     }

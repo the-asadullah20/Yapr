@@ -4,6 +4,7 @@ import { COUNTRIES, getCountryByCode } from '../../utils/countries.js';
 import { mockYaps } from '../yaps/yaps.service.js';
 import { mockUserReyaps, socialService } from '../social/social.service.js';
 import { cacheClient } from '../../config/redis.js';
+import { DEFAULT_AVATAR } from '../../utils/avatar.js';
 
 // In-memory mock profiles for dev/fallback
 export const mockProfiles = new Map<string, any>([
@@ -13,7 +14,7 @@ export const mockProfiles = new Map<string, any>([
       id: 'a1111111-1111-1111-1111-111111111111',
       username: 'asadahmad',
       display_name: 'Asad Ahmad',
-      bio: 'Building Yapr 🚀 | Full Stack Engineer & System Designer',
+      bio: 'Building Yapr | Full Stack Engineer & System Designer',
       avatar_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
       banner_url: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=1200',
       country_code: 'PK',
@@ -28,7 +29,7 @@ export const mockProfiles = new Map<string, any>([
       id: 'b2222222-2222-2222-2222-222222222222',
       username: 'panfengshui',
       display_name: 'Pan Feng Shui',
-      bio: 'Work hard, travel harder. Sharing knowledge with colleagues worldwide 🌏',
+      bio: 'Work hard, travel harder. Sharing knowledge with colleagues worldwide.',
       avatar_url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150',
       banner_url: '',
       country_code: 'SG',
@@ -43,7 +44,7 @@ export const mockProfiles = new Map<string, any>([
       id: 'c3333333-3333-3333-3333-333333333333',
       username: 'clarakim',
       display_name: 'Clara Kim',
-      bio: 'Fitness enthusiast, UX designer & AI researcher 💡',
+      bio: 'Fitness enthusiast, UX designer & AI researcher.',
       avatar_url: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150',
       banner_url: '',
       country_code: 'US',
@@ -183,7 +184,7 @@ export class ProfilesService {
             id: data.id,
             username: data.username,
             display_name: 'Deactivated Account',
-            avatar_url: `https://api.dicebear.com/7.x/bottts/svg?seed=deactivated`,
+            avatar_url: DEFAULT_AVATAR,
             banner_url: null,
             bio: 'This account has been deactivated.',
             is_deactivated: true,
@@ -219,11 +220,11 @@ export class ProfilesService {
         if (whoCanSeeDp === 'followers' && viewerId !== data.id) {
           if (!isFollowing) {
             avatarHidden = true;
-            avatarUrl = `https://api.dicebear.com/7.x/bottts/svg?seed=private_${data.username}`;
+            avatarUrl = DEFAULT_AVATAR;
           }
         } else if (!viewerId && whoCanSeeDp === 'followers') {
           avatarHidden = true;
-          avatarUrl = `https://api.dicebear.com/7.x/bottts/svg?seed=private_${data.username}`;
+          avatarUrl = DEFAULT_AVATAR;
         }
 
         const socialLinks = await this.getSocialLinks(data.id);
@@ -268,7 +269,7 @@ export class ProfilesService {
             id: p.id,
             username: p.username,
             display_name: 'Deactivated Account',
-            avatar_url: `https://api.dicebear.com/7.x/bottts/svg?seed=deactivated`,
+            avatar_url: DEFAULT_AVATAR,
             banner_url: null,
             bio: 'This account has been deactivated.',
             is_deactivated: true,
@@ -287,7 +288,7 @@ export class ProfilesService {
         let avatarHidden = false;
         if (privacy.who_can_see_dp === 'followers' && viewerId !== p.id) {
           avatarHidden = true;
-          avatarUrl = `https://api.dicebear.com/7.x/bottts/svg?seed=private_${p.username}`;
+          avatarUrl = DEFAULT_AVATAR;
         }
 
         const socialLinks = await this.getSocialLinks(p.id);
@@ -409,30 +410,43 @@ export class ProfilesService {
     }
 
     if (isSupabaseConfigured) {
-      // 1. Fetch user's own authored yaps
-      const { data: ownYaps, error: ownErr } = await supabaseAdmin
-        .from('yaps')
-        .select('*, author:profiles!author_id(*)')
-        .eq('author_id', profile.id)
-        .is('parent_id', null)
-        .is('deleted_at', null)
-        .order('created_at', { ascending: false });
+      try {
+        // 1. Fetch user's own authored yaps
+        let { data: ownYaps, error: ownErr } = await supabaseAdmin
+          .from('yaps')
+          .select('*, author:profiles!author_id(*)')
+          .eq('author_id', profile.id)
+          .is('parent_id', null)
+          .is('deleted_at', null)
+          .order('created_at', { ascending: false });
 
-      // 2. Fetch yaps reyapped by this user
-      const { data: reyapRecords, error: reyapErr } = await supabaseAdmin
-        .from('reyaps')
-        .select(`
-          created_at,
-          yap:yaps!yap_id(
-            *,
-            author:profiles!author_id(*)
-          )
-        `)
-        .eq('user_id', profile.id)
-        .order('created_at', { ascending: false });
+        if (ownErr || !ownYaps) {
+          const { data: rawOwn } = await supabaseAdmin
+            .from('yaps')
+            .select('*')
+            .eq('author_id', profile.id)
+            .is('parent_id', null)
+            .is('deleted_at', null)
+            .order('created_at', { ascending: false });
+          ownYaps = rawOwn || [];
+        }
 
-      const mappedReyaps: any[] = [];
-        for (const item of (reyapRecords as any[])) {
+        // 2. Fetch yaps reyapped by this user
+        const { data: reyapRecords } = await supabaseAdmin
+          .from('reyaps')
+          .select(`
+            created_at,
+            yap:yaps!yap_id(
+              *,
+              author:profiles!author_id(*)
+            )
+          `)
+          .eq('user_id', profile.id)
+          .order('created_at', { ascending: false });
+
+        const mappedReyaps: any[] = [];
+        const safeReyaps = Array.isArray(reyapRecords) ? reyapRecords : [];
+        for (const item of safeReyaps) {
           const yapData: any = Array.isArray(item.yap) ? item.yap[0] : item.yap;
           if (yapData && !yapData.deleted_at) {
             mappedReyaps.push({
@@ -448,58 +462,83 @@ export class ProfilesService {
           }
         }
 
-      const mappedOwn = (ownYaps || []).map((y: any) => ({
-        ...y,
-        activity_at: y.created_at,
-      }));
-
-      // Combine both lists (avoiding duplicates if user reyapped their own yap)
-      const combinedMap = new Map<string, any>();
-      for (const y of mappedOwn) {
-        combinedMap.set(y.id, y);
-      }
-      for (const ry of mappedReyaps) {
-        if (!combinedMap.has(ry.id)) {
-          combinedMap.set(ry.id, ry);
-        } else {
-          const existing = combinedMap.get(ry.id);
-          combinedMap.set(ry.id, { ...existing, is_reyap: true, reyapped_by: ry.reyapped_by });
-        }
-      }
-
-      let mergedYaps = Array.from(combinedMap.values()).sort(
-        (a, b) => new Date(b.activity_at || b.created_at).getTime() - new Date(a.activity_at || a.created_at).getTime()
-      );
-
-      // Hydrate viewer like/reyap/bookmark status if viewerId is present
-      if (viewerId && mergedYaps.length > 0) {
-        const yapIds = mergedYaps.map((y) => y.id);
-        const [{ data: userLikes }, { data: userReyaps }, { data: userBookmarks }] = await Promise.all([
-          supabaseAdmin.from('likes').select('yap_id').eq('user_id', viewerId).in('yap_id', yapIds),
-          supabaseAdmin.from('reyaps').select('yap_id').eq('user_id', viewerId).in('yap_id', yapIds),
-          supabaseAdmin.from('bookmarks').select('yap_id').eq('user_id', viewerId).in('yap_id', yapIds),
-        ]);
-
-        const likedSet = new Set((userLikes || []).map((l: any) => l.yap_id));
-        const reyappedSet = new Set((userReyaps || []).map((r: any) => r.yap_id));
-        const bookmarkedSet = new Set((userBookmarks || []).map((b: any) => b.yap_id));
-
-        mergedYaps = mergedYaps.map((y) => ({
+        const mappedOwn = (ownYaps || []).map((y: any) => ({
           ...y,
-          is_liked: likedSet.has(y.id),
-          is_reyapped: reyappedSet.has(y.id),
-          is_bookmarked: bookmarkedSet.has(y.id),
+          author: y.author || {
+            id: profile.id,
+            username: profile.username,
+            display_name: profile.display_name,
+            avatar_url: profile.avatar_url,
+            is_verified: profile.is_verified,
+          },
+          activity_at: y.created_at,
         }));
-      }
 
-      return { is_private: false, yaps: mergedYaps };
+        // Combine both lists (avoiding duplicates if user reyapped their own yap)
+        const combinedMap = new Map<string, any>();
+        for (const y of mappedOwn) {
+          combinedMap.set(y.id, y);
+        }
+        for (const ry of mappedReyaps) {
+          if (!combinedMap.has(ry.id)) {
+            combinedMap.set(ry.id, ry);
+          } else {
+            const existing = combinedMap.get(ry.id);
+            combinedMap.set(ry.id, { ...existing, is_reyap: true, reyapped_by: ry.reyapped_by });
+          }
+        }
+
+        let mergedYaps = Array.from(combinedMap.values()).sort(
+          (a, b) => new Date(b.activity_at || b.created_at).getTime() - new Date(a.activity_at || a.created_at).getTime()
+        );
+
+        // Hydrate viewer like/reyap/bookmark status if viewerId is present
+        if (viewerId && mergedYaps.length > 0) {
+          const yapIds = mergedYaps.map((y) => y.id);
+          const [{ data: userLikes }, { data: userReyaps }, { data: userBookmarks }] = await Promise.all([
+            supabaseAdmin.from('likes').select('yap_id').eq('user_id', viewerId).in('yap_id', yapIds),
+            supabaseAdmin.from('reyaps').select('yap_id').eq('user_id', viewerId).in('yap_id', yapIds),
+            supabaseAdmin.from('bookmarks').select('yap_id').eq('user_id', viewerId).in('yap_id', yapIds),
+          ]);
+
+          const likedSet = new Set((userLikes || []).map((l: any) => l.yap_id));
+          const reyappedSet = new Set((userReyaps || []).map((r: any) => r.yap_id));
+          const bookmarkedSet = new Set((userBookmarks || []).map((b: any) => b.yap_id));
+
+          mergedYaps = mergedYaps.map((y) => ({
+            ...y,
+            is_liked: likedSet.has(y.id),
+            is_reyapped: reyappedSet.has(y.id),
+            is_bookmarked: bookmarkedSet.has(y.id),
+          }));
+        }
+
+        return { is_private: false, yaps: mergedYaps };
+      } catch (err) {
+        console.warn('Supabase getUserYaps query error, falling back to mock:', err);
+      }
     }
 
     // Fallback in-memory mock mode
     const userSet = mockUserReyaps.get(profile.id) || new Set<string>();
     const ownYaps = mockYaps
-      .filter((y) => (y.author_id === profile.id || y.author?.username?.toLowerCase() === profile.username?.toLowerCase()) && !y.parent_id)
-      .map((y) => ({ ...y, activity_at: y.created_at }));
+      .filter((y) => {
+        const matchId = y.author_id === profile.id || y.author?.id === profile.id;
+        const matchUname = y.author?.username && profile.username &&
+          y.author.username.toLowerCase() === profile.username.toLowerCase();
+        return (matchId || matchUname) && !y.parent_id;
+      })
+      .map((y) => ({
+        ...y,
+        author: y.author || {
+          id: profile.id,
+          username: profile.username,
+          display_name: profile.display_name,
+          avatar_url: profile.avatar_url,
+          is_verified: profile.is_verified,
+        },
+        activity_at: y.created_at,
+      }));
 
     const reyappedYaps = mockYaps
       .filter((y) => userSet.has(y.id))
@@ -651,7 +690,7 @@ export class ProfilesService {
         // DP privacy check: mask avatar if viewer is not a follower
         let avatarUrl = candidate.avatar_url;
         if (privacy.who_can_see_dp === 'followers' && !isFollower) {
-          avatarUrl = `https://api.dicebear.com/7.x/bottts/svg?seed=private_${candidate.username}`;
+          avatarUrl = DEFAULT_AVATAR;
         }
 
         filtered.push({

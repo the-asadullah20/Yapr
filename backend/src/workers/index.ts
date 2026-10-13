@@ -4,14 +4,14 @@ import { registerNotificationWorker } from './notification.worker.js';
 import { registerSummaryWorker } from './summary.worker.js';
 
 export async function initWorkers(): Promise<void> {
-  console.log('👷 Initializing Yapr Async Workers...');
+  console.log('[Workers] Initializing Yapr Async Workers...');
   await queueService.connect();
 
   registerEmailWorker();
   registerNotificationWorker();
   registerSummaryWorker();
 
-  console.log('✅ All workers listening for queue jobs');
+  console.log('[Workers] All workers listening for queue jobs');
 }
 
 // If executed directly: npm run worker

@@ -6,6 +6,7 @@ import { queueService } from '../../config/queue.js';
 import { supabaseAdmin, isSupabaseConfigured, supabaseAnon } from '../../config/supabase.js';
 import { usernameBloomFilter } from '../../utils/bloomFilter.js';
 import { mockProfiles } from '../profiles/profiles.service.js';
+import { DEFAULT_AVATAR } from '../../utils/avatar.js';
 const registeredUsers = new Map<string, { email: string; passwordHash: string; userId: string; username: string }>();
 
 // Preload test admin/demo credentials: asad@yapr.app / password123
@@ -56,7 +57,7 @@ export class AuthService {
       },
     });
 
-    console.log(`🔑 [Yapr OTP] Generated code for ${cleanEmail}: ${otp}`);
+    console.log(`[Yapr OTP] Generated code for ${cleanEmail}: ${otp}`);
 
     return {
       success: true,
@@ -124,11 +125,12 @@ export class AuthService {
         id: userId,
         username: existing?.username || cleanEmail.split('@')[0].replace(/[^a-zA-Z0-9_]/g, ''),
         display_name: cleanEmail.split('@')[0],
-        avatar_url: `https://api.dicebear.com/7.x/bottts/svg?seed=${cleanEmail}`,
+        avatar_url: DEFAULT_AVATAR,
         country_code: 'PK',
         follower_count: 0,
         following_count: 0,
       };
+      mockProfiles.set(userId, profile);
     }
 
     const token = jwt.sign(
@@ -190,7 +192,7 @@ export class AuthService {
           username: cleanUsername,
           display_name: params.displayName || cleanUsername,
           country_code: params.countryCode || 'PK',
-          avatar_url: `https://api.dicebear.com/7.x/bottts/svg?seed=${cleanUsername}`,
+          avatar_url: DEFAULT_AVATAR,
         });
         const { data: p } = await supabaseAdmin.from('profiles').select('*').eq('id', userId).single();
         profile = p;
@@ -212,7 +214,7 @@ export class AuthService {
           username: cleanUsername,
           display_name: params.displayName || cleanUsername,
           country_code: params.countryCode || 'PK',
-          avatar_url: `https://api.dicebear.com/7.x/bottts/svg?seed=${cleanUsername}`,
+          avatar_url: DEFAULT_AVATAR,
         });
         const { data: p } = await supabaseAdmin.from('profiles').select('*').eq('id', userId).single();
         profile = p;
@@ -232,11 +234,12 @@ export class AuthService {
         id: userId,
         username: cleanUsername,
         display_name: params.displayName || cleanUsername,
-        avatar_url: `https://api.dicebear.com/7.x/bottts/svg?seed=${cleanUsername}`,
+        avatar_url: DEFAULT_AVATAR,
         country_code: params.countryCode || 'PK',
         follower_count: 0,
         following_count: 0,
       };
+      mockProfiles.set(userId, profile);
     }
 
     // Add username to Bloom Filter
@@ -323,11 +326,12 @@ export class AuthService {
         id: userId,
         username: record.username,
         display_name: record.username,
-        avatar_url: `https://api.dicebear.com/7.x/bottts/svg?seed=${record.username}`,
+        avatar_url: DEFAULT_AVATAR,
         country_code: 'PK',
         follower_count: 0,
         following_count: 0,
       };
+      mockProfiles.set(userId, profile);
     }
 
     // Clear deactivation cache
@@ -370,7 +374,7 @@ export class AuthService {
       },
     });
 
-    console.log(`🔑 [Yapr Reset OTP] Generated code for ${cleanEmail}: ${resetOtp}`);
+    console.log(`[Yapr Reset OTP] Generated code for ${cleanEmail}: ${resetOtp}`);
 
     return {
       message: 'Password reset code has been sent to your email.',
@@ -523,7 +527,7 @@ export class AuthService {
           email: record.email,
           username: record.username,
           display_name: record.username,
-          avatar_url: `https://api.dicebear.com/7.x/bottts/svg?seed=${record.username}`,
+          avatar_url: DEFAULT_AVATAR,
           country_code: 'PK',
           follower_count: 0,
           following_count: 0,
@@ -537,7 +541,7 @@ export class AuthService {
       email: cleanEmail,
       username: cleanEmail ? cleanEmail.split('@')[0] : 'yapr',
       display_name: cleanEmail ? cleanEmail.split('@')[0] : 'Yapr User',
-      avatar_url: `https://api.dicebear.com/7.x/bottts/svg?seed=${userId}`,
+      avatar_url: DEFAULT_AVATAR,
       country_code: 'PK',
       follower_count: 0,
       following_count: 0,
@@ -584,7 +588,7 @@ export class AuthService {
           .replace(/[^a-zA-Z0-9_]/g, '')
           .slice(0, 20) || `user_${userId.slice(0, 6)}`;
         const displayName = rawMetadata?.full_name || rawMetadata?.name || cleanEmail.split('@')[0] || 'Yapr User';
-        const avatarUrl = rawMetadata?.avatar_url || rawMetadata?.picture || `https://api.dicebear.com/7.x/bottts/svg?seed=${baseUsername}`;
+        const avatarUrl = rawMetadata?.avatar_url || rawMetadata?.picture || DEFAULT_AVATAR;
 
         await supabaseAdmin.from('profiles').upsert({
           id: userId,
@@ -610,12 +614,13 @@ export class AuthService {
     // Dev mock fallback
     const existing = registeredUsers.get(cleanEmail);
     if (existing) {
+      const mockP = mockProfiles.get(userId);
       return {
         id: userId,
         email: cleanEmail,
         username: existing.username,
         display_name: existing.username,
-        avatar_url: `https://api.dicebear.com/7.x/bottts/svg?seed=${existing.username}`,
+        avatar_url: mockP?.avatar_url || DEFAULT_AVATAR,
         country_code: 'PK',
         follower_count: 0,
         following_count: 0,
@@ -624,17 +629,19 @@ export class AuthService {
     }
 
     const baseUsername = cleanEmail.split('@')[0].replace(/[^a-zA-Z0-9_]/g, '') || `user_${userId.slice(0, 6)}`;
-    return {
+    const mockCreated = {
       id: userId,
       email: cleanEmail,
       username: baseUsername,
       display_name: rawMetadata?.full_name || cleanEmail.split('@')[0] || 'Yapr User',
-      avatar_url: rawMetadata?.avatar_url || rawMetadata?.picture || `https://api.dicebear.com/7.x/bottts/svg?seed=${baseUsername}`,
+      avatar_url: rawMetadata?.avatar_url || rawMetadata?.picture || DEFAULT_AVATAR,
       country_code: 'PK',
       follower_count: 0,
       following_count: 0,
       is_new_user: true,
     };
+    mockProfiles.set(userId, mockCreated);
+    return mockCreated;
   }
 
   /**

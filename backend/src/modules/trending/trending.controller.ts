@@ -6,7 +6,7 @@ export class TrendingController {
     try {
       const country = (req.query.country as string) || 'PK';
       const timeframe = (req.query.timeframe as '1h' | '24h') || '24h';
-      const limit = parseInt(req.query.limit as string || '10', 10);
+      const limit = parseInt(req.query.limit as string || '5', 10);
 
       const topics = await trendingService.getTrending(country, timeframe, limit);
       res.json({ topics, timeframe, country });

@@ -55,7 +55,7 @@ export const RightWidgetSidebar: React.FC<RightWidgetSidebarProps> = ({
           <p className="text-xs text-slate-400 dark:text-slate-500 py-3 text-center">No trending topics yet</p>
         ) : (
           <div className="space-y-2">
-            {topics.map((t, index) => (
+            {topics.slice(0, 5).map((t, index) => (
               <div
                 key={t.tag}
                 onClick={() => onSelectHashtag(t.tag)}

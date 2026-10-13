@@ -45,7 +45,7 @@ Respond with ONLY the plain-text summary sentence, no quotes, no TL;DR prefix.`;
         return { summary: sanitizeSummary(text), provider: 'gemini' };
       }
     } catch (err: any) {
-      console.warn('⚠️ Gemini summary error:', err.message);
+      console.warn('[AI] Gemini summary error:', err.message);
     }
   }
 
@@ -63,7 +63,7 @@ Respond with ONLY the plain-text summary sentence, no quotes, no TL;DR prefix.`;
         return { summary: sanitizeSummary(text), provider: 'groq' };
       }
     } catch (err: any) {
-      console.warn('⚠️ Groq summary error:', err.message);
+      console.warn('[AI] Groq summary error:', err.message);
     }
   }
 
@@ -100,7 +100,7 @@ Respond with ONLY the plain translated text without any HTML or markdown markup.
         return { translation: sanitizeTranslation(resultText), targetLanguage, provider: 'gemini' };
       }
     } catch (err: any) {
-      console.warn('⚠️ Gemini translate error:', err.message);
+      console.warn('[AI] Gemini translate error:', err.message);
     }
   }
 
@@ -118,7 +118,7 @@ Respond with ONLY the plain translated text without any HTML or markdown markup.
         return { translation: sanitizeTranslation(resultText), targetLanguage, provider: 'groq' };
       }
     } catch (err: any) {
-      console.warn('⚠️ Groq translate error:', err.message);
+      console.warn('[AI] Groq translate error:', err.message);
     }
   }
 
@@ -155,7 +155,7 @@ Respond in JSON format: {"polished": "improved text here with #hashtags", "hasht
         }
       }
     } catch (err: any) {
-      console.warn('⚠️ Gemini polish error:', err.message);
+      console.warn('[AI] Gemini polish error:', err.message);
     }
   }
 
@@ -177,14 +177,14 @@ Respond in JSON format: {"polished": "improved text here with #hashtags", "hasht
         };
       }
     } catch (err: any) {
-      console.warn('⚠️ Groq polish error:', err.message);
+      console.warn('[AI] Groq polish error:', err.message);
     }
   }
 
   // 3. Smart local heuristic polish fallback
   const trimmed = text.trim();
   const capitalized = trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
-  const withPunctuation = /[.!?]$/.test(capitalized) ? capitalized : `${capitalized} ✨`;
+  const withPunctuation = /[.!?]$/.test(capitalized) ? capitalized : `${capitalized}.`;
   const polishedWithTags = withPunctuation.includes('#') ? withPunctuation : `${withPunctuation} #Yapr #Trending`;
 
   return {

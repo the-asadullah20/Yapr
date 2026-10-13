@@ -2,6 +2,7 @@ import { supabaseAdmin, isSupabaseConfigured } from '../../config/supabase.js';
 import { emitToUser } from '../../realtime/socket.js';
 import { cacheClient } from '../../config/redis.js';
 import { webPushService } from './webpush.service.js';
+import { DEFAULT_AVATAR } from '../../utils/avatar.js';
 
 export interface NotificationItem {
   id: string;
@@ -139,7 +140,7 @@ export class NotificationsService {
           (profiles || []).forEach((p: any) => {
             profileMap.set(p.id, {
               ...p,
-              avatar_url: p.avatar_url || `https://api.dicebear.com/7.x/bottts/svg?seed=${p.username || p.id}`,
+              avatar_url: p.avatar_url || DEFAULT_AVATAR,
             });
           });
         }
@@ -152,7 +153,7 @@ export class NotificationsService {
                 id,
                 username: 'yapr',
                 display_name: 'A user',
-                avatar_url: `https://api.dicebear.com/7.x/bottts/svg?seed=${id}`,
+                avatar_url: DEFAULT_AVATAR,
               }
           );
           return {
@@ -202,7 +203,7 @@ export class NotificationsService {
     try {
       const alreadySent = await cacheClient.get(dedupKey);
       if (alreadySent) {
-        console.log(`⚡ [Notification Service] Deduplicated duplicate notification: ${dedupKey}`);
+        console.log(`[Notification Service] Deduplicated duplicate notification: ${dedupKey}`);
         return;
       }
       await cacheClient.set(dedupKey, '1', 10);
@@ -224,7 +225,7 @@ export class NotificationsService {
       id: actorId,
       username: 'yapr',
       display_name: 'Someone',
-      avatar_url: `https://api.dicebear.com/7.x/bottts/svg?seed=${actorId}`,
+      avatar_url: DEFAULT_AVATAR,
     };
 
     const notifItem: NotificationItem = {

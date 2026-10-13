@@ -1,4 +1,4 @@
-﻿-- ==============================================================================
+-- ==============================================================================
 -- YAPR POSTGRES SCHEMA MIGRATION 001: INITIAL SCHEMA
 -- Compliant with Supabase Postgres & Phase 1/2/3 Architecture
 -- ==============================================================================
@@ -347,7 +347,7 @@ BEGIN
             lower(regexp_replace(split_part(new.email, '@', 1), '[^a-zA-Z0-9_]', '', 'g'))
         ),
         COALESCE(new.raw_user_meta_data->>'display_name', split_part(new.email, '@', 1)),
-        COALESCE(new.raw_user_meta_data->>'avatar_url', 'https://api.dicebear.com/7.x/bottts/svg?seed=' || new.id::text),
+        COALESCE(new.raw_user_meta_data->>'avatar_url', ''),
         COALESCE(new.raw_user_meta_data->>'country_code', 'PK')
     )
     ON CONFLICT (id) DO NOTHING;
