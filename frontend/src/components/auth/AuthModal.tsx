@@ -13,6 +13,7 @@ import {
   User,
   Loader2,
   Check,
+  Globe,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { api } from '../../api/apiClient';
@@ -63,6 +64,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [countryCode, setCountryCode] = useState('PK');
   const [checkingUsername, setCheckingUsername] = useState(false);
   const [usernameStatus, setUsernameStatus] = useState<{ available: boolean; message: string } | null>(null);
+  const [isPrivateAccount, setIsPrivateAccount] = useState(false);
 
   // Common states
   const [loading, setLoading] = useState(false);
@@ -272,6 +274,9 @@ function checkPasswordRequirements(pw: string): string | null {
         displayName: displayName.trim() || username.trim(),
         countryCode,
       });
+      if (isPrivateAccount) {
+        await api.updateProfile({ is_private: true }).catch(() => {});
+      }
       onClose?.();
     } catch (err: any) {
       setError(err.message || 'Registration failed');
@@ -931,6 +936,53 @@ function checkPasswordRequirements(pw: string): string | null {
                   <option value="SG">SG · Singapore</option>
                   <option value="GB">GB · United Kingdom</option>
                 </select>
+              </div>
+
+              {/* Account Visibility Selection */}
+              <div className="space-y-1.5 pt-1">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  Account Visibility
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsPrivateAccount(false)}
+                    className={`p-2.5 rounded-xl border text-left transition-all ${
+                      !isPrivateAccount
+                        ? 'border-blue-600 bg-blue-50/60 dark:bg-blue-950/40 ring-1 ring-blue-600 text-blue-900 dark:text-blue-100'
+                        : 'border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 text-slate-700 dark:text-slate-300 hover:border-slate-300'
+                    }`}
+                  >
+                    <div className="flex items-center gap-1.5 font-bold text-xs">
+                      <Globe className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                      <span>Public</span>
+                    </div>
+                    <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 leading-snug">
+                      Anyone can view your yaps
+                    </p>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setIsPrivateAccount(true)}
+                    className={`p-2.5 rounded-xl border text-left transition-all ${
+                      isPrivateAccount
+                        ? 'border-blue-600 bg-blue-50/60 dark:bg-blue-950/40 ring-1 ring-blue-600 text-blue-900 dark:text-blue-100'
+                        : 'border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 text-slate-700 dark:text-slate-300 hover:border-slate-300'
+                    }`}
+                  >
+                    <div className="flex items-center gap-1.5 font-bold text-xs">
+                      <Lock className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                      <span>Private</span>
+                    </div>
+                    <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 leading-snug">
+                      Only approved followers
+                    </p>
+                  </button>
+                </div>
+                <p className="text-[10px] text-slate-400 dark:text-slate-500">
+                  You can change this anytime later in Settings.
+                </p>
               </div>
 
               <button

@@ -1,18 +1,21 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { AtSign, Check, AlertCircle, Loader2, Sparkles } from 'lucide-react';
+import { AtSign, Check, AlertCircle, Loader2, Sparkles, Globe, Lock } from 'lucide-react';
 import { api } from '../../api/apiClient';
 
 interface SelectUsernameModalProps {
   isOpen: boolean;
   initialUsername?: string;
-  onComplete: (chosenUsername: string) => void;
+  initialIsPrivate?: boolean;
+  onComplete: (chosenUsername: string, isPrivate: boolean) => void;
 }
 
 export const SelectUsernameModal: React.FC<SelectUsernameModalProps> = ({
   isOpen,
   initialUsername = '',
+  initialIsPrivate = false,
   onComplete,
 }) => {
+  const [isPrivate, setIsPrivate] = useState(initialIsPrivate);
   const [username, setUsername] = useState(
     initialUsername.startsWith('user_') ? '' : initialUsername
   );
@@ -90,8 +93,8 @@ export const SelectUsernameModal: React.FC<SelectUsernameModalProps> = ({
 
     setIsSubmitting(true);
     try {
-      await api.updateProfile({ username: clean });
-      onComplete(clean);
+      await api.updateProfile({ username: clean, is_private: isPrivate });
+      onComplete(clean, isPrivate);
     } catch (err: any) {
       setStatus('taken');
       setStatusMsg(err.message || 'Failed to set username. Please try another.');
@@ -112,7 +115,7 @@ export const SelectUsernameModal: React.FC<SelectUsernameModalProps> = ({
           <div>
             <h2 className="text-xl font-bold text-slate-900 dark:text-white">Choose your username</h2>
             <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
-              Pick a unique handle for your Yapr profile
+              Pick a unique handle and choose your privacy
             </p>
           </div>
         </div>
@@ -159,6 +162,53 @@ export const SelectUsernameModal: React.FC<SelectUsernameModalProps> = ({
             )}
             <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1.5">
               3-20 characters, lowercase letters, numbers, and underscores only.
+            </p>
+          </div>
+
+          {/* Account Visibility / Privacy Selection */}
+          <div className="space-y-2 pt-1 border-t border-slate-100 dark:border-slate-800">
+            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+              Account Visibility
+            </label>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => setIsPrivate(false)}
+                className={`p-3 rounded-xl border text-left transition-all ${
+                  !isPrivate
+                    ? 'border-blue-600 bg-blue-50/60 dark:bg-blue-950/40 ring-1 ring-blue-600 text-blue-900 dark:text-blue-100'
+                    : 'border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 text-slate-700 dark:text-slate-300 hover:border-slate-300'
+                }`}
+              >
+                <div className="flex items-center gap-1.5 font-bold text-xs">
+                  <Globe className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                  <span>Public</span>
+                </div>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 leading-snug">
+                  Anyone can view your yaps and profile
+                </p>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setIsPrivate(true)}
+                className={`p-3 rounded-xl border text-left transition-all ${
+                  isPrivate
+                    ? 'border-blue-600 bg-blue-50/60 dark:bg-blue-950/40 ring-1 ring-blue-600 text-blue-900 dark:text-blue-100'
+                    : 'border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 text-slate-700 dark:text-slate-300 hover:border-slate-300'
+                }`}
+              >
+                <div className="flex items-center gap-1.5 font-bold text-xs">
+                  <Lock className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                  <span>Private</span>
+                </div>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 leading-snug">
+                  Only approved followers can view your yaps
+                </p>
+              </button>
+            </div>
+            <p className="text-[11px] text-slate-400 dark:text-slate-500">
+              You can change your account visibility anytime later in your Settings.
             </p>
           </div>
 

@@ -224,8 +224,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         <SelectUsernameModal
           isOpen={needsUsernameModal}
           initialUsername={user.username}
-          onComplete={(chosen) => {
-            setUser((prev) => (prev ? { ...prev, username: chosen } : null));
+          initialIsPrivate={!!user.is_private}
+          onComplete={(chosen, isPrivate) => {
+            setUser((prev) => (prev ? { ...prev, username: chosen, is_private: isPrivate } : null));
             setNeedsUsernameModal(false);
           }}
         />
