@@ -3,6 +3,7 @@ import { supabaseAdmin, isSupabaseConfigured } from '../config/supabase.js';
 import { notificationsService } from '../modules/notifications/notifications.service.js';
 import { emitToUser, broadcastToFeed } from '../realtime/socket.js';
 import { env } from '../config/env.js';
+import { webPushService } from '../modules/notifications/webpush.service.js';
 
 export function registerNotificationWorker(): void {
   // Worker 1: Yap Created -> Fan-out to followers
@@ -25,7 +26,7 @@ export function registerNotificationWorker(): void {
       // Lookup follower count
       const { data: profile } = await supabaseAdmin
         .from('profiles')
-        .select('follower_count, display_name')
+        .select('follower_count, display_name, avatar_url')
         .eq('id', authorId)
         .single();
 
@@ -54,14 +55,26 @@ export function registerNotificationWorker(): void {
             await supabaseAdmin.from('notifications').insert(chunk);
           }
 
-          // Push live socket alert to online followers
+          // Push live socket alert to online followers and Web Push to background devices
           followers.forEach((f) => {
+            const followerMessage = `${profile?.display_name || 'Someone you follow'} posted a new Yap`;
+
             emitToUser(f.follower_id, 'notification:new', {
               type: 'new_yap',
               yapId,
               authorId,
-              message: `${profile?.display_name || 'Someone you follow'} posted a new Yap`,
+              message: followerMessage,
             });
+
+            webPushService
+              .sendPushNotification(f.follower_id, {
+                title: `${profile?.display_name || 'Yapr'}`,
+                body: followerMessage,
+                yapId,
+                url: `/?yapId=${yapId}`,
+                icon: profile?.avatar_url || '/logo.png',
+              })
+              .catch(() => {});
           });
         }
       } else {
