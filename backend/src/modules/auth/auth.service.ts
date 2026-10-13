@@ -5,6 +5,7 @@ import { env } from '../../config/env.js';
 import { queueService } from '../../config/queue.js';
 import { supabaseAdmin, isSupabaseConfigured, supabaseAnon } from '../../config/supabase.js';
 import { usernameBloomFilter } from '../../utils/bloomFilter.js';
+import { mockProfiles } from '../profiles/profiles.service.js';
 const registeredUsers = new Map<string, { email: string; passwordHash: string; userId: string; username: string }>();
 
 // Preload test admin/demo credentials: asad@yapr.app / password123
@@ -256,9 +257,33 @@ export class AuthService {
   /**
    * Login with Email & Password
    */
-  async loginWithPassword(email: string, password: string): Promise<{ token: string; user: any }> {
-    const cleanEmail = email.toLowerCase().trim();
+  async loginWithPassword(identifier: string, password: string): Promise<{ token: string; user: any }> {
+    let cleanEmail = identifier.toLowerCase().trim();
     const passwordHash = crypto.createHash('sha256').update(password).digest('hex');
+
+    // If identifier doesn't have '@', resolve username to email
+    if (!cleanEmail.includes('@')) {
+      if (isSupabaseConfigured) {
+        const { data: userProfile } = await supabaseAdmin
+          .from('profiles')
+          .select('id')
+          .ilike('username', cleanEmail)
+          .maybeSingle();
+        if (userProfile?.id) {
+          const { data: authUserData } = await supabaseAdmin.auth.admin.getUserById(userProfile.id);
+          if (authUserData?.user?.email) {
+            cleanEmail = authUserData.user.email.toLowerCase().trim();
+          }
+        }
+      } else {
+        for (const [em, rec] of registeredUsers.entries()) {
+          if (rec.username.toLowerCase() === cleanEmail) {
+            cleanEmail = em;
+            break;
+          }
+        }
+      }
+    }
 
     let userId = '';
     let profile: any = null;
@@ -272,13 +297,29 @@ export class AuthService {
       userId = data.user?.id || '';
       const { data: p } = await supabaseAdmin.from('profiles').select('*').eq('id', userId).single();
       profile = p;
+
+      // Auto-reactivate account if it was previously deactivated
+      if (profile?.is_deactivated) {
+        await supabaseAdmin.from('profiles').update({
+          is_deactivated: false,
+          deactivated_until: null,
+          updated_at: new Date().toISOString(),
+        }).eq('id', userId);
+        profile.is_deactivated = false;
+        profile.deactivated_until = null;
+      }
     } else {
       const record = registeredUsers.get(cleanEmail);
       if (!record || record.passwordHash !== passwordHash) {
         throw new Error('Invalid email or password. Please check your credentials.');
       }
       userId = record.userId;
-      profile = {
+      const mockP = mockProfiles.get(userId);
+      if (mockP?.is_deactivated) {
+        mockP.is_deactivated = false;
+        mockP.deactivated_until = null;
+      }
+      profile = mockP || {
         id: userId,
         username: record.username,
         display_name: record.username,
@@ -288,6 +329,9 @@ export class AuthService {
         following_count: 0,
       };
     }
+
+    // Clear deactivation cache
+    await cacheClient.del(`yapr:deactivated:${userId}`).catch(() => {});
 
     const token = jwt.sign(
       { sub: userId, email: cleanEmail, role: 'authenticated' },
@@ -455,10 +499,22 @@ export class AuthService {
         }
       }
 
+      let socialLinks: any[] = [];
+      try {
+        const raw = await cacheClient.get(`yapr:social:${userId}`);
+        if (raw) socialLinks = JSON.parse(raw);
+      } catch {}
+
       if (p) {
-        return { ...p, email: cleanEmail || p.email, id: userId };
+        return { ...p, email: cleanEmail || p.email, id: userId, social_links: socialLinks };
       }
     }
+
+    let socialLinks: any[] = [];
+    try {
+      const raw = await cacheClient.get(`yapr:social:${userId}`);
+      if (raw) socialLinks = JSON.parse(raw);
+    } catch {}
 
     for (const record of registeredUsers.values()) {
       if (record.userId === userId || (cleanEmail && record.email === cleanEmail)) {
@@ -471,6 +527,7 @@ export class AuthService {
           country_code: 'PK',
           follower_count: 0,
           following_count: 0,
+          social_links: socialLinks,
         };
       }
     }
@@ -484,6 +541,7 @@ export class AuthService {
       country_code: 'PK',
       follower_count: 0,
       following_count: 0,
+      social_links: socialLinks,
     };
   }
 
@@ -518,8 +576,10 @@ export class AuthService {
         }
       }
 
+      let isNewUser = false;
       // 3. If user is brand new (no previous profile anywhere)
       if (!p) {
+        isNewUser = true;
         const baseUsername = (rawMetadata?.user_name || rawMetadata?.username || cleanEmail.split('@')[0] || `user_${userId.slice(0, 6)}`)
           .replace(/[^a-zA-Z0-9_]/g, '')
           .slice(0, 20) || `user_${userId.slice(0, 6)}`;
@@ -539,7 +599,12 @@ export class AuthService {
       }
 
       // Return profile - Note: We DO NOT overwrite p.avatar_url or p.display_name with Google/FB metadata!
-      return { ...p, email: cleanEmail, id: userId };
+      return {
+        ...p,
+        email: cleanEmail,
+        id: userId,
+        is_new_user: isNewUser || (p?.username && p.username.startsWith('user_')),
+      };
     }
 
     // Dev mock fallback
@@ -554,6 +619,7 @@ export class AuthService {
         country_code: 'PK',
         follower_count: 0,
         following_count: 0,
+        is_new_user: false,
       };
     }
 
@@ -567,6 +633,134 @@ export class AuthService {
       country_code: 'PK',
       follower_count: 0,
       following_count: 0,
+      is_new_user: true,
+    };
+  }
+
+  /**
+   * Deactivate account temporarily (Instagram style with 1-7 days or manual reactivate)
+   */
+  async deactivateAccount(params: {
+    userId: string;
+    email?: string;
+    password?: string;
+    autoReactivateDays?: number;
+  }): Promise<{ success: boolean; message: string }> {
+    const { userId, email, password, autoReactivateDays } = params;
+
+    // If password provided and Supabase is configured, verify password
+    if (password && isSupabaseConfigured && email) {
+      const { error: signInErr } = await supabaseAnon.auth.signInWithPassword({
+        email: email.toLowerCase().trim(),
+        password,
+      });
+      if (signInErr) {
+        throw new Error('Current password is incorrect. Deactivation failed.');
+      }
+    } else if (password && !isSupabaseConfigured && email) {
+      const record = registeredUsers.get(email.toLowerCase().trim());
+      if (record && record.passwordHash) {
+        const inputHash = crypto.createHash('sha256').update(password).digest('hex');
+        if (record.passwordHash !== inputHash) {
+          throw new Error('Current password is incorrect. Deactivation failed.');
+        }
+      }
+    }
+
+    const deactivatedUntil = autoReactivateDays && autoReactivateDays > 0
+      ? new Date(Date.now() + autoReactivateDays * 24 * 60 * 60 * 1000).toISOString()
+      : null;
+
+    if (isSupabaseConfigured) {
+      await supabaseAdmin.from('profiles').update({
+        is_deactivated: true,
+        deactivated_until: deactivatedUntil,
+        updated_at: new Date().toISOString(),
+      }).eq('id', userId);
+    } else {
+      const p = mockProfiles.get(userId);
+      if (p) {
+        p.is_deactivated = true;
+        p.deactivated_until = deactivatedUntil;
+      }
+    }
+
+    // Cache deactivation state in Redis
+    await cacheClient.set(
+      `yapr:deactivated:${userId}`,
+      JSON.stringify({ is_deactivated: true, deactivated_until: deactivatedUntil }),
+      autoReactivateDays && autoReactivateDays > 0 ? autoReactivateDays * 86400 : 31536000
+    ).catch(() => {});
+
+    return {
+      success: true,
+      message: 'Account has been temporarily deactivated. Log back in with your password anytime to reactivate.',
+    };
+  }
+
+  /**
+   * Permanently delete account, wiping all yaps, interactions, and auth records
+   */
+  async deleteAccount(params: {
+    userId: string;
+    email?: string;
+    password?: string;
+    confirmationText: string;
+  }): Promise<{ success: boolean; message: string }> {
+    const { userId, email, password, confirmationText } = params;
+
+    if (confirmationText.trim().toUpperCase() !== 'CONFIRM DELETE') {
+      throw new Error('Please type "CONFIRM DELETE" exactly to confirm account deletion.');
+    }
+
+    // Verify password if provided / standard email user
+    if (password && isSupabaseConfigured && email) {
+      const { error: signInErr } = await supabaseAnon.auth.signInWithPassword({
+        email: email.toLowerCase().trim(),
+        password,
+      });
+      if (signInErr) {
+        throw new Error('Current password is incorrect. Account deletion cancelled.');
+      }
+    } else if (password && !isSupabaseConfigured && email) {
+      const record = registeredUsers.get(email.toLowerCase().trim());
+      if (record && record.passwordHash) {
+        const inputHash = crypto.createHash('sha256').update(password).digest('hex');
+        if (record.passwordHash !== inputHash) {
+          throw new Error('Current password is incorrect. Account deletion cancelled.');
+        }
+      }
+    }
+
+    if (isSupabaseConfigured) {
+      // 1. Delete notifications
+      await supabaseAdmin.from('notifications').delete().eq('user_id', userId);
+      // 2. Delete likes
+      await supabaseAdmin.from('likes').delete().eq('user_id', userId);
+      // 3. Delete bookmarks
+      await supabaseAdmin.from('bookmarks').delete().eq('user_id', userId);
+      // 4. Delete follows
+      await supabaseAdmin.from('follows').delete().or(`follower_id.eq.${userId},followee_id.eq.${userId}`);
+      // 5. Delete user yaps
+      await supabaseAdmin.from('yaps').delete().eq('author_id', userId);
+      // 6. Delete profile
+      await supabaseAdmin.from('profiles').delete().eq('id', userId);
+      // 7. Delete Supabase Auth user
+      await supabaseAdmin.auth.admin.deleteUser(userId);
+    } else {
+      mockProfiles.delete(userId);
+      if (email) registeredUsers.delete(email.toLowerCase().trim());
+    }
+
+    // Clear user's Redis keys
+    await cacheClient.del(`yapr:privacy:${userId}`).catch(() => {});
+    await cacheClient.del(`yapr:social:${userId}`).catch(() => {});
+    await cacheClient.del(`yapr:push_subs:${userId}`).catch(() => {});
+    await cacheClient.del(`yapr:deactivated:${userId}`).catch(() => {});
+
+    return {
+      success: true,
+      message: 'Account permanently deleted.',
     };
   }
 }

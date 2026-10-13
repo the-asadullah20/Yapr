@@ -479,6 +479,32 @@ export const api = {
     return await res.json();
   },
 
+  async deactivateAccount(params: { password?: string; autoReactivateDays?: number }): Promise<{ success: boolean; message: string }> {
+    const res = await fetch(`${API_BASE}/auth/deactivate`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(params),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to deactivate account');
+    }
+    return await res.json();
+  },
+
+  async deleteAccount(params: { password?: string; confirmationText: string }): Promise<{ success: boolean; message: string }> {
+    const res = await fetch(`${API_BASE}/auth/delete-account`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(params),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to delete account');
+    }
+    return await res.json();
+  },
+
 
   // Profile
   async getProfile(identifier: string): Promise<UserProfile> {

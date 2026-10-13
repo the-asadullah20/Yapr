@@ -1,4 +1,5 @@
 import React from 'react';
+import { BadgeCheck } from 'lucide-react';
 import { MentionCandidate } from '../../types';
 
 interface MentionSuggestionsDropdownProps {
@@ -58,7 +59,7 @@ export const MentionSuggestionsDropdown: React.FC<MentionSuggestionsDropdownProp
                       {candidate.display_name}
                     </span>
                     {candidate.is_verified && (
-                      <span className="text-[10px] text-blue-600 flex-shrink-0">✓</span>
+                      <BadgeCheck className="w-3.5 h-3.5 text-blue-500 fill-blue-500 text-white flex-shrink-0" />
                     )}
                   </div>
                   <p className="text-[11px] text-slate-400 dark:text-slate-500 truncate">

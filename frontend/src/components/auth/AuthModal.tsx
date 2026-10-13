@@ -12,6 +12,7 @@ import {
   EyeOff,
   User,
   Loader2,
+  Check,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { api } from '../../api/apiClient';
@@ -888,9 +889,13 @@ function checkPasswordRequirements(pw: string): string | null {
                     }`}
                   >
                     {usernameStatus.available ? (
-                      <span>✓ @{username} is free to claim!</span>
+                      <span className="flex items-center gap-1">
+                        <Check className="w-3.5 h-3.5" /> @{username} is free to claim!
+                      </span>
                     ) : (
-                      <span>✕ {usernameStatus.message}</span>
+                      <span className="flex items-center gap-1">
+                        <X className="w-3.5 h-3.5" /> {usernameStatus.message}
+                      </span>
                     )}
                   </p>
                 )}

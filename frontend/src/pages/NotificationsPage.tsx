@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Bell, Heart, Repeat, UserPlus, CheckCheck, MessageSquare, AtSign, BellRing, ShieldCheck } from 'lucide-react';
+import { Bell, Heart, Repeat, UserPlus, CheckCheck, MessageSquare, AtSign, BellRing, ShieldCheck, Check } from 'lucide-react';
 import { api } from '../api/apiClient';
 import { NotificationItem } from '../types';
 import { useSocket } from '../context/SocketContext';
@@ -217,8 +217,8 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({ onOpenProf
                 {n.type === 'follow_request' && n.actors?.[0]?.id && (
                   <div className="mt-2.5 flex items-center gap-2">
                     {actionStatus[n.id] === 'accepted' ? (
-                      <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2.5 py-1 rounded-lg">
-                        ✓ You accepted this follow request
+                      <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2.5 py-1 rounded-lg flex items-center gap-1">
+                        <Check className="w-3.5 h-3.5" /> You accepted this follow request
                       </span>
                     ) : actionStatus[n.id] === 'rejected' ? (
                       <span className="text-xs font-semibold text-slate-400 bg-slate-100 dark:bg-slate-800 px-2.5 py-1 rounded-lg">
@@ -245,8 +245,8 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({ onOpenProf
 
                 {n.type === 'follow_request_accepted' && (
                   <div className="mt-2 flex items-center">
-                    <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2.5 py-1 rounded-lg">
-                      ✓ Request accepted
+                    <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2.5 py-1 rounded-lg flex items-center gap-1">
+                      <Check className="w-3.5 h-3.5" /> Request accepted
                     </span>
                   </div>
                 )}

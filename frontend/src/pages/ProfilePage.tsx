@@ -20,6 +20,11 @@ import {
   X,
   Users,
   Clock,
+  BadgeCheck,
+  Trash2,
+  ExternalLink,
+  Link as LinkIcon,
+  ShieldAlert,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../api/apiClient';
@@ -56,8 +61,33 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
   onOpenThread,
   onOpenProfile,
 }) => {
-  const { user, updateUser } = useAuth();
+  const { user, updateUser, logout } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const bannerInputRef = useRef<HTMLInputElement>(null);
+  const [uploadingBanner, setUploadingBanner] = useState(false);
+
+  // Social Links state (up to 5 links)
+  const [editableSocialLinks, setEditableSocialLinks] = useState<Array<{ platform: string; url: string }>>(
+    user?.social_links || []
+  );
+  const [newSocialPlatform, setNewSocialPlatform] = useState('x');
+  const [newSocialUrl, setNewSocialUrl] = useState('');
+
+  // Account Deactivation state (Instagram style)
+  const [showDeactivateModal, setShowDeactivateModal] = useState(false);
+  const [deactivateDays, setDeactivateDays] = useState(0);
+  const [deactivatePassword, setDeactivatePassword] = useState('');
+  const [showDeactivatePassword, setShowDeactivatePassword] = useState(false);
+  const [isDeactivating, setIsDeactivating] = useState(false);
+  const [deactivateError, setDeactivateError] = useState<string | null>(null);
+
+  // Account Deletion state
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deletePassword, setDeletePassword] = useState('');
+  const [showDeletePassword, setShowDeletePassword] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   // Other user's profile state
   const isViewingOther = !!viewingUsername && viewingUsername !== user?.username;
@@ -91,6 +121,90 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
       alert(err.message || 'Failed to remove follower');
     } finally {
       setRemovingFollowerId(null);
+    }
+  };
+
+  const handleBannerChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingBanner(true);
+    try {
+      const res = await api.uploadMedia(file);
+      await api.updateProfile({ banner_url: res.url });
+      updateUser({ banner_url: res.url });
+    } catch (err: any) {
+      alert(err.message || 'Failed to upload cover image');
+    } finally {
+      setUploadingBanner(false);
+    }
+  };
+
+  const handleRemoveBanner = async () => {
+    if (!window.confirm('Are you sure you want to remove your cover image?')) return;
+    try {
+      await api.updateProfile({ banner_url: '' });
+      updateUser({ banner_url: '' });
+    } catch (err: any) {
+      alert(err.message || 'Failed to remove cover image');
+    }
+  };
+
+  const handleAddSocialLink = () => {
+    if (editableSocialLinks.length >= 5) {
+      alert('You can link up to 5 social accounts.');
+      return;
+    }
+    const cleanUrl = newSocialUrl.trim();
+    if (!cleanUrl) return;
+    setEditableSocialLinks((prev) => [...prev, { platform: newSocialPlatform, url: cleanUrl }]);
+    setNewSocialUrl('');
+  };
+
+  const handleRemoveSocialLink = (index: number) => {
+    setEditableSocialLinks((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleConfirmDeactivate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsDeactivating(true);
+    setDeactivateError(null);
+    try {
+      const res = await api.deactivateAccount({
+        password: deactivatePassword || undefined,
+        autoReactivateDays: Number(deactivateDays) || undefined,
+      });
+      alert(res.message || 'Your account has been temporarily deactivated.');
+      setShowDeactivateModal(false);
+      logout();
+      window.location.href = '/';
+    } catch (err: any) {
+      setDeactivateError(err.message || 'Failed to deactivate account.');
+    } finally {
+      setIsDeactivating(false);
+    }
+  };
+
+  const handleConfirmDelete = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (deleteConfirmText.trim().toUpperCase() !== 'CONFIRM DELETE') {
+      setDeleteError('Please type "CONFIRM DELETE" exactly to proceed.');
+      return;
+    }
+    setIsDeleting(true);
+    setDeleteError(null);
+    try {
+      const res = await api.deleteAccount({
+        password: deletePassword || undefined,
+        confirmationText: deleteConfirmText,
+      });
+      alert(res.message || 'Your account has been permanently deleted.');
+      setShowDeleteModal(false);
+      logout();
+      window.location.href = '/';
+    } catch (err: any) {
+      setDeleteError(err.message || 'Failed to delete account.');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -228,6 +342,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
       setIsPrivateAccount(!!user.is_private);
       setWhoCanSeeDp(user.who_can_see_dp || 'everyone');
       setWhoCanTag(user.who_can_tag || (user.is_private ? 'followers' : 'everyone'));
+      setEditableSocialLinks(user.social_links || []);
       fetchBlockedUsers();
       fetchUserReports();
       fetchFollowRequests();
@@ -542,6 +657,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
         is_private: isPrivateAccount,
         who_can_see_dp: whoCanSeeDp,
         who_can_tag: whoCanTag,
+        social_links: editableSocialLinks,
       });
 
       updateUser({
@@ -552,6 +668,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
         is_private: isPrivateAccount,
         who_can_see_dp: whoCanSeeDp,
         who_can_tag: whoCanTag,
+        social_links: editableSocialLinks,
       });
 
       setIsEditing(false);
@@ -589,6 +706,30 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
       );
     }
 
+    if (otherProfile.is_deactivated) {
+      return (
+        <div className="max-w-2xl mx-auto py-12 px-4 text-center space-y-4">
+          <div className="w-16 h-16 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center mx-auto text-slate-400">
+            <UserX className="w-8 h-8" />
+          </div>
+          <div>
+            <h2 className="text-lg font-bold text-slate-900 dark:text-white">Account Deactivated</h2>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+              @{viewingUsername} has temporarily deactivated their account.
+            </p>
+          </div>
+          {onBack && (
+            <button
+              onClick={onBack}
+              className="px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-semibold"
+            >
+              Back to Feed
+            </button>
+          )}
+        </div>
+      );
+    }
+
     return (
       <div className="max-w-2xl mx-auto py-4 px-4 sm:px-6 space-y-4">
         {onBack && (
@@ -603,8 +744,17 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
 
         <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-sm overflow-hidden transition-colors">
           {/* Banner */}
-          <div className="h-36 bg-gradient-to-r from-blue-600 via-indigo-600 to-sky-500 relative">
-            <div className="absolute top-3 right-3 bg-white/20 backdrop-blur-md px-2.5 py-1 rounded-full text-white text-[11px] font-semibold flex items-center gap-1">
+          <div className="h-36 sm:h-44 bg-slate-100 dark:bg-slate-800 relative overflow-hidden">
+            {otherProfile.banner_url ? (
+              <img
+                src={otherProfile.banner_url}
+                alt="Cover"
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <div className="w-full h-full bg-slate-200 dark:bg-slate-800" />
+            )}
+            <div className="absolute top-3 right-3 bg-black/40 backdrop-blur-md px-2.5 py-1 rounded-full text-white text-[11px] font-semibold flex items-center gap-1">
               <Globe className="w-3 h-3" />
               <span>{otherProfile.country_code ? `${otherProfile.country_code} · Regional` : 'Global'}</span>
             </div>
@@ -707,9 +857,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                   {otherProfile.display_name}
                 </h2>
                 {otherProfile.is_verified && (
-                  <span className="w-4 h-4 rounded-full bg-blue-600 text-white flex items-center justify-center text-[10px] font-bold">
-                    ✓
-                  </span>
+                  <BadgeCheck className="w-5 h-5 text-blue-500 fill-blue-500 text-white flex-shrink-0" />
                 )}
               </div>
               <p className="text-xs text-slate-400 dark:text-slate-500">@{otherProfile.username}</p>
@@ -718,6 +866,25 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                 <p className="mt-3 text-xs text-slate-700 dark:text-slate-300 leading-relaxed max-w-lg">
                   {otherProfile.bio}
                 </p>
+              )}
+
+              {/* Linked Social Accounts */}
+              {otherProfile.social_links && otherProfile.social_links.length > 0 && (
+                <div className="flex flex-wrap items-center gap-2 mt-3">
+                  {otherProfile.social_links.map((link, idx) => (
+                    <a
+                      key={idx}
+                      href={link.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-slate-100 dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-blue-950/40 text-slate-700 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 border border-slate-200 dark:border-slate-700 transition-colors"
+                      title={link.url}
+                    >
+                      <ExternalLink className="w-3 h-3 text-slate-400" />
+                      <span className="capitalize">{link.platform || 'Link'}</span>
+                    </a>
+                  ))}
+                </div>
               )}
 
               {/* Stats */}
@@ -844,7 +1011,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                         <div className="min-w-0 flex-1 overflow-hidden">
                           <h4 className="text-xs font-bold text-slate-900 dark:text-white hover:text-blue-600 flex items-center gap-1 truncate">
                             <span className="truncate">{u.display_name}</span>
-                            {u.is_verified && <span className="text-[10px] text-blue-600 flex-shrink-0">✓</span>}
+                            {u.is_verified && <BadgeCheck className="w-3.5 h-3.5 text-blue-500 fill-blue-500 text-white flex-shrink-0" />}
                           </h4>
                           <p className="text-[10px] text-slate-400 truncate">@{u.username}</p>
                         </div>
@@ -889,11 +1056,54 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
       )}
 
       <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-sm overflow-hidden transition-colors">
-        {/* Banner */}
-        <div className="h-36 bg-gradient-to-r from-blue-600 via-indigo-600 to-sky-500 relative">
-          <div className="absolute top-3 right-3 bg-white/20 backdrop-blur-md px-2.5 py-1 rounded-full text-white text-[11px] font-semibold">
-            {user.country_code ? `${user.country_code} · Regional` : 'Global'}
+        {/* Banner with Cover Photo Upload (LinkedIn & X Style) */}
+        <div className="h-36 sm:h-44 bg-slate-100 dark:bg-slate-800 relative overflow-hidden group">
+          {user.banner_url ? (
+            <img
+              src={user.banner_url}
+              alt="Cover banner"
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <div className="w-full h-full bg-slate-200 dark:bg-slate-800" />
+          )}
+
+          <div className="absolute top-3 right-3 flex items-center gap-2">
+            <div className="bg-black/40 backdrop-blur-md px-2.5 py-1 rounded-full text-white text-[11px] font-semibold">
+              {user.country_code ? `${user.country_code} · Regional` : 'Global'}
+            </div>
+            {/* Cover Action Buttons */}
+            <button
+              type="button"
+              onClick={() => bannerInputRef.current?.click()}
+              disabled={uploadingBanner}
+              title="Change cover image"
+              className="p-1.5 bg-black/60 hover:bg-black/80 backdrop-blur-md text-white rounded-full transition-transform hover:scale-105"
+            >
+              {uploadingBanner ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Camera className="w-4 h-4" />
+              )}
+            </button>
+            {user.banner_url && (
+              <button
+                type="button"
+                onClick={handleRemoveBanner}
+                title="Remove cover image"
+                className="p-1.5 bg-black/60 hover:bg-rose-600 backdrop-blur-md text-white rounded-full transition-colors"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            )}
           </div>
+          <input
+            ref={bannerInputRef}
+            type="file"
+            accept="image/png,image/jpeg,image/webp"
+            className="hidden"
+            onChange={handleBannerChange}
+          />
         </div>
 
         {/* Profile Content */}
@@ -1161,6 +1371,79 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                 </div>
               </div>
 
+              {/* Linked Social Accounts (Up to 5) */}
+              <div className="p-3.5 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200">Linked Social Accounts</h4>
+                    <p className="text-[11px] text-slate-400">Add up to 5 social links to display on your profile.</p>
+                  </div>
+                  <span className="text-[11px] font-bold text-slate-500 bg-slate-200/60 dark:bg-slate-700 px-2 py-0.5 rounded-full">
+                    {editableSocialLinks.length}/5
+                  </span>
+                </div>
+
+                {editableSocialLinks.length > 0 && (
+                  <div className="space-y-2">
+                    {editableSocialLinks.map((link, idx) => (
+                      <div
+                        key={idx}
+                        className="flex items-center justify-between p-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs"
+                      >
+                        <div className="flex items-center gap-2 truncate flex-1 mr-2">
+                          <span className="font-bold capitalize px-2 py-0.5 rounded-md bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400">
+                            {link.platform}
+                          </span>
+                          <span className="truncate text-slate-600 dark:text-slate-300 font-mono text-[11px]">
+                            {link.url}
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveSocialLink(idx)}
+                          className="p-1 text-slate-400 hover:text-rose-600 rounded-lg transition-colors flex-shrink-0"
+                          title="Remove link"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {editableSocialLinks.length < 5 && (
+                  <div className="flex flex-col sm:flex-row items-center gap-2 pt-1">
+                    <select
+                      value={newSocialPlatform}
+                      onChange={(e) => setNewSocialPlatform(e.target.value)}
+                      className="w-full sm:w-32 py-1.5 px-2.5 rounded-xl text-xs font-medium bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    >
+                      <option value="x">X (Twitter)</option>
+                      <option value="github">GitHub</option>
+                      <option value="linkedin">LinkedIn</option>
+                      <option value="instagram">Instagram</option>
+                      <option value="youtube">YouTube</option>
+                      <option value="website">Website</option>
+                    </select>
+                    <input
+                      type="text"
+                      value={newSocialUrl}
+                      onChange={(e) => setNewSocialUrl(e.target.value)}
+                      placeholder="https://..."
+                      className="w-full sm:flex-1 py-1.5 px-3 rounded-xl text-xs font-medium bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-blue-500 font-mono"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleAddSocialLink}
+                      disabled={!newSocialUrl.trim()}
+                      className="w-full sm:w-auto px-3 py-1.5 bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:opacity-90 disabled:opacity-40 text-xs font-bold rounded-xl transition-opacity whitespace-nowrap"
+                    >
+                      Add Link
+                    </button>
+                  </div>
+                )}
+              </div>
+
               <button
                 type="submit"
                 disabled={isSaving}
@@ -1175,15 +1458,32 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
               <div className="flex items-center gap-2">
                 <h2 className="text-xl font-black text-slate-900 dark:text-white break-words break-all">{user.display_name}</h2>
                 {user.is_verified && (
-                  <span className="w-4 h-4 rounded-full bg-blue-600 text-white flex items-center justify-center text-[10px] font-bold">
-                    ✓
-                  </span>
+                  <BadgeCheck className="w-5 h-5 text-blue-500 fill-blue-500 text-white flex-shrink-0" />
                 )}
               </div>
               <p className="text-xs text-slate-400 dark:text-slate-500">@{user.username}</p>
 
               {user.bio && (
                 <p className="mt-3 text-xs text-slate-700 dark:text-slate-300 leading-relaxed max-w-lg">{user.bio}</p>
+              )}
+
+              {/* Linked Social Accounts */}
+              {user.social_links && user.social_links.length > 0 && (
+                <div className="flex flex-wrap items-center gap-2 mt-3">
+                  {user.social_links.map((link, idx) => (
+                    <a
+                      key={idx}
+                      href={link.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-slate-100 dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-blue-950/40 text-slate-700 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 border border-slate-200 dark:border-slate-700 transition-colors"
+                      title={link.url}
+                    >
+                      <ExternalLink className="w-3 h-3 text-slate-400" />
+                      <span className="capitalize">{link.platform || 'Link'}</span>
+                    </a>
+                  ))}
+                </div>
               )}
 
               {/* Stats */}
@@ -1646,6 +1946,68 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
       </div>
 
       {/* ========================================================================= */}
+      {/* DANGER ZONE: ACCOUNT DEACTIVATION & DELETION */}
+      {/* ========================================================================= */}
+      <div className="bg-white dark:bg-slate-900 rounded-3xl border border-rose-200/70 dark:border-rose-900/40 shadow-sm p-6 transition-colors">
+        <div className="flex items-center gap-2.5 mb-4">
+          <div className="w-9 h-9 rounded-xl bg-rose-50 dark:bg-rose-950/60 border border-rose-200/50 dark:border-rose-900/50 flex items-center justify-center text-rose-600 dark:text-rose-400">
+            <ShieldAlert className="w-4 h-4" />
+          </div>
+          <div>
+            <h3 className="text-sm font-bold text-slate-900 dark:text-white">Danger Zone</h3>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400">
+              Manage temporary deactivation or permanent deletion of your account
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+          {/* Deactivate Option */}
+          <div className="p-4 rounded-2xl bg-slate-50/70 dark:bg-slate-800/40 border border-slate-200/70 dark:border-slate-800 flex flex-col justify-between">
+            <div>
+              <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200">Deactivate Account</h4>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+                Temporarily hide your profile, yaps, and interactions. Auto-reactivate after 1-7 days or reactivate anytime by logging back in.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setDeactivateError(null);
+                setDeactivatePassword('');
+                setShowDeactivateModal(true);
+              }}
+              className="mt-3.5 w-full py-2 px-3 text-xs font-bold text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 dark:hover:bg-amber-900/40 border border-amber-200 dark:border-amber-800/50 rounded-xl transition-colors"
+            >
+              Deactivate Account
+            </button>
+          </div>
+
+          {/* Delete Option */}
+          <div className="p-4 rounded-2xl bg-rose-50/40 dark:bg-rose-950/20 border border-rose-200/60 dark:border-rose-900/40 flex flex-col justify-between">
+            <div>
+              <h4 className="text-xs font-bold text-rose-700 dark:text-rose-400">Delete Account</h4>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+                Permanently wipe your account, username, yaps, followers, and bookmarks. This action cannot be reversed.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setDeleteError(null);
+                setDeletePassword('');
+                setDeleteConfirmText('');
+                setShowDeleteModal(true);
+              }}
+              className="mt-3.5 w-full py-2 px-3 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-xl transition-colors shadow-sm"
+            >
+              Delete Account
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* ========================================================================= */}
       {/* USER'S POSTS / YAPS FEED */}
       {/* ========================================================================= */}
       <div className="space-y-3 pt-2">
@@ -1810,7 +2172,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                       <div className="min-w-0 flex-1 overflow-hidden">
                         <h4 className="text-xs font-bold text-slate-900 dark:text-white hover:text-blue-600 flex items-center gap-1 truncate">
                           <span className="truncate">{u.display_name}</span>
-                          {u.is_verified && <span className="text-[10px] text-blue-600 flex-shrink-0">✓</span>}
+                          {u.is_verified && <BadgeCheck className="w-3.5 h-3.5 text-blue-500 fill-blue-500 text-white flex-shrink-0" />}
                         </h4>
                         <p className="text-[10px] text-slate-400 truncate">@{u.username}</p>
                       </div>
@@ -1844,6 +2206,217 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
         isOpen={!!previewAvatarUrl}
         onClose={() => setPreviewAvatarUrl(null)}
       />
+
+      {/* ========================================================================= */}
+      {/* DEACTIVATE ACCOUNT MODAL (Instagram-style) */}
+      {/* ========================================================================= */}
+      {showDeactivateModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fadeIn"
+          onClick={() => setShowDeactivateModal(false)}
+        >
+          <div
+            className="bg-white dark:bg-slate-900 rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-amber-50 dark:bg-amber-950/60 flex items-center justify-center text-amber-600 dark:text-amber-400">
+                  <Clock className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">Temporarily Deactivate Account</h3>
+                  <p className="text-[11px] text-slate-500">Instagram-style deactivation</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowDeactivateModal(false)}
+                className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-full"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+              Your profile, yaps, and interactions will be hidden from everyone. You can reactivate anytime simply by logging back in with your password.
+            </p>
+
+            <form onSubmit={handleConfirmDeactivate} className="space-y-4">
+              {deactivateError && (
+                <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 text-xs flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                  <span>{deactivateError}</span>
+                </div>
+              )}
+
+              {/* Auto Reactivation Window */}
+              <div>
+                <label className="block text-xs font-bold text-slate-800 dark:text-slate-200 mb-1.5">
+                  Automatically reactivate my account after:
+                </label>
+                <select
+                  value={deactivateDays}
+                  onChange={(e) => setDeactivateDays(Number(e.target.value))}
+                  className="w-full py-2.5 px-3 rounded-xl text-xs font-semibold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                >
+                  <option value={0}>Don&apos;t auto-reactivate (I will log back in manually)</option>
+                  <option value={1}>1 day</option>
+                  <option value={2}>2 days</option>
+                  <option value={3}>3 days</option>
+                  <option value={4}>4 days</option>
+                  <option value={5}>5 days</option>
+                  <option value={6}>6 days</option>
+                  <option value={7}>7 days</option>
+                </select>
+              </div>
+
+              {/* Password Confirmation */}
+              <div>
+                <label className="block text-xs font-bold text-slate-800 dark:text-slate-200 mb-1.5">
+                  Enter your password to confirm:
+                </label>
+                <div className="relative">
+                  <input
+                    type={showDeactivatePassword ? 'text' : 'password'}
+                    value={deactivatePassword}
+                    onChange={(e) => setDeactivatePassword(e.target.value)}
+                    required
+                    placeholder="Current password"
+                    className="w-full py-2 px-3 pr-10 rounded-xl text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowDeactivatePassword(!showDeactivatePassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  >
+                    {showDeactivatePassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowDeactivateModal(false)}
+                  className="flex-1 py-2 text-xs font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 rounded-xl transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isDeactivating}
+                  className="flex-1 py-2 text-xs font-bold text-white bg-amber-600 hover:bg-amber-700 disabled:opacity-50 rounded-xl transition-colors flex items-center justify-center gap-1.5 shadow-md shadow-amber-600/20"
+                >
+                  {isDeactivating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
+                  <span>{isDeactivating ? 'Deactivating...' : 'Deactivate'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* DELETE ACCOUNT MODAL */}
+      {/* ========================================================================= */}
+      {showDeleteModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fadeIn"
+          onClick={() => setShowDeleteModal(false)}
+        >
+          <div
+            className="bg-white dark:bg-slate-900 rounded-3xl max-w-md w-full p-6 shadow-2xl border border-rose-200 dark:border-rose-900/50 space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-rose-50 dark:bg-rose-950/60 flex items-center justify-center text-rose-600 dark:text-rose-400">
+                  <ShieldAlert className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">Delete Account Permanently</h3>
+                  <p className="text-[11px] text-rose-500 font-semibold">Irreversible Action</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowDeleteModal(false)}
+                className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-full"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200/50 dark:border-rose-900/40 text-rose-700 dark:text-rose-300 text-xs leading-relaxed">
+              <strong>Warning:</strong> Deleting your account will immediately and permanently erase all your yaps, followers, bookmarks, likes, and profile information. This cannot be undone.
+            </div>
+
+            <form onSubmit={handleConfirmDelete} className="space-y-4">
+              {deleteError && (
+                <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 text-xs flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                  <span>{deleteError}</span>
+                </div>
+              )}
+
+              {/* Password Confirmation */}
+              <div>
+                <label className="block text-xs font-bold text-slate-800 dark:text-slate-200 mb-1.5">
+                  Enter your current password:
+                </label>
+                <div className="relative">
+                  <input
+                    type={showDeletePassword ? 'text' : 'password'}
+                    value={deletePassword}
+                    onChange={(e) => setDeletePassword(e.target.value)}
+                    required
+                    placeholder="Current password"
+                    className="w-full py-2 px-3 pr-10 rounded-xl text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-rose-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowDeletePassword(!showDeletePassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  >
+                    {showDeletePassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
+              </div>
+
+              {/* Confirmation Text input */}
+              <div>
+                <label className="block text-xs font-bold text-slate-800 dark:text-slate-200 mb-1.5">
+                  Type <span className="font-mono text-rose-600 select-all font-black">&quot;CONFIRM DELETE&quot;</span> below:
+                </label>
+                <input
+                  type="text"
+                  value={deleteConfirmText}
+                  onChange={(e) => setDeleteConfirmText(e.target.value)}
+                  placeholder="CONFIRM DELETE"
+                  className="w-full py-2 px-3 rounded-xl text-xs font-mono bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-rose-500"
+                />
+              </div>
+
+              <div className="flex items-center gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowDeleteModal(false)}
+                  className="flex-1 py-2 text-xs font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 rounded-xl transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isDeleting || deleteConfirmText.trim().toUpperCase() !== 'CONFIRM DELETE'}
+                  className="flex-1 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 disabled:opacity-40 disabled:cursor-not-allowed rounded-xl transition-colors flex items-center justify-center gap-1.5 shadow-md shadow-rose-600/20"
+                >
+                  {isDeleting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
+                  <span>{isDeleting ? 'Deleting...' : 'Delete Permanently'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

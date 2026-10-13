@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { UserProfile } from '../types';
 import { api } from '../api/apiClient';
 import { syncPushIfGranted, unsubscribeFromPush } from '../utils/pushNotifications';
+import { SelectUsernameModal } from '../components/auth/SelectUsernameModal';
 
 interface AuthContextType {
   user: UserProfile | null;
@@ -24,6 +25,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [needsUsernameModal, setNeedsUsernameModal] = useState(false);
   const [user, setUser] = useState<UserProfile | null>(() => {
     const saved = localStorage.getItem('yapr_user');
     let u: UserProfile | null = saved ? JSON.parse(saved) : null;
@@ -113,6 +115,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const syncRes = await api.syncOAuthUser(accessToken, payload.user_metadata);
             if (syncRes?.user) {
               setUser(syncRes.user);
+              if (syncRes.user.is_new_user || !syncRes.user.username || syncRes.user.username.startsWith('user_')) {
+                setNeedsUsernameModal(true);
+              }
               return;
             }
           } catch (syncErr) {
@@ -145,6 +150,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           };
 
           setUser(fallbackProfile);
+          if (fallbackProfile.username.startsWith('user_')) {
+            setNeedsUsernameModal(true);
+          }
         } catch (e) {
           console.error('Failed to parse OAuth session:', e);
         }
@@ -212,6 +220,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }}
     >
       {children}
+      {user && (
+        <SelectUsernameModal
+          isOpen={needsUsernameModal}
+          initialUsername={user.username}
+          onComplete={(chosen) => {
+            setUser((prev) => (prev ? { ...prev, username: chosen } : null));
+            setNeedsUsernameModal(false);
+          }}
+        />
+      )}
     </AuthContext.Provider>
   );
 };

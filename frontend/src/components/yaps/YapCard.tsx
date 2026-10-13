@@ -17,6 +17,7 @@ import {
   UserCheck,
   UserPlus,
   Globe,
+  BadgeCheck,
 } from 'lucide-react';
 import { Yap, UserProfile } from '../../types';
 import { YapMediaGrid } from './YapMediaGrid';
@@ -267,9 +268,7 @@ export const YapCard: React.FC<YapCardProps> = ({
                 {yap.author?.display_name || (yap as any).display_name || 'Yapr User'}
               </h3>
               {(yap.author?.is_verified || (yap as any).is_verified) && (
-                <span className="w-3.5 h-3.5 rounded-full bg-blue-600 text-white flex items-center justify-center text-[9px] font-bold flex-shrink-0" title="Verified">
-                  ✓
-                </span>
+                <BadgeCheck className="w-4 h-4 text-blue-500 fill-blue-500 text-white flex-shrink-0" />
               )}
               <span
                 onClick={() => {
