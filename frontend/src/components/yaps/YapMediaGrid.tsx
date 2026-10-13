@@ -29,6 +29,9 @@ const MediaGridCell: React.FC<{
             muted
             playsInline
             preload="metadata"
+            controlsList="nodownload noplaybackrate"
+            disablePictureInPicture
+            onContextMenu={(e) => e.preventDefault()}
             className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300 pointer-events-none"
           />
           <div className="absolute inset-0 flex items-center justify-center bg-black/25 group-hover:bg-black/15 transition-colors pointer-events-none">

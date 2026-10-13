@@ -16,6 +16,9 @@ export interface UserProfile {
   is_requested?: boolean;
   who_can_see_dp?: 'everyone' | 'followers';
   who_can_tag?: 'everyone' | 'followers' | 'none';
+  is_deactivated?: boolean;
+  is_new_user?: boolean;
+  social_links?: Array<{ platform: string; url: string }>;
 }
 
 export interface MentionCandidate {

@@ -130,6 +130,21 @@ export class ProfilesService {
     };
   }
 
+  /**
+   * Retrieve social links for a user (persisted in Redis with mock fallback, max 5)
+   */
+  async getSocialLinks(userId: string): Promise<Array<{ platform: string; url: string }>> {
+    try {
+      const raw = await cacheClient.get(`yapr:social:${userId}`);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) return parsed.slice(0, 5);
+      }
+    } catch {}
+    const p = mockProfiles.get(userId);
+    return Array.isArray(p?.social_links) ? p.social_links.slice(0, 5) : [];
+  }
+
   async getProfile(identifier: string, viewerId?: string): Promise<any> {
     if (isSupabaseConfigured) {
       const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(identifier);
@@ -154,6 +169,31 @@ export class ProfilesService {
       }
 
       if (data) {
+        let isDeactivated = !!data.is_deactivated;
+        if (isDeactivated && data.deactivated_until) {
+          if (new Date(data.deactivated_until) <= new Date()) {
+            isDeactivated = false;
+            await supabaseAdmin.from('profiles').update({ is_deactivated: false, deactivated_until: null }).eq('id', data.id);
+            await cacheClient.del(`yapr:deactivated:${data.id}`).catch(() => {});
+          }
+        }
+
+        if (isDeactivated && viewerId !== data.id) {
+          return {
+            id: data.id,
+            username: data.username,
+            display_name: 'Deactivated Account',
+            avatar_url: `https://api.dicebear.com/7.x/bottts/svg?seed=deactivated`,
+            banner_url: null,
+            bio: 'This account has been deactivated.',
+            is_deactivated: true,
+            follower_count: 0,
+            following_count: 0,
+            country: getCountryByCode(data.country_code || 'PK'),
+            social_links: [],
+          };
+        }
+
         let isFollowing = false;
         let isRequested = false;
         if (viewerId && viewerId !== data.id) {
@@ -186,6 +226,7 @@ export class ProfilesService {
           avatarUrl = `https://api.dicebear.com/7.x/bottts/svg?seed=private_${data.username}`;
         }
 
+        const socialLinks = await this.getSocialLinks(data.id);
         const { email, phone, password, token, ...publicData } = data;
 
         return {
@@ -196,6 +237,8 @@ export class ProfilesService {
           who_can_tag: whoCanTag,
           is_following: isFollowing,
           is_requested: isRequested,
+          is_deactivated: isDeactivated,
+          social_links: socialLinks,
           country: getCountryByCode(data.country_code || 'PK'),
         };
       }
@@ -210,6 +253,32 @@ export class ProfilesService {
         p.username.toLowerCase() === identifier.toLowerCase() ||
         p.display_name?.toLowerCase() === identifier.toLowerCase()
       ) {
+        let isDeactivated = !!p.is_deactivated;
+        if (isDeactivated && p.deactivated_until) {
+          if (new Date(p.deactivated_until) <= new Date()) {
+            isDeactivated = false;
+            p.is_deactivated = false;
+            p.deactivated_until = null;
+            await cacheClient.del(`yapr:deactivated:${p.id}`).catch(() => {});
+          }
+        }
+
+        if (isDeactivated && viewerId !== p.id) {
+          return {
+            id: p.id,
+            username: p.username,
+            display_name: 'Deactivated Account',
+            avatar_url: `https://api.dicebear.com/7.x/bottts/svg?seed=deactivated`,
+            banner_url: null,
+            bio: 'This account has been deactivated.',
+            is_deactivated: true,
+            follower_count: 0,
+            following_count: 0,
+            country: getCountryByCode(p.country_code || 'PK'),
+            social_links: [],
+          };
+        }
+
         const isRequested = viewerId && viewerId !== p.id && p.is_private
           ? await socialService.isFollowRequested(viewerId, p.id)
           : false;
@@ -221,6 +290,7 @@ export class ProfilesService {
           avatarUrl = `https://api.dicebear.com/7.x/bottts/svg?seed=private_${p.username}`;
         }
 
+        const socialLinks = await this.getSocialLinks(p.id);
         const { email, phone, password, token, ...publicProfile } = p;
 
         return {
@@ -231,6 +301,8 @@ export class ProfilesService {
           who_can_tag: privacy.who_can_tag,
           is_following: false,
           is_requested: isRequested,
+          is_deactivated: isDeactivated,
+          social_links: socialLinks,
           country: getCountryByCode(p.country_code || 'PK'),
         };
       }
@@ -240,7 +312,7 @@ export class ProfilesService {
   }
 
   async updateProfile(userId: string, updates: any): Promise<any> {
-    const allowed = ['display_name', 'bio', 'avatar_url', 'banner_url', 'country_code', 'username', 'is_private', 'who_can_see_dp', 'who_can_tag'];
+    const allowed = ['display_name', 'bio', 'avatar_url', 'banner_url', 'country_code', 'username', 'is_private', 'who_can_see_dp', 'who_can_tag', 'social_links'];
     const sanitized: any = {};
     for (const key of allowed) {
       if (updates[key] !== undefined) sanitized[key] = updates[key];
@@ -275,6 +347,23 @@ export class ProfilesService {
       await cacheClient.set(`yapr:privacy:${userId}`, JSON.stringify(updatedPrivacy)).catch(() => {});
     }
 
+    // Persist social links to Redis (up to 5 links)
+    let savedSocialLinks: any[] = [];
+    if (sanitized.social_links !== undefined) {
+      savedSocialLinks = Array.isArray(sanitized.social_links)
+        ? sanitized.social_links
+            .filter((item: any) => item && typeof item === 'object' && item.url)
+            .slice(0, 5)
+            .map((item: any) => ({
+              platform: String(item.platform || 'website').toLowerCase().trim(),
+              url: String(item.url).trim().startsWith('http') ? String(item.url).trim() : `https://${String(item.url).trim()}`,
+            }))
+        : [];
+      await cacheClient.set(`yapr:social:${userId}`, JSON.stringify(savedSocialLinks)).catch(() => {});
+    } else {
+      savedSocialLinks = await this.getSocialLinks(userId);
+    }
+
     if (isSupabaseConfigured) {
       const dbPayload: any = { updated_at: new Date().toISOString() };
       for (const k of ['display_name', 'bio', 'avatar_url', 'banner_url', 'country_code', 'username', 'is_private']) {
@@ -293,11 +382,12 @@ export class ProfilesService {
         ...data,
         who_can_see_dp: updatedPrivacy.who_can_see_dp,
         who_can_tag: updatedPrivacy.who_can_tag,
+        social_links: savedSocialLinks,
       };
     }
 
     const existing = mockProfiles.get(userId) || { id: userId, follower_count: 0, following_count: 0 };
-    const updated = { ...existing, ...sanitized, ...updatedPrivacy };
+    const updated = { ...existing, ...sanitized, ...updatedPrivacy, social_links: savedSocialLinks };
     mockProfiles.set(userId, updated);
     return updated;
   }
@@ -305,6 +395,11 @@ export class ProfilesService {
   async getUserYaps(identifier: string, viewerId?: string): Promise<{ is_private: boolean; yaps: any[] }> {
     const profile = await this.getProfile(identifier, viewerId);
     if (!profile) return { is_private: false, yaps: [] };
+
+    // If profile is deactivated and viewer is not owner, return empty
+    if (profile.is_deactivated && viewerId !== profile.id) {
+      return { is_private: false, yaps: [] };
+    }
 
     // Check if account is private
     const isOwner = viewerId === profile.id;

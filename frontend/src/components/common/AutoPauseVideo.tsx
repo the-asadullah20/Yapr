@@ -57,7 +57,16 @@ export const AutoPauseVideo = React.forwardRef<HTMLVideoElement, AutoPauseVideoP
       };
     }, [autoPauseOutOfView]);
 
-    return <video ref={setRef} className={className} {...props} />;
+    return (
+      <video
+        ref={setRef}
+        className={className}
+        controlsList="nodownload noplaybackrate"
+        disablePictureInPicture
+        onContextMenu={(e) => e.preventDefault()}
+        {...props}
+      />
+    );
   }
 );
 

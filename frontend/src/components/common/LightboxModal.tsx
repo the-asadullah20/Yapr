@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { X, ChevronLeft, ChevronRight, ExternalLink } from 'lucide-react';
+import { X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { isVideoUrl } from '../../utils/formatters';
 import { AutoPauseVideo } from './AutoPauseVideo';
 
@@ -65,16 +65,6 @@ export const LightboxModal: React.FC<LightboxModalProps> = ({
         </div>
 
         <div className="flex items-center gap-2">
-          <a
-            href={currentImage}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={(e) => e.stopPropagation()}
-            className="p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
-            title="Open original in new tab"
-          >
-            <ExternalLink className="w-4 h-4" />
-          </a>
           <button
             onClick={(e) => {
               e.stopPropagation();
@@ -116,6 +106,7 @@ export const LightboxModal: React.FC<LightboxModalProps> = ({
           <img
             src={currentImage}
             alt={`Full length image ${currentIndex + 1}`}
+            onContextMenu={(e) => e.preventDefault()}
             className="max-w-full max-h-[88vh] w-auto h-auto object-contain rounded-lg shadow-2xl transition-transform"
           />
         )}

@@ -150,6 +150,42 @@ export class AuthController {
       next(err);
     }
   }
+
+  async deactivateAccount(req: Request, res: Response, next: NextFunction) {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: 'Not authenticated' });
+      }
+      const { password, autoReactivateDays } = req.body;
+      const result = await authService.deactivateAccount({
+        userId: req.user.id,
+        email: req.user.email,
+        password,
+        autoReactivateDays: autoReactivateDays ? Number(autoReactivateDays) : undefined,
+      });
+      res.json(result);
+    } catch (err: any) {
+      res.status(400).json({ error: err.message || 'Failed to deactivate account' });
+    }
+  }
+
+  async deleteAccount(req: Request, res: Response, next: NextFunction) {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: 'Not authenticated' });
+      }
+      const { password, confirmationText } = req.body;
+      const result = await authService.deleteAccount({
+        userId: req.user.id,
+        email: req.user.email,
+        password,
+        confirmationText: confirmationText || '',
+      });
+      res.json(result);
+    } catch (err: any) {
+      res.status(400).json({ error: err.message || 'Failed to delete account' });
+    }
+  }
 }
 
 export const authController = new AuthController();
