@@ -172,13 +172,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const res = await api.verifyOtp(email, code);
     setToken(res.token);
     setUser(res.user);
-    return { isNewUser: !!res.isNewUser };
+    const isNew = !!res.isNewUser || !res.user.username || res.user.username.startsWith('user_');
+    if (isNew) {
+      setNeedsUsernameModal(true);
+    }
+    return { isNewUser: isNew };
   };
 
   const loginWithPassword = async (email: string, password: string) => {
     const res = await api.loginWithPassword(email, password);
     setToken(res.token);
     setUser(res.user);
+    if (!res.user.username || res.user.username.startsWith('user_')) {
+      setNeedsUsernameModal(true);
+    }
   };
 
   const registerWithPassword = async (params: {

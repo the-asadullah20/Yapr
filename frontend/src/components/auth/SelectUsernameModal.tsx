@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { AtSign, Check, AlertCircle, Loader2, Sparkles, Globe, Lock, Image as ImageIcon, X } from 'lucide-react';
+import { AtSign, Check, AlertCircle, Loader2, Sparkles, Globe, Lock, Image as ImageIcon, X, Bell } from 'lucide-react';
 import { api } from '../../api/apiClient';
 import { DEFAULT_AVATAR } from '../../utils/avatar';
+import { subscribeToPush } from '../../utils/pushNotifications';
 
 interface SelectUsernameModalProps {
   isOpen: boolean;
@@ -23,6 +24,9 @@ export const SelectUsernameModal: React.FC<SelectUsernameModalProps> = ({
   const [status, setStatus] = useState<'idle' | 'checking' | 'available' | 'taken' | 'invalid'>('idle');
   const [statusMsg, setStatusMsg] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Notifications permission state
+  const [allowNotifications, setAllowNotifications] = useState(true);
 
   // Cover photo state
   const [coverFile, setCoverFile] = useState<File | null>(null);
@@ -140,6 +144,14 @@ export const SelectUsernameModal: React.FC<SelectUsernameModalProps> = ({
         is_private: isPrivate,
         ...(uploadedBannerUrl ? { banner_url: uploadedBannerUrl } : {}),
       });
+
+      if (allowNotifications) {
+        try {
+          await subscribeToPush();
+        } catch {
+          // Push notification permission prompt dismissed or rejected
+        }
+      }
 
       onComplete(clean, isPrivate, uploadedBannerUrl);
     } catch (err: any) {
@@ -356,6 +368,32 @@ export const SelectUsernameModal: React.FC<SelectUsernameModalProps> = ({
             <p className="text-[11px] text-slate-400 dark:text-slate-500">
               You can change your account visibility anytime later in your Settings.
             </p>
+          </div>
+
+          {/* Push Notifications Section */}
+          <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
+            <div className="flex items-center justify-between p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50">
+              <div className="flex items-center gap-2.5">
+                <div className="w-7 h-7 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center">
+                  <Bell className="w-4 h-4" />
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-slate-900 dark:text-white">Allow Notifications</p>
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-snug">
+                    Get instant alerts when someone yaps, mentions or replies
+                  </p>
+                </div>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                <input
+                  type="checkbox"
+                  checked={allowNotifications}
+                  onChange={(e) => setAllowNotifications(e.target.checked)}
+                  className="sr-only peer"
+                />
+                <div className="w-8 h-4.5 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3.5 after:w-3.5 after:transition-all dark:border-slate-600 peer-checked:bg-blue-600"></div>
+              </label>
+            </div>
           </div>
 
           <button

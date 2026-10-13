@@ -60,10 +60,11 @@ export async function subscribeToPush(): Promise<{ success: boolean; error?: str
     // Wait until service worker is active
     await navigator.serviceWorker.ready;
 
-    // 3. Fetch VAPID public key from backend
-    const vapidPublicKey = await api.getVapidPublicKey();
+    // 3. Fetch VAPID public key from backend (with reliable fallback)
+    const FALLBACK_VAPID_PUBLIC_KEY = 'BCAyN1UmZ-Mm19DvcqlW6snQSc5oXKGztiuFzjUpzI1Lmd3irbpvGvv-J6eN7kVl-g337na73u4Op4k7Dplh65c';
+    let vapidPublicKey = await api.getVapidPublicKey().catch(() => '');
     if (!vapidPublicKey) {
-      return { success: false, error: 'VAPID public key not found on server.' };
+      vapidPublicKey = FALLBACK_VAPID_PUBLIC_KEY;
     }
 
     // 4. Subscribe with PushManager
@@ -114,7 +115,9 @@ export async function syncPushIfGranted(): Promise<void> {
     if (subscription) {
       await api.subscribePush(subscription.toJSON());
     } else {
-      const vapidPublicKey = await api.getVapidPublicKey();
+      const FALLBACK_VAPID_PUBLIC_KEY = 'BCAyN1UmZ-Mm19DvcqlW6snQSc5oXKGztiuFzjUpzI1Lmd3irbpvGvv-J6eN7kVl-g337na73u4Op4k7Dplh65c';
+      let vapidPublicKey = await api.getVapidPublicKey().catch(() => '');
+      if (!vapidPublicKey) vapidPublicKey = FALLBACK_VAPID_PUBLIC_KEY;
       if (vapidPublicKey) {
         const sub = await registration.pushManager.subscribe({
           userVisibleOnly: true,
