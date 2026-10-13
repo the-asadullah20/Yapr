@@ -127,14 +127,14 @@ async function startServer() {
 
     server.listen(env.PORT, () => {
       console.log(`
-🚀 ============================================
+============================================
     YAPR BACKEND RUNNING ON PORT ${env.PORT}
     Environment: ${env.NODE_ENV}
     Frontend URL: ${env.FRONTEND_URL}
     Supabase: ${isSupabaseConfigured ? 'Connected' : 'Mock/Dev Mode'}
     Redis: ${env.UPSTASH_REDIS_REST_URL ? 'Upstash REST' : (env.REDIS_URL ? 'Standard' : 'In-Memory Cache')}
     AI Models: Groq (${env.GROQ_MODEL}) | Gemini (${env.GEMINI_MODEL})
-============================================ 🚀
+============================================
       `);
     });
   } catch (err) {

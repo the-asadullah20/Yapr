@@ -45,7 +45,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
       s.on('connect', () => {
         setIsConnected(true);
-        console.log('⚡ Socket connected to Yapr backend');
+        console.log('[Socket] Connected to Yapr backend');
       });
 
       s.on('disconnect', () => {

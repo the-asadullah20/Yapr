@@ -3,6 +3,7 @@ import { env } from '../../config/env.js';
 import { isSupabaseConfigured } from '../../config/supabase.js';
 import crypto from 'crypto';
 import path from 'path';
+import { DEFAULT_AVATAR } from '../../utils/avatar.js';
 
 // Dedicated storage admin client guaranteed to run with service_role privilege
 // completely immune to user sessions or client-level RLS restrictions
@@ -70,7 +71,7 @@ export class MediaService {
       return { url: avatarUrl };
     }
 
-    const mockUrl = `https://api.dicebear.com/7.x/bottts/svg?seed=${Date.now()}`;
+    const mockUrl = DEFAULT_AVATAR;
     return { url: mockUrl };
   }
 

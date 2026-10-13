@@ -6,6 +6,7 @@ import { Yap } from '../../types';
 import { isVideoUrl } from '../../utils/formatters';
 import { useMentionAutocomplete } from '../../hooks/useMentionAutocomplete';
 import { MentionSuggestionsDropdown } from '../common/MentionSuggestionsDropdown';
+import { getAvatarUrl } from '../../utils/avatar';
 
 interface YapComposerProps {
   onYapCreated: (yap: Yap) => void;
@@ -110,7 +111,7 @@ export const YapComposer: React.FC<YapComposerProps> = ({ onYapCreated, defaultH
       <form onSubmit={handleSubmit}>
         <div className="flex gap-3 items-start">
           <img
-            src={user?.avatar_url || (user?.username ? `https://api.dicebear.com/7.x/bottts/svg?seed=${user.username}` : 'https://api.dicebear.com/7.x/bottts/svg?seed=yapr')}
+            src={getAvatarUrl(user?.avatar_url)}
             alt={user?.display_name || ''}
             className="w-10 h-10 rounded-full object-cover ring-2 ring-slate-100 dark:ring-slate-800 flex-shrink-0"
           />

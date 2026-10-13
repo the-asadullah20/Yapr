@@ -41,9 +41,9 @@ if (env.SMTP_HOST && env.SMTP_USER && env.SMTP_PASS) {
 
   transporter.verify((error) => {
     if (error) {
-      console.warn(`⚠️ [Email Worker] SMTP note: Render free tier blocks outbound SMTP ports (25, 465, 587). Error:`, error.message);
+      console.warn(`[Email Worker] SMTP note: Render free tier blocks outbound SMTP ports (25, 465, 587). Error:`, error.message);
     } else {
-      console.log(`✅ [Email Worker] SMTP transporter connected successfully to ${env.SMTP_HOST}:${env.SMTP_PORT}`);
+      console.log(`[Email Worker] SMTP transporter connected successfully to ${env.SMTP_HOST}:${env.SMTP_PORT}`);
     }
   });
 }
@@ -71,14 +71,14 @@ async function sendViaResend(to: string, code: string): Promise<boolean> {
       }),
     });
     if (res.ok) {
-      console.log(`✅ [Email Worker:Resend] Email delivered to ${to}`);
+      console.log(`[Email Worker:Resend] Email delivered to ${to}`);
       return true;
     }
     const errData = await res.json().catch(() => ({}));
-    console.error(`❌ [Email Worker:Resend] Delivery failed:`, errData);
+    console.error(`[Email Worker:Resend] Delivery failed:`, errData);
     return false;
   } catch (err: any) {
-    console.error(`❌ [Email Worker:Resend] Request failed:`, err.message || err);
+    console.error(`[Email Worker:Resend] Request failed:`, err.message || err);
     return false;
   }
 }
@@ -93,7 +93,7 @@ async function sendViaBrevo(to: string, code: string): Promise<boolean> {
     const rawSender = env.BREVO_SENDER_EMAIL || env.SMTP_FROM || env.SMTP_USER || 'asadullahhmad5@gmail.com';
     const fromEmail = extractEmail(rawSender);
 
-    console.log(`📡 [Email Worker:Brevo] Sending OTP to ${to} via Brevo HTTP API from ${fromEmail}...`);
+    console.log(`[Email Worker:Brevo] Sending OTP to ${to} via Brevo HTTP API from ${fromEmail}...`);
 
     const res = await fetch('https://api.brevo.com/v3/smtp/email', {
       method: 'POST',
@@ -118,14 +118,14 @@ async function sendViaBrevo(to: string, code: string): Promise<boolean> {
     });
 
     if (res.ok) {
-      console.log(`✅ [Email Worker:Brevo] Email delivered successfully to ${to}`);
+      console.log(`[Email Worker:Brevo] Email delivered successfully to ${to}`);
       return true;
     }
     const errText = await res.text();
-    console.error(`❌ [Email Worker:Brevo] Delivery failed (${res.status}): ${errText}`);
+    console.error(`[Email Worker:Brevo] Delivery failed (${res.status}): ${errText}`);
     return false;
   } catch (err: any) {
-    console.error(`❌ [Email Worker:Brevo] Request failed:`, err.message || err);
+    console.error(`[Email Worker:Brevo] Request failed:`, err.message || err);
     return false;
   }
 }
@@ -133,7 +133,7 @@ async function sendViaBrevo(to: string, code: string): Promise<boolean> {
 export function registerEmailWorker(): void {
   queueService.subscribe(env.AMQP_QUEUE_EMAIL_OTP || 'yapr.email.otp', async (job: QueueJob) => {
     const { to, code } = job.payload;
-    console.log(`📧 [Email Worker] Processing OTP for ${to}...`);
+    console.log(`[Email Worker] Processing OTP for ${to}...`);
 
     // 1. Try Resend HTTP API (Never blocked on Render)
     if (env.RESEND_API_KEY) {
@@ -167,12 +167,12 @@ export function registerEmailWorker(): void {
             </div>
           `,
         });
-        console.log(`✅ [Email Worker:SMTP] Email delivered to ${to}`);
+        console.log(`[Email Worker:SMTP] Email delivered to ${to}`);
       } catch (err: any) {
-        console.error(`❌ [Email Worker:SMTP] Delivery failed for ${to} (Note: Render free tier blocks outbound SMTP ports 25, 465, 587):`, err.message || err);
+        console.error(`[Email Worker:SMTP] Delivery failed for ${to} (Note: Render free tier blocks outbound SMTP ports 25, 465, 587):`, err.message || err);
       }
     } else {
-      console.log(`ℹ️ [Email Worker:Mock] SMTP/HTTP not configured. OTP for ${to} is: ${code}`);
+      console.log(`[Email Worker:Mock] SMTP/HTTP not configured. OTP for ${to} is: ${code}`);
     }
   });
 }

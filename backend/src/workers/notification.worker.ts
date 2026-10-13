@@ -13,11 +13,11 @@ export function registerNotificationWorker(): void {
     // Comments / replies must NOT send 'new_yap' notifications to all followers!
     // They are targeted replies to the parent author & mentioned users only.
     if (parentId) {
-      console.log(`💬 [Notification Worker] Skipping new_yap fan-out for comment/reply ${yapId}`);
+      console.log(`[Notification Worker] Skipping new_yap fan-out for comment/reply ${yapId}`);
       return;
     }
 
-    console.log(`📢 [Notification Worker] Processing yap.created fan-out for Yap ${yapId}`);
+    console.log(`[Notification Worker] Processing yap.created fan-out for Yap ${yapId}`);
 
     // Broadcast feed update to all connected viewers
     broadcastToFeed('feed:new_yap', { yapId, authorId });
@@ -79,7 +79,7 @@ export function registerNotificationWorker(): void {
         }
       } else {
         // For celebrities / high-follower accounts (>10k): Fan-out on read / pull on read
-        console.log(`⚡ [Notification Worker] High-follower account (${followerCount}), using pull-on-read strategy`);
+        console.log(`[Notification Worker] High-follower account (${followerCount}), using pull-on-read strategy`);
       }
     }
   });
@@ -87,7 +87,7 @@ export function registerNotificationWorker(): void {
   // Worker 2: Direct Social Notifications (Likes, Reyaps, Follows)
   queueService.subscribe(env.AMQP_QUEUE_NOTIFICATIONS || 'yapr.notifications', async (job: QueueJob) => {
     const { recipientId, actorId, yapId, type } = job.payload;
-    console.log(`🔔 [Notification Worker] Creating notification of type '${type}' for user ${recipientId}`);
+    console.log(`[Notification Worker] Creating notification of type '${type}' for user ${recipientId}`);
     await notificationsService.createNotification({
       userId: recipientId,
       type,

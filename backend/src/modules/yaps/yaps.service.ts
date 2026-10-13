@@ -5,6 +5,8 @@ import { cacheClient } from '../../config/redis.js';
 import { env } from '../../config/env.js';
 import { summarizeYap } from '../../config/ai.js';
 import { notificationsService } from '../notifications/notifications.service.js';
+import { mockProfiles } from '../profiles/profiles.service.js';
+import { DEFAULT_AVATAR } from '../../utils/avatar.js';
 
 // In-memory yaps store for dev
 export const mockYaps: any[] = [];
@@ -287,11 +289,11 @@ export class YapsService {
         is_bookmarked: false,
         author: {
           id: authorId,
-          username: 'user_' + authorId.slice(0, 6),
-          display_name: 'Yapr Creator',
-          avatar_url: `https://api.dicebear.com/7.x/bottts/svg?seed=${authorId}`,
-          country_code: countryCode,
-          is_verified: false,
+          username: mockProfiles.get(authorId)?.username || ('user_' + authorId.slice(0, 6)),
+          display_name: mockProfiles.get(authorId)?.display_name || 'Yapr Creator',
+          avatar_url: mockProfiles.get(authorId)?.avatar_url || DEFAULT_AVATAR,
+          country_code: mockProfiles.get(authorId)?.country_code || countryCode,
+          is_verified: !!mockProfiles.get(authorId)?.is_verified,
         },
       };
       mockYaps.unshift(newYap);

@@ -1,6 +1,7 @@
 import React from 'react';
 import { BadgeCheck } from 'lucide-react';
 import { MentionCandidate } from '../../types';
+import { getAvatarUrl } from '../../utils/avatar';
 
 interface MentionSuggestionsDropdownProps {
   candidates: MentionCandidate[];
@@ -46,10 +47,7 @@ export const MentionSuggestionsDropdown: React.FC<MentionSuggestionsDropdownProp
             >
               <div className="flex items-center gap-2.5 min-w-0 flex-1">
                 <img
-                  src={
-                    candidate.avatar_url ||
-                    `https://api.dicebear.com/7.x/bottts/svg?seed=${candidate.username}`
-                  }
+                  src={getAvatarUrl(candidate.avatar_url)}
                   alt={candidate.display_name}
                   className="w-7 h-7 rounded-full object-cover ring-1 ring-slate-200 dark:ring-slate-700 flex-shrink-0"
                 />

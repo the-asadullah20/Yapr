@@ -30,6 +30,7 @@ import { useAuth } from '../context/AuthContext';
 import { api } from '../api/apiClient';
 import { UserProfile, Yap } from '../types';
 import { YapCard } from '../components/yaps/YapCard';
+import { getAvatarUrl } from '../utils/avatar';
 import { LightboxModal } from '../components/common/LightboxModal';
 
 interface ProfilePageProps {
@@ -90,7 +91,9 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
   // Other user's profile state
-  const isViewingOther = !!viewingUsername && viewingUsername !== user?.username;
+  const isViewingOther =
+    !!viewingUsername &&
+    (!user?.username || viewingUsername.toLowerCase() !== user.username.toLowerCase());
   const [otherProfile, setOtherProfile] = useState<UserProfile | null>(null);
   const [loadingOther, setLoadingOther] = useState(isViewingOther);
   const [isFollowing, setIsFollowing] = useState(false);
@@ -373,7 +376,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
 
   // Load yaps for current profile
   useEffect(() => {
-    const target = isViewingOther ? viewingUsername : user?.username;
+    const target = isViewingOther ? viewingUsername : (user?.username || user?.id);
     if (target) {
       setLoadingUserYaps(true);
       api
@@ -387,7 +390,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
           setLoadingUserYaps(false);
         });
     }
-  }, [isViewingOther, viewingUsername, user?.username]);
+  }, [isViewingOther, viewingUsername, user?.username, user?.id]);
 
   const handleDeleteYap = async (yapId: string) => {
     try {
@@ -771,18 +774,12 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                     alert('This user has restricted profile photo visibility to approved followers only.');
                     return;
                   }
-                  setPreviewAvatarUrl(
-                    otherProfile.avatar_url ||
-                    `https://api.dicebear.com/7.x/bottts/svg?seed=${otherProfile.username}`
-                  );
+                  setPreviewAvatarUrl(getAvatarUrl(otherProfile.avatar_url));
                 }}
                 title={otherProfile.avatar_hidden ? 'Profile photo is private (followers only)' : 'Click to view full photo'}
               >
                 <img
-                  src={
-                    otherProfile.avatar_url ||
-                    `https://api.dicebear.com/7.x/bottts/svg?seed=${otherProfile.username}`
-                  }
+                  src={getAvatarUrl(otherProfile.avatar_url)}
                   alt={otherProfile.display_name}
                   className="w-20 h-20 sm:w-24 sm:h-24 aspect-square rounded-full object-cover ring-4 ring-white dark:ring-slate-900 shadow-lg bg-slate-100 dark:bg-slate-800 flex-shrink-0 group-hover:opacity-90 transition-opacity"
                 />
@@ -1004,7 +1001,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                     >
                       <div className="flex items-center gap-2.5 min-w-0 flex-1 overflow-hidden">
                         <img
-                          src={u.avatar_url || `https://api.dicebear.com/7.x/bottts/svg?seed=${u.username}`}
+                          src={getAvatarUrl(u.avatar_url)}
                           alt=""
                           className="w-8 h-8 rounded-full object-cover ring-1 ring-slate-100 dark:ring-slate-700 flex-shrink-0"
                         />
@@ -1112,13 +1109,9 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
           <div className="flex items-end justify-between -mt-10 sm:-mt-12 mb-3 sm:mb-4 gap-2 sm:gap-4">
             <div className="relative flex-shrink-0 w-20 h-20 sm:w-24 sm:h-24 aspect-square">
               <img
-                src={user.avatar_url || `https://api.dicebear.com/7.x/bottts/svg?seed=${user.username}`}
+                src={getAvatarUrl(user.avatar_url)}
                 alt={user.display_name}
-                onClick={() =>
-                  setPreviewAvatarUrl(
-                    user.avatar_url || `https://api.dicebear.com/7.x/bottts/svg?seed=${user.username}`
-                  )
-                }
+                onClick={() => setPreviewAvatarUrl(getAvatarUrl(user.avatar_url))}
                 title="Click to view full photo"
                 className="w-20 h-20 sm:w-24 sm:h-24 aspect-square rounded-full object-cover ring-4 ring-white dark:ring-slate-900 shadow-lg bg-slate-100 dark:bg-slate-800 flex-shrink-0 cursor-pointer hover:opacity-90 transition-opacity"
               />
@@ -1842,7 +1835,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
               >
                 <div className="flex items-center gap-3 min-w-0 flex-1 overflow-hidden mr-2">
                   <img
-                    src={bUser.avatar_url || `https://api.dicebear.com/7.x/bottts/svg?seed=${bUser.username}`}
+                    src={getAvatarUrl(bUser.avatar_url)}
                     alt={bUser.display_name}
                     className="w-9 h-9 rounded-full object-cover bg-slate-200 dark:bg-slate-700 flex-shrink-0"
                   />
@@ -2089,7 +2082,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                       }}
                     >
                       <img
-                        src={req.avatar_url || `https://api.dicebear.com/7.x/bottts/svg?seed=${req.username}`}
+                        src={getAvatarUrl(req.avatar_url)}
                         alt={req.display_name}
                         className="w-10 h-10 rounded-full object-cover ring-2 ring-white dark:ring-slate-700 flex-shrink-0"
                       />
@@ -2165,7 +2158,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                   >
                     <div className="flex items-center gap-2.5 min-w-0 flex-1 overflow-hidden">
                       <img
-                        src={u.avatar_url || `https://api.dicebear.com/7.x/bottts/svg?seed=${u.username}`}
+                        src={getAvatarUrl(u.avatar_url)}
                         alt=""
                         className="w-8 h-8 rounded-full object-cover ring-1 ring-slate-100 dark:ring-slate-700 flex-shrink-0"
                       />

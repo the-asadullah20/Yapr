@@ -7,7 +7,6 @@ import {
   MoreHorizontal,
   Sparkles,
   Paperclip,
-  Smile,
   Image as ImageIcon,
   Send,
   Flag,
@@ -26,6 +25,7 @@ import { api } from '../../api/apiClient';
 import { useAuth } from '../../context/AuthContext';
 import { useMentionAutocomplete } from '../../hooks/useMentionAutocomplete';
 import { MentionSuggestionsDropdown } from '../common/MentionSuggestionsDropdown';
+import { getAvatarUrl } from '../../utils/avatar';
 
 interface YapCardProps {
   yap: Yap;
@@ -67,7 +67,6 @@ export const YapCard: React.FC<YapCardProps> = ({
 
   // Quick reply input
   const [quickReplyText, setQuickReplyText] = useState('');
-  const [showQuickEmoji, setShowQuickEmoji] = useState(false);
   const [isReplying, setIsReplying] = useState(false);
   const quickReplyInputRef = useRef<HTMLInputElement>(null);
   const mention = useMentionAutocomplete(quickReplyText, setQuickReplyText, quickReplyInputRef);
@@ -245,11 +244,7 @@ export const YapCard: React.FC<YapCardProps> = ({
       <div className="flex items-start justify-between gap-2 sm:gap-3 w-full min-w-0">
         <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1 overflow-hidden">
           <img
-            src={
-              yap.author?.avatar_url ||
-              (yap as any).avatar_url ||
-              `https://api.dicebear.com/7.x/bottts/svg?seed=${authorUsername || yap.author_id || 'yapr'}`
-            }
+            src={getAvatarUrl(yap.author?.avatar_url || (yap as any).avatar_url)}
             alt={yap.author?.display_name || (yap as any).display_name || ''}
             onClick={() => {
               if (authorUsername) onOpenProfile?.(authorUsername);
@@ -531,38 +526,8 @@ export const YapCard: React.FC<YapCardProps> = ({
         </button>
       </div>
 
-      {/* Quick Reply Bar with Emoji Support */}
+      {/* Quick Reply Bar */}
       <div className="relative">
-        {showQuickEmoji && (
-          <div className="absolute bottom-12 right-6 p-2.5 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-xl z-20 max-w-[280px] animate-fadeIn">
-            <div className="flex items-center justify-between mb-1 px-1">
-              <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400">Add Emoji</span>
-              <button
-                type="button"
-                onClick={() => setShowQuickEmoji(false)}
-                className="text-[10px] text-slate-400 hover:text-slate-600"
-              >
-                ✕
-              </button>
-            </div>
-            <div className="flex flex-wrap gap-1 max-h-28 overflow-y-auto p-0.5">
-              {['❤️', '🔥', '😂', '👍', '👏', '🎉', '🚀', '💯', '✨', '🤩', '💀', '😍', '🤔', '🙌', '👀', '🥳', '😎', '🙏'].map((emoji) => (
-                <button
-                  key={emoji}
-                  type="button"
-                  onClick={() => {
-                    setQuickReplyText((prev) => prev + emoji);
-                    setShowQuickEmoji(false);
-                  }}
-                  className="w-7 h-7 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center justify-center text-base hover:scale-125 transition-transform"
-                >
-                  {emoji}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
         <form onSubmit={handleQuickReplySubmit} className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center gap-2.5 relative">
           <MentionSuggestionsDropdown
             candidates={mention.candidates}
@@ -573,10 +538,7 @@ export const YapCard: React.FC<YapCardProps> = ({
           />
 
           <img
-            src={
-              user?.avatar_url ||
-              (user?.username ? `https://api.dicebear.com/7.x/bottts/svg?seed=${user.username}` : 'https://api.dicebear.com/7.x/bottts/svg?seed=me')
-            }
+            src={getAvatarUrl(user?.avatar_url)}
             alt=""
             className="w-7 h-7 rounded-full object-cover flex-shrink-0 ring-1 ring-slate-200 dark:ring-slate-700"
           />
@@ -607,14 +569,6 @@ export const YapCard: React.FC<YapCardProps> = ({
             />
 
             <div className="flex items-center gap-1.5 text-slate-400">
-              <button
-                type="button"
-                onClick={() => setShowQuickEmoji(!showQuickEmoji)}
-                className={`p-0.5 transition-colors ${showQuickEmoji ? 'text-amber-500' : 'hover:text-amber-500'}`}
-                title="Add emoji"
-              >
-                <Smile className="w-3.5 h-3.5" />
-              </button>
               <button
                 type="button"
                 onClick={() => onOpenThread(yap)}
@@ -678,7 +632,7 @@ export const YapCard: React.FC<YapCardProps> = ({
                   >
                     <div className="flex items-center gap-2.5">
                       <img
-                        src={liker.avatar_url || `https://api.dicebear.com/7.x/bottts/svg?seed=${liker.username}`}
+                        src={getAvatarUrl(liker.avatar_url)}
                         alt=""
                         className="w-8 h-8 rounded-full object-cover ring-1 ring-slate-100 dark:ring-slate-700"
                       />

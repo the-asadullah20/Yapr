@@ -12,7 +12,7 @@ export class TrendingService {
    * Get top trending hashtags by country and timeframe (1h or 24h)
    * Real-time calculation based on real users' yaps only - zero mock data
    */
-  async getTrending(countryCode: string = 'PK', timeframe: '1h' | '24h' = '24h', limit = 10): Promise<TrendingHashtag[]> {
+  async getTrending(countryCode: string = 'PK', timeframe: '1h' | '24h' = '24h', limit = 5): Promise<TrendingHashtag[]> {
     const redisKey = countryCode === 'GLOBAL'
       ? `trending:global:${timeframe}`
       : `trending:${countryCode.toUpperCase()}:${timeframe}`;

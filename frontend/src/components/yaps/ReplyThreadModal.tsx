@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Send, Image, Loader2, Smile, MessageSquare, ChevronDown, ChevronUp } from 'lucide-react';
+import { X, Send, Image, Loader2, MessageSquare, ChevronDown, ChevronUp } from 'lucide-react';
 import { Yap } from '../../types';
 import { api } from '../../api/apiClient';
 import { formatTimeAgo, isVideoUrl } from '../../utils/formatters';
@@ -8,6 +8,7 @@ import { LightboxModal } from '../common/LightboxModal';
 import { AutoPauseVideo } from '../common/AutoPauseVideo';
 import { useMentionAutocomplete } from '../../hooks/useMentionAutocomplete';
 import { MentionSuggestionsDropdown } from '../common/MentionSuggestionsDropdown';
+import { getAvatarUrl } from '../../utils/avatar';
 
 interface ReplyThreadModalProps {
   yap: Yap | null;
@@ -15,13 +16,6 @@ interface ReplyThreadModalProps {
   onYapReplied?: () => void;
   onOpenProfile?: (username: string) => void;
 }
-
-const EMOJI_LIST = [
-  '❤️', '🔥', '😂', '👍', '👏', '🎉', '🚀', '💡',
-  '💯', '🤝', '🙌', '👀', '✨', '🤩', '🤯', '🥺',
-  '💀', '🎯', '💬', '⚡', '🥳', '😎', '🙏', '💪',
-  '😍', '🤔', '👋', '✅'
-];
 
 export const ReplyThreadModal: React.FC<ReplyThreadModalProps> = ({
   yap,
@@ -36,7 +30,6 @@ export const ReplyThreadModal: React.FC<ReplyThreadModalProps> = ({
   const [mediaUrls, setMediaUrls] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
-  const [showEmojiBar, setShowEmojiBar] = useState(false);
   const [showAllReplies, setShowAllReplies] = useState(false);
   const [lightboxImages, setLightboxImages] = useState<string[]>([]);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
@@ -128,7 +121,6 @@ export const ReplyThreadModal: React.FC<ReplyThreadModalProps> = ({
     yap.reply_count = (yap.reply_count || 0) + 1;
     setReplyText('');
     setMediaUrls([]);
-    setShowEmojiBar(false);
     setIsSubmitting(true);
 
     try {
@@ -227,11 +219,7 @@ export const ReplyThreadModal: React.FC<ReplyThreadModalProps> = ({
             <div className="p-4 rounded-2xl bg-slate-50/80 dark:bg-slate-800/50 border border-slate-200/70 dark:border-slate-700/80 relative overflow-hidden">
               <div className="flex items-center gap-3 mb-2.5 min-w-0">
                 <img
-                  src={
-                    yap.author?.avatar_url ||
-                    (yap as any).avatar_url ||
-                    `https://api.dicebear.com/7.x/bottts/svg?seed=${yap.author?.username || yap.author_id || 'yapr'}`
-                  }
+                  src={getAvatarUrl(yap.author?.avatar_url || (yap as any).avatar_url)}
                   alt=""
                   onClick={() => {
                     const uname = yap.author?.username || (yap as any).username;
@@ -324,11 +312,7 @@ export const ReplyThreadModal: React.FC<ReplyThreadModalProps> = ({
                       <div className="flex items-center justify-between mb-2 min-w-0">
                         <div className="flex items-center gap-2.5 min-w-0 flex-1 overflow-hidden">
                           <img
-                            src={
-                              r.author?.avatar_url ||
-                              (r as any).avatar_url ||
-                              `https://api.dicebear.com/7.x/bottts/svg?seed=${rAuthorUsername}`
-                            }
+                            src={getAvatarUrl(r.author?.avatar_url || (r as any).avatar_url)}
                             alt=""
                             onClick={() => onOpenProfile?.(rAuthorUsername)}
                             className="w-7 h-7 rounded-full object-cover ring-1 ring-slate-100 dark:ring-slate-700 cursor-pointer flex-shrink-0"
@@ -427,35 +411,6 @@ export const ReplyThreadModal: React.FC<ReplyThreadModalProps> = ({
             onSubmit={handlePostReply}
             className="p-3 sm:p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/50 space-y-2.5"
           >
-
-            {/* Quick Emoji bar */}
-            {showEmojiBar && (
-              <div className="p-2.5 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-lg animate-fadeIn">
-                <div className="flex items-center justify-between mb-1.5 px-1">
-                  <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400">Choose Emoji</span>
-                  <button
-                    type="button"
-                    onClick={() => setShowEmojiBar(false)}
-                    className="text-[10px] text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-                  >
-                    Close
-                  </button>
-                </div>
-                <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto p-1">
-                  {EMOJI_LIST.map((emoji) => (
-                    <button
-                      key={emoji}
-                      type="button"
-                      onClick={() => setReplyText((prev) => prev + emoji)}
-                      className="w-8 h-8 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center justify-center text-lg hover:scale-125 transition-transform"
-                    >
-                      {emoji}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
             {/* Uploaded media previews */}
             {mediaUrls.length > 0 && (
               <div className="flex gap-2 py-1">
@@ -511,20 +466,6 @@ export const ReplyThreadModal: React.FC<ReplyThreadModalProps> = ({
                   placeholder="Write your comment or reply..."
                   className="flex-1 min-w-0 px-3.5 py-2.5 text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:border-blue-500 text-slate-900 dark:text-slate-100 shadow-sm"
                 />
-
-              {/* Emoji toggle button */}
-              <button
-                type="button"
-                onClick={() => setShowEmojiBar(!showEmojiBar)}
-                title="Add Emoji"
-                className={`p-2.5 rounded-xl border transition-colors shadow-sm flex-shrink-0 ${
-                  showEmojiBar
-                    ? 'bg-blue-50 dark:bg-blue-900/40 text-blue-600 border-blue-200 dark:border-blue-800'
-                    : 'bg-white dark:bg-slate-800 text-slate-500 border-slate-200 dark:border-slate-700 hover:text-slate-800 dark:hover:text-slate-200'
-                }`}
-              >
-                <Smile className="w-4 h-4" />
-              </button>
 
               {/* Photo/Video upload button */}
               <button
