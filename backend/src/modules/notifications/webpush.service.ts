@@ -3,13 +3,23 @@ import { env } from '../../config/env.js';
 import { cacheClient } from '../../config/redis.js';
 import { supabaseAdmin, isSupabaseConfigured } from '../../config/supabase.js';
 
+const DEFAULT_VAPID_PUBLIC_KEY = 'BCAyN1UmZ-Mm19DvcqlW6snQSc5oXKGztiuFzjUpzI1Lmd3irbpvGvv-J6eN7kVl-g337na73u4Op4k7Dplh65c';
+const DEFAULT_VAPID_PRIVATE_KEY = 'Wi_eNIt3tmhfhi5IopoXz6nltdDcDCRNEiFqlpVH1r4';
+const DEFAULT_VAPID_SUBJECT = 'mailto:admin@yapr.app';
+
+const activePublicKey = env.VAPID_PUBLIC_KEY || DEFAULT_VAPID_PUBLIC_KEY;
+const activePrivateKey = env.VAPID_PRIVATE_KEY || DEFAULT_VAPID_PRIVATE_KEY;
+const activeSubject = env.VAPID_SUBJECT || DEFAULT_VAPID_SUBJECT;
+
 // Configure VAPID details globally
-if (env.VAPID_PUBLIC_KEY && env.VAPID_PRIVATE_KEY) {
+try {
   webpush.setVapidDetails(
-    env.VAPID_SUBJECT,
-    env.VAPID_PUBLIC_KEY,
-    env.VAPID_PRIVATE_KEY
+    activeSubject,
+    activePublicKey,
+    activePrivateKey
   );
+} catch (e: any) {
+  console.warn('[WebPush] Error setting VAPID details:', e?.message || e);
 }
 
 export interface PushNotificationPayload {
@@ -23,7 +33,7 @@ export interface PushNotificationPayload {
 
 export class WebPushService {
   getPublicKey(): string {
-    return env.VAPID_PUBLIC_KEY;
+    return activePublicKey;
   }
 
   /**

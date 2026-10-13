@@ -244,9 +244,12 @@ function checkPasswordRequirements(pw: string): string | null {
 
     try {
       if (mode === 'signin') {
-        // Direct OTP login
-        await loginWithOtp(email, otpCode);
+        // Direct OTP login — onboarding triggered from AuthContext if needed
+        const result = await loginWithOtp(email, otpCode);
         onClose?.();
+        if (result.isNewUser) {
+          // SelectUsernameModal auto-opens from AuthContext needsUsernameModal
+        }
       } else {
         // Real backend verification against Upstash Redis
         await api.verifyOtp(email, otpCode);
